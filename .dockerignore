@@ -1,0 +1,11 @@
+bin/
+obj/
+TestResults/
+coverage/
+coverage-*/
+.vs/
+.vscode/
+*.user
+appsettings.Local.json
+appsettings.*.local.json
+secrets.json

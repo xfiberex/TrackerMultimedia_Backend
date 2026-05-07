@@ -1,0 +1,39 @@
+# ── Configuración con secretos ───────────────────────────────────────────────
+# Nunca versionar archivos que puedan contener credenciales.
+# Los secretos de desarrollo van en `dotnet user-secrets` (ver README.md).
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.local.json
+secrets.json
+appsettings.json
+
+# ── Claves y certificados ─────────────────────────────────────────────────────
+*.pfx
+*.pem
+*.key
+*.p12
+*.cer
+
+# ── Build ─────────────────────────────────────────────────────────────────────
+bin/
+obj/
+
+# ── Testing local / reports ───────────────────────────────────────────────────
+# Los tests se versionan como código fuente; sus resultados y coberturas, no.
+TestResults/
+coverage/
+coverage-*/
+*.trx
+*.coverage
+*.coveragexml
+*.opencover.xml
+*.testresults
+
+# ── IDE / OS ──────────────────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.user
+.DS_Store
+Thumbs.db

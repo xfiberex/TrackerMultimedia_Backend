@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../TrackerMultimedia.Tests/TrackerMultimedia.Tests.csproj" />
+  <Project Path="TrackerMultimedia_Backend.csproj" />
+</Solution>
