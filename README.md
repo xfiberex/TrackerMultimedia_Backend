@@ -120,7 +120,7 @@ Los archivos fuente de pruebas forman parte del repositorio, pero sus salidas ge
 ## Estructura
 
 ```
-Backend/
+TrackerMultimedia_Backend/
 ├── Contracts/          # DTOs de entrada/salida
 │   ├── Auth/           # Register, Login, OAuth, confirmación de email...
 │   ├── Common/         # PagedResponse, ServiceResult
