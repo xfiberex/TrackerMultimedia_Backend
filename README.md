@@ -53,12 +53,22 @@ dotnet user-secrets set "OAuth:Google:ClientId"     "<google-client-id>"
 dotnet user-secrets set "OAuth:Google:ClientSecret" "<google-client-secret>"
 
 # ── GitHub OAuth ─────────────────────────────────────────────────────────────
+# DESARROLLO: Crear una app de GitHub separada (localhost)
 # Crear en: https://github.com/settings/developers → New OAuth App
 # Authorization callback URL: http://localhost:5218/api/auth/github/callback
+# El backend prioriza DevClientId y DevClientSecret si existen en Development.
+# PowerShell:
+#   $env:DevClientId = "<github-dev-client-id>"
+#   $env:DevClientSecret = "<github-dev-client-secret>"
 dotnet user-secrets set "OAuth:GitHub:Enabled"      "true"
-dotnet user-secrets set "OAuth:GitHub:ClientId"     "<github-client-id>"
-dotnet user-secrets set "OAuth:GitHub:ClientSecret" "<github-client-secret>"
-```
+dotnet user-secrets set "OAuth:GitHub:DevClientId"  "<github-dev-client-id>"
+dotnet user-secrets set "OAuth:GitHub:DevClientSecret" "<github-dev-client-secret>"
+
+# PRODUCCIÓN: Las credenciales se cargan desde Render environment variables:
+# OAuth__GitHub__Enabled = true
+# OAuth__GitHub__ClientId = <github-producción-client-id>
+# OAuth__GitHub__ClientSecret = <github-producción-client-secret>
+# OAuth__GitHub__RedirectUri = https://tu-backend-render-url.onrender.com/api/auth/github/callback
 
 > Los valores no-sensibles (`RedirectUri`, `FrontendBaseUrl`, `FromAddress`, tiempos de expiración, etc.) ya están en `appsettings.json` y no necesitan secretos.
 

@@ -1,5 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using TrackerMultimedia.Infrastructure.Options;
 
@@ -13,9 +15,14 @@ namespace TrackerMultimedia.Services;
 public sealed class GitHubAuthService(
     HttpClient httpClient,
     IOptions<OAuthOptions> options,
+    IConfiguration configuration,
+    IHostEnvironment hostEnvironment,
     ILogger<GitHubAuthService> logger) : IGitHubAuthService
 {
-    private readonly OAuthProviderOptions _opts = options.Value.GitHub;
+    private readonly OAuthProviderOptions _opts = ResolveOptions(
+        options.Value.GitHub,
+        configuration,
+        hostEnvironment);
 
     private static readonly IReadOnlyList<string> BaseScopes = ["read:user", "user:email"];
 
@@ -108,6 +115,42 @@ public sealed class GitHubAuthService(
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
         return json.GetProperty("access_token").GetString()
             ?? throw new InvalidOperationException("GitHub no devolvió access_token.");
+    }
+
+    private static OAuthProviderOptions ResolveOptions(
+        OAuthProviderOptions configuredOptions,
+        IConfiguration configuration,
+        IHostEnvironment hostEnvironment)
+    {
+        if (!hostEnvironment.IsDevelopment())
+        {
+            return configuredOptions;
+        }
+
+        var devClientId = FirstNonEmpty(configuration["DevClientId"], configuredOptions.DevClientId);
+        var devClientSecret = FirstNonEmpty(configuration["DevClientSecret"], configuredOptions.DevClientSecret);
+
+        if (string.IsNullOrWhiteSpace(devClientId) || string.IsNullOrWhiteSpace(devClientSecret))
+        {
+            return configuredOptions;
+        }
+
+        return new OAuthProviderOptions
+        {
+            Enabled = configuredOptions.Enabled,
+            ClientId = devClientId,
+            ClientSecret = devClientSecret,
+            DevClientId = configuredOptions.DevClientId,
+            DevClientSecret = configuredOptions.DevClientSecret,
+            RedirectUri = configuredOptions.RedirectUri,
+            ExtraScopes = configuredOptions.ExtraScopes,
+            StateTtlMinutes = configuredOptions.StateTtlMinutes,
+        };
+    }
+
+    private static string FirstNonEmpty(params string?[] values)
+    {
+        return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
     }
 
     private static void AddGitHubHeaders(HttpRequestMessage request, string accessToken)

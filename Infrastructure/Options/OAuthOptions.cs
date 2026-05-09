@@ -16,6 +16,12 @@ public sealed class OAuthProviderOptions
     /// <summary>Client Secret (cargar desde secretos).</summary>
     public string ClientSecret { get; init; } = string.Empty;
 
+    /// <summary>Client ID alternativo para desarrollo local.</summary>
+    public string DevClientId { get; init; } = string.Empty;
+
+    /// <summary>Client Secret alternativo para desarrollo local.</summary>
+    public string DevClientSecret { get; init; } = string.Empty;
+
     /// <summary>
     /// URI de callback que el proveedor redirigirá tras autorizar.
     /// Debe coincidir exactamente con la URL registrada en la consola del proveedor.
