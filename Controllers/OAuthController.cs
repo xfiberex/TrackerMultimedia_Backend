@@ -88,11 +88,11 @@ public class OAuthController(
         if (!string.IsNullOrEmpty(error))
         {
             logger.LogWarning("OAuth callback con error del proveedor {Provider}: {Error}", provider, error);
-            return Redirect($"{frontendBase}/login?oauth_error=access_denied");
+            return Redirect(BuildErrorRedirect(frontendBase, "access_denied"));
         }
 
         if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(state))
-            return Redirect($"{frontendBase}/login?oauth_error=invalid_callback");
+            return Redirect(BuildErrorRedirect(frontendBase, "invalid_callback"));
 
         // Validar state
         var normalizedProvider = provider.ToLowerInvariant();
@@ -107,7 +107,7 @@ public class OAuthController(
         if (storedState is null)
         {
             logger.LogWarning("State OAuth inválido o expirado para proveedor {Provider}", normalizedProvider);
-            return Redirect($"{frontendBase}/login?oauth_error=state_mismatch");
+            return Redirect(BuildErrorRedirect(frontendBase, "state_mismatch"));
         }
 
         // Marcar el state como usado (no se puede reutilizar)
@@ -128,7 +128,7 @@ public class OAuthController(
         catch (InvalidOperationException ex)
         {
             logger.LogWarning("Error al obtener perfil de {Provider}: {Message}", normalizedProvider, ex.Message);
-            return Redirect($"{frontendBase}/login?oauth_error=profile_error");
+            return Redirect(BuildErrorRedirect(frontendBase, "profile_error", ex.Message));
         }
 
         // Resolver cuenta local
@@ -161,7 +161,7 @@ public class OAuthController(
             {
                 logger.LogError("Error al crear usuario OAuth {Email}: {Errors}",
                     profile.Email, string.Join(", ", createResult.Errors.Select(e => e.Code)));
-                return Redirect($"{frontendBase}/login?oauth_error=create_failed");
+                return Redirect(BuildErrorRedirect(frontendBase, "create_failed"));
             }
 
             await userManager.AddLoginAsync(newUser, new UserLoginInfo(loginProvider, profile.ProviderUserId, loginProvider));
@@ -279,5 +279,20 @@ public class OAuthController(
                $"&refresh_token={Uri.EscapeDataString(session.RefreshToken)}" +
                $"&expires_in={session.ExpiresIn}" +
                $"&return_path={Uri.EscapeDataString(target)}";
+    }
+
+    private static string BuildErrorRedirect(string frontendBase, string errorCode, string? errorMessage = null)
+    {
+        var query = new List<string>
+        {
+            $"oauth_error={Uri.EscapeDataString(errorCode)}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            query.Add($"oauth_error_message={Uri.EscapeDataString(errorMessage)}");
+        }
+
+        return $"{frontendBase}/login?{string.Join("&", query)}";
     }
 }
