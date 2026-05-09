@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -274,11 +275,14 @@ public class OAuthController(
     private static string BuildSuccessRedirect(string frontendBase, string? returnPath, AuthResponse session)
     {
         var target = string.IsNullOrEmpty(returnPath) ? "/library" : returnPath;
+         var user = Uri.EscapeDataString(JsonSerializer.Serialize(session.User));
+
         return $"{frontendBase}/oauth-callback" +
                $"#access_token={Uri.EscapeDataString(session.AccessToken)}" +
                $"&refresh_token={Uri.EscapeDataString(session.RefreshToken)}" +
                $"&expires_in={session.ExpiresIn}" +
-               $"&return_path={Uri.EscapeDataString(target)}";
+             $"&return_path={Uri.EscapeDataString(target)}" +
+             $"&user={user}";
     }
 
     private static string BuildErrorRedirect(string frontendBase, string errorCode, string? errorMessage = null)
