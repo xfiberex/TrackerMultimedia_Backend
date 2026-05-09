@@ -1,7 +1,9 @@
+using System.IO;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
@@ -34,6 +36,7 @@ if (string.IsNullOrWhiteSpace(connectionString))
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? throw new InvalidOperationException("'Cors:AllowedOrigins' configuration section is required.");
 var applyMigrationsOnStartup = builder.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup");
+var dataProtectionKeysDirectory = builder.Configuration["DataProtection:KeysDirectory"];
 
 builder.Services.AddCors(options =>
     options.AddPolicy("Frontend", policy =>
@@ -50,6 +53,16 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
 });
+
+var dataProtectionBuilder = builder.Services
+    .AddDataProtection()
+    .SetApplicationName("TrackerMultimedia");
+
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysDirectory))
+{
+    Directory.CreateDirectory(dataProtectionKeysDirectory);
+    dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysDirectory));
+}
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -206,7 +219,12 @@ else
 }
 
 app.UseForwardedHeaders();
-app.UseHttpsRedirection();
+
+var httpsPort = app.Configuration["HTTPS_PORTS"] ?? app.Configuration["ASPNETCORE_HTTPS_PORT"];
+if (app.Environment.IsDevelopment() || !string.IsNullOrWhiteSpace(httpsPort))
+{
+    app.UseHttpsRedirection();
+}
 
 app.Use(async (context, next) =>
 {
@@ -221,6 +239,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapMethods("/", new[] { "GET", "HEAD" }, () => Results.Ok(new { status = "ok" }));
 app.MapHealthChecks("/health");
 app.MapControllers();
 
