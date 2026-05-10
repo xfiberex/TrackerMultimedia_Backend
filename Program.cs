@@ -153,13 +153,19 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// Validar que el secreto JWT esté configurado antes de arrancar
+// Validar que el secreto JWT esté configurado y tenga longitud segura antes de arrancar
 var jwtSecret = builder.Configuration["Jwt:Secret"];
 if (string.IsNullOrWhiteSpace(jwtSecret))
 {
     throw new InvalidOperationException(
         "'Jwt:Secret' no está configurado. " +
-    "En desarrollo, configúralo en User Secrets o appsettings.Local.json.");
+        "En desarrollo, configúralo en User Secrets o appsettings.Local.json.");
+}
+if (Encoding.UTF8.GetByteCount(jwtSecret) < 32)
+{
+    throw new InvalidOperationException(
+        "'Jwt:Secret' debe tener al menos 32 bytes (256 bits) para HMAC-SHA256. " +
+        "Usa una cadena aleatoria de 32 o más caracteres.");
 }
 
 // Autenticación JWT Bearer
@@ -196,6 +202,9 @@ builder.Services.AddTransient<IExternalCatalogProvider>(sp => sp.GetRequiredServ
 
 var app = builder.Build();
 
+// Uitlizar DefaultConnection para desarrollo
+// Utilizar DefaultConnectionPro para producción
+
 var runtimeConnectionString = app.Configuration.GetConnectionString("DefaultConnection");
 var shouldApplyMigrations =
     !string.IsNullOrWhiteSpace(runtimeConnectionString) &&
@@ -206,7 +215,7 @@ if (shouldApplyMigrations)
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    dbContext.Database.Migrate();
+    // dbContext.Database.Migrate();
 }
 
 if (app.Environment.IsDevelopment())

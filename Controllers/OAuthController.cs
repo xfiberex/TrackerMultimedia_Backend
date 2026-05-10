@@ -28,6 +28,21 @@ public class OAuthController(
     // GET /api/auth/{provider}/init   — inicia el flujo OAuth
     // -------------------------------------------------------------------------
 
+    /// <summary>
+    /// Valida que returnPath sea una ruta relativa simple y segura (e.g. "/dashboard").
+    /// Rechaza rutas absolutas, protocolo-relativas o cadenas excesivamente largas.
+    /// </summary>
+    private static bool IsValidReturnPath(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return true; // null/vacío es válido (se usa la ruta por defecto)
+        if (path.Length > 200) return false;
+        // Debe empezar con '/' pero no con '//' (protocolo-relativo)
+        if (!path.StartsWith('/') || path.StartsWith("//")) return false;
+        // No permitir caracteres de control ni secuencias de escape de URL para protocolos
+        if (path.Contains('\n') || path.Contains('\r') || path.Contains('\0')) return false;
+        return true;
+    }
+
     [HttpGet("{provider}/init")]
     [EnableRateLimiting("auth")]
     public async Task<ActionResult<OAuthInitResponse>> Init(
@@ -44,6 +59,9 @@ public class OAuthController(
             return NotFound("El proveedor GitHub no está habilitado.");
         if (normalizedProvider != "google" && normalizedProvider != "github")
             return BadRequest("Proveedor no soportado.");
+
+        if (!IsValidReturnPath(returnPath))
+            return BadRequest("returnPath no es una ruta relativa válida.");
 
         // Generar state anti-CSRF
         var stateValue = GenerateSecureToken();

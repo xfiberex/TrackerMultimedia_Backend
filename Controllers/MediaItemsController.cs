@@ -58,6 +58,9 @@ public class MediaItemsController(MediaItemsService mediaItemsService) : Control
         return File(export.Content, export.ContentType, export.FileName);
     }
 
+    // Límite máximo de 10 MB para archivos de importación.
+    private const long MaxImportFileSizeBytes = 10 * 1024 * 1024;
+
     [HttpPost("import")]
     public async Task<ActionResult<LibraryImportResponse>> ImportLibrary(
         [FromQuery] LibraryTransferFormat format,
@@ -67,6 +70,12 @@ public class MediaItemsController(MediaItemsService mediaItemsService) : Control
         if (file is null || file.Length == 0)
         {
             ModelState.AddModelError("file", "Debes adjuntar un archivo exportado por TrackerMultimedia.");
+            return ValidationProblem(ModelState);
+        }
+
+        if (file.Length > MaxImportFileSizeBytes)
+        {
+            ModelState.AddModelError("file", $"El archivo supera el límite de {MaxImportFileSizeBytes / (1024 * 1024)} MB.");
             return ValidationProblem(ModelState);
         }
 

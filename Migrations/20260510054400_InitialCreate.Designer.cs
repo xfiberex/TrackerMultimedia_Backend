@@ -12,8 +12,8 @@ using TrackerMultimedia.Data;
 namespace TrackerMultimedia.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260507022641_AddUserCategories")]
-    partial class AddUserCategories
+    [Migration("20260510054400_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

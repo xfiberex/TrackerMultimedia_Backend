@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace TrackerMultimedia.Services;
 
 /// <summary>
@@ -10,7 +12,7 @@ public static class EmailTemplates
         $"""
         <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:32px">
           <h2>Confirma tu dirección de correo</h2>
-          <p>Hola <strong>{displayName}</strong>,</p>
+          <p>Hola <strong>{WebUtility.HtmlEncode(displayName)}</strong>,</p>
           <p>Gracias por registrarte en <strong>TrackerMultimedia</strong>.
              Pulsa el botón de abajo para activar tu cuenta.</p>
           <p style="text-align:center;margin:32px 0">
@@ -31,7 +33,7 @@ public static class EmailTemplates
         $"""
         <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:32px">
           <h2>Restablecer contraseña</h2>
-          <p>Hola <strong>{displayName}</strong>,</p>
+          <p>Hola <strong>{WebUtility.HtmlEncode(displayName)}</strong>,</p>
           <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta en
              <strong>TrackerMultimedia</strong>.</p>
           <p style="text-align:center;margin:32px 0">

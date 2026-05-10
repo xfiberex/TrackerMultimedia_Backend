@@ -194,7 +194,9 @@ namespace TrackerMultimedia.Migrations
                     UserId = table.Column<Guid>(type: "uuid", nullable: false),
                     Title = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     AlternativeTitle = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    Type = table.Column<int>(type: "integer", nullable: false),
+                    Description = table.Column<string>(type: "character varying(4000)", maxLength: 4000, nullable: true),
+                    Type = table.Column<int>(type: "integer", nullable: true),
+                    ContentKind = table.Column<int>(type: "integer", nullable: false),
                     Status = table.Column<int>(type: "integer", nullable: false),
                     SourceType = table.Column<int>(type: "integer", nullable: false, defaultValue: 1),
                     ExternalId = table.Column<int>(type: "integer", nullable: true),
@@ -205,10 +207,16 @@ namespace TrackerMultimedia.Migrations
                     ReferenceUrl = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     ReleaseYear = table.Column<int>(type: "integer", nullable: true),
                     ProgressCount = table.Column<int>(type: "integer", nullable: false),
+                    ProgressCurrent = table.Column<int>(type: "integer", nullable: false),
+                    ProgressTotal = table.Column<int>(type: "integer", nullable: true),
+                    ProgressUnit = table.Column<int>(type: "integer", nullable: false),
                     CurrentSeason = table.Column<int>(type: "integer", nullable: false),
                     PersonalScore = table.Column<double>(type: "double precision", nullable: true),
                     Notes = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
-                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    StartedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    CompletedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -239,6 +247,52 @@ namespace TrackerMultimedia.Migrations
                         name: "FK_RefreshTokens_AspNetUsers_UserId",
                         column: x => x.UserId,
                         principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserCategories",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
+                    NormalizedName = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
+                    Color = table.Column<string>(type: "character varying(7)", maxLength: 7, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserCategories", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UserCategories_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "MediaItemCategories",
+                columns: table => new
+                {
+                    MediaItemId = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserCategoryId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MediaItemCategories", x => new { x.MediaItemId, x.UserCategoryId });
+                    table.ForeignKey(
+                        name: "FK_MediaItemCategories_MediaItems_MediaItemId",
+                        column: x => x.MediaItemId,
+                        principalTable: "MediaItems",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_MediaItemCategories_UserCategories_UserCategoryId",
+                        column: x => x.UserCategoryId,
+                        principalTable: "UserCategories",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -286,6 +340,11 @@ namespace TrackerMultimedia.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_MediaItemCategories_UserCategoryId",
+                table: "MediaItemCategories",
+                column: "UserCategoryId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_MediaItems_UserId_ExternalId_ExternalMediaKind",
                 table: "MediaItems",
                 columns: new[] { "UserId", "ExternalId", "ExternalMediaKind" },
@@ -302,6 +361,12 @@ namespace TrackerMultimedia.Migrations
                 name: "IX_RefreshTokens_UserId",
                 table: "RefreshTokens",
                 column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserCategories_UserId_NormalizedName",
+                table: "UserCategories",
+                columns: new[] { "UserId", "NormalizedName" },
+                unique: true);
         }
 
         /// <inheritdoc />
@@ -323,7 +388,7 @@ namespace TrackerMultimedia.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "MediaItems");
+                name: "MediaItemCategories");
 
             migrationBuilder.DropTable(
                 name: "OAuthStates");
@@ -333,6 +398,12 @@ namespace TrackerMultimedia.Migrations
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");
+
+            migrationBuilder.DropTable(
+                name: "MediaItems");
+
+            migrationBuilder.DropTable(
+                name: "UserCategories");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");
