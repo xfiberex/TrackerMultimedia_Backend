@@ -116,6 +116,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddScoped<MediaItemsService>();
 builder.Services.AddScoped<CategoriesService>();
+builder.Services.AddScoped<FormatsService>();
 builder.Services.AddScoped<ExternalCatalogSearchService>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<AuthSessionService>();
@@ -199,6 +200,22 @@ builder.Services.AddHttpClient<JikanSearchService>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("TrackerMultimedia/1.0");
 });
 builder.Services.AddTransient<IExternalCatalogProvider>(sp => sp.GetRequiredService<JikanSearchService>());
+
+builder.Services.AddHttpClient<AniListSearchService>(client =>
+{
+    client.BaseAddress = new Uri("https://graphql.anilist.co/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("TrackerMultimedia/1.0");
+});
+builder.Services.AddTransient<IExternalCatalogProvider>(sp => sp.GetRequiredService<AniListSearchService>());
+
+builder.Services.AddHttpClient<MangaDexSearchService>(client =>
+{
+    client.BaseAddress = new Uri("https://api.mangadex.org/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("TrackerMultimedia/1.0");
+});
+builder.Services.AddTransient<IExternalCatalogProvider>(sp => sp.GetRequiredService<MangaDexSearchService>());
 
 var app = builder.Build();
 

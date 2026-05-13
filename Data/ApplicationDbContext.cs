@@ -11,6 +11,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 {
     public DbSet<MediaItem> MediaItems => Set<MediaItem>();
 	public DbSet<UserCategory> UserCategories => Set<UserCategory>();
+	public DbSet<UserFormat> UserFormats => Set<UserFormat>();
 	public DbSet<MediaItemCategory> MediaItemCategories => Set<MediaItemCategory>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<OAuthState> OAuthStates => Set<OAuthState>();
@@ -35,6 +36,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 			.HasOne(category => category.User)
 			.WithMany()
 			.HasForeignKey(category => category.UserId)
+			.OnDelete(DeleteBehavior.Cascade);
+
+		modelBuilder.Entity<UserFormat>()
+			.HasOne(format => format.User)
+			.WithMany()
+			.HasForeignKey(format => format.UserId)
 			.OnDelete(DeleteBehavior.Cascade);
 
 		modelBuilder.Entity<UserCategory>()

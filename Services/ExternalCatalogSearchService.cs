@@ -35,10 +35,13 @@ public class ExternalCatalogSearchService(IEnumerable<IExternalCatalogProvider> 
             Query = normalizedQuery,
             Type = request.Type,
             Limit = request.Limit,
+            Providers = request.Providers,
         };
 
         var activeProviders = _providers
             .Where(provider => provider.Supports(normalizedRequest.Type))
+            .Where(provider => normalizedRequest.Providers.Count == 0 ||
+                               normalizedRequest.Providers.Contains(provider.Key, StringComparer.OrdinalIgnoreCase))
             .ToArray();
 
         if (activeProviders.Length == 0)
