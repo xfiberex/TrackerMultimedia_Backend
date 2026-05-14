@@ -12,7 +12,7 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
-RUN adduser --disabled-password --gecos '' appuser
+RUN useradd --no-create-home --shell /bin/false appuser
 USER appuser
 
 EXPOSE 10000
