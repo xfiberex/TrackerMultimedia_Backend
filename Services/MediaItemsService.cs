@@ -136,6 +136,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             .ThenInclude(link => link.UserCategory)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
+            .AsSplitQuery()
             .ToListAsync(cancellationToken);
 
         return new PagedResponse<MediaItemResponse>(
@@ -353,9 +354,9 @@ public class MediaItemsService(ApplicationDbContext dbContext)
 
         var itemsById = existingItems.ToDictionary(item => item.Id);
         var itemsByExternalKey = existingItems
-            .Where(item => item.SourceType == MediaItemSourceType.Jikan && item.ExternalId.HasValue && item.ExternalMediaKind.HasValue)
+            .Where(item => item.SourceType != MediaItemSourceType.Manual && item.ExternalId.HasValue && item.ExternalMediaKind.HasValue)
             .ToDictionary(
-                item => new ExternalItemKey(item.ExternalId!.Value, item.ExternalMediaKind!.Value),
+                item => new ExternalItemKey(item.SourceType, item.ExternalId!.Value, item.ExternalMediaKind!.Value),
                 item => item);
 
         var itemsCreated = 0;
@@ -391,9 +392,9 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             if (importedItem.OriginalItemId.HasValue && importedItem.OriginalItemId.Value != Guid.Empty)
                 itemsById[importedItem.OriginalItemId.Value] = existingItem;
 
-            if (existingItem.SourceType == MediaItemSourceType.Jikan && existingItem.ExternalId.HasValue && existingItem.ExternalMediaKind.HasValue)
+            if (existingItem.SourceType != MediaItemSourceType.Manual && existingItem.ExternalId.HasValue && existingItem.ExternalMediaKind.HasValue)
             {
-                itemsByExternalKey[new ExternalItemKey(existingItem.ExternalId.Value, existingItem.ExternalMediaKind.Value)] = existingItem;
+                itemsByExternalKey[new ExternalItemKey(existingItem.SourceType, existingItem.ExternalId.Value, existingItem.ExternalMediaKind.Value)] = existingItem;
             }
         }
 
@@ -441,11 +442,12 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         var progressUnit = ResolveProgressUnit(request.ProgressUnit, request.Type, contentKindResult.Value!.Value);
         var createdAtUtc = DateTime.UtcNow;
 
-        if (request.SourceType == MediaItemSourceType.Jikan && request.ExternalId.HasValue && request.ExternalMediaKind.HasValue)
+        if (request.SourceType != MediaItemSourceType.Manual && request.ExternalId.HasValue && request.ExternalMediaKind.HasValue)
         {
             var isDuplicate = await dbContext.MediaItems
                 .AnyAsync(item =>
                     item.UserId == userId &&
+                    item.SourceType == request.SourceType &&
                     item.ExternalId == request.ExternalId &&
                     item.ExternalMediaKind == request.ExternalMediaKind, cancellationToken);
             if (isDuplicate)
@@ -464,10 +466,10 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             ContentKind = contentKindResult.Value.Value,
             Status = request.Status,
             SourceType = request.SourceType,
-            ExternalId = request.SourceType == MediaItemSourceType.Jikan ? request.ExternalId : null,
-            ExternalMediaKind = request.SourceType == MediaItemSourceType.Jikan ? request.ExternalMediaKind : null,
-            ExternalStatusLabel = request.SourceType == MediaItemSourceType.Jikan ? NormalizeOptionalText(request.ExternalStatusLabel) : null,
-            ExternalScore = request.SourceType == MediaItemSourceType.Jikan ? request.ExternalScore : null,
+            ExternalId = request.SourceType != MediaItemSourceType.Manual ? request.ExternalId : null,
+            ExternalMediaKind = request.SourceType != MediaItemSourceType.Manual ? request.ExternalMediaKind : null,
+            ExternalStatusLabel = request.SourceType != MediaItemSourceType.Manual ? NormalizeOptionalText(request.ExternalStatusLabel) : null,
+            ExternalScore = request.SourceType != MediaItemSourceType.Manual ? request.ExternalScore : null,
             CoverImageUrl = NormalizeOptionalText(request.CoverImageUrl),
             ReferenceUrl = NormalizeOptionalText(request.ReferenceUrl),
             ReleaseYear = request.ReleaseYear,
@@ -529,12 +531,13 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         if (item is null)
             return ServiceResult<MediaItemResponse>.Fail("id", "Not found");
 
-        if (request.SourceType == MediaItemSourceType.Jikan && request.ExternalId.HasValue && request.ExternalMediaKind.HasValue)
+        if (request.SourceType != MediaItemSourceType.Manual && request.ExternalId.HasValue && request.ExternalMediaKind.HasValue)
         {
             var isDuplicate = await dbContext.MediaItems
                 .AnyAsync(mediaItem =>
                     mediaItem.Id != id &&
                     mediaItem.UserId == userId &&
+                    mediaItem.SourceType == request.SourceType &&
                     mediaItem.ExternalId == request.ExternalId &&
                     mediaItem.ExternalMediaKind == request.ExternalMediaKind,
                     cancellationToken);
@@ -547,29 +550,29 @@ public class MediaItemsService(ApplicationDbContext dbContext)
 
         item.Title = titleResult.Value!;
         item.AlternativeTitle = NormalizeOptionalText(request.AlternativeTitle);
-    item.Description = NormalizeOptionalText(request.Description);
+        item.Description = NormalizeOptionalText(request.Description);
         item.Type = request.Type;
-    item.ContentKind = contentKindResult.Value.Value;
+        item.ContentKind = contentKindResult.Value.Value;
         item.Status = request.Status;
         item.SourceType = request.SourceType;
-        item.ExternalId = request.SourceType == MediaItemSourceType.Jikan ? request.ExternalId : null;
-        item.ExternalMediaKind = request.SourceType == MediaItemSourceType.Jikan ? request.ExternalMediaKind : null;
-        item.ExternalStatusLabel = request.SourceType == MediaItemSourceType.Jikan ? NormalizeOptionalText(request.ExternalStatusLabel) : null;
-        item.ExternalScore = request.SourceType == MediaItemSourceType.Jikan ? request.ExternalScore : null;
+        item.ExternalId = request.SourceType != MediaItemSourceType.Manual ? request.ExternalId : null;
+        item.ExternalMediaKind = request.SourceType != MediaItemSourceType.Manual ? request.ExternalMediaKind : null;
+        item.ExternalStatusLabel = request.SourceType != MediaItemSourceType.Manual ? NormalizeOptionalText(request.ExternalStatusLabel) : null;
+        item.ExternalScore = request.SourceType != MediaItemSourceType.Manual ? request.ExternalScore : null;
         item.CoverImageUrl = NormalizeOptionalText(request.CoverImageUrl);
         item.ReferenceUrl = NormalizeOptionalText(request.ReferenceUrl);
         item.ReleaseYear = request.ReleaseYear;
-    item.ProgressCount = progressCurrent;
-    item.ProgressCurrent = progressCurrent;
-    item.ProgressTotal = request.ProgressTotal;
-    item.ProgressUnit = progressUnit;
+        item.ProgressCount = progressCurrent;
+        item.ProgressCurrent = progressCurrent;
+        item.ProgressTotal = request.ProgressTotal;
+        item.ProgressUnit = progressUnit;
         item.CurrentSeason = request.CurrentSeason;
         item.PersonalScore = request.PersonalScore;
         item.Notes = NormalizeOptionalText(request.Notes);
         ReplaceCategoryLinks(item, categoriesResult.Value!);
-    item.StartedAtUtc = NormalizeOptionalUtc(request.StartedAtUtc);
-    item.CompletedAtUtc = NormalizeOptionalUtc(request.CompletedAtUtc);
-    item.UpdatedAtUtc = DateTime.UtcNow;
+        item.StartedAtUtc = NormalizeOptionalUtc(request.StartedAtUtc);
+        item.CompletedAtUtc = NormalizeOptionalUtc(request.CompletedAtUtc);
+        item.UpdatedAtUtc = DateTime.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -1129,10 +1132,10 @@ public class MediaItemsService(ApplicationDbContext dbContext)
                 contentKindResult.Value.Value,
                 record.Status,
                 record.SourceType,
-                record.SourceType == MediaItemSourceType.Jikan ? record.ExternalId : null,
-                record.SourceType == MediaItemSourceType.Jikan ? record.ExternalMediaKind : null,
-                record.SourceType == MediaItemSourceType.Jikan ? NormalizeOptionalText(record.ExternalStatusLabel) : null,
-                record.SourceType == MediaItemSourceType.Jikan ? record.ExternalScore : null,
+                record.SourceType != MediaItemSourceType.Manual ? record.ExternalId : null,
+                record.SourceType != MediaItemSourceType.Manual ? record.ExternalMediaKind : null,
+                record.SourceType != MediaItemSourceType.Manual ? NormalizeOptionalText(record.ExternalStatusLabel) : null,
+                record.SourceType != MediaItemSourceType.Manual ? record.ExternalScore : null,
                 NormalizeOptionalText(record.CoverImageUrl),
                 NormalizeOptionalText(record.ReferenceUrl),
                 record.ReleaseYear,
@@ -1167,9 +1170,9 @@ public class MediaItemsService(ApplicationDbContext dbContext)
                 return itemById;
         }
 
-        if (importedItem.SourceType == MediaItemSourceType.Jikan && importedItem.ExternalId.HasValue && importedItem.ExternalMediaKind.HasValue)
+        if (importedItem.SourceType != MediaItemSourceType.Manual && importedItem.ExternalId.HasValue && importedItem.ExternalMediaKind.HasValue)
         {
-            var externalKey = new ExternalItemKey(importedItem.ExternalId.Value, importedItem.ExternalMediaKind.Value);
+            var externalKey = new ExternalItemKey(importedItem.SourceType, importedItem.ExternalId.Value, importedItem.ExternalMediaKind.Value);
             if (itemsByExternalKey.TryGetValue(externalKey, out var itemByExternalKey))
                 return itemByExternalKey;
         }
@@ -1489,7 +1492,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         public static ResolveDomainResult Fail(string field, string message) => new(null, field, message);
     }
 
-    private readonly record struct ExternalItemKey(int ExternalId, ExternalMediaKind ExternalMediaKind);
+    private readonly record struct ExternalItemKey(MediaItemSourceType SourceType, int ExternalId, ExternalMediaKind ExternalMediaKind);
 
     private readonly record struct ImportedLibraryCategory(
         string Name,

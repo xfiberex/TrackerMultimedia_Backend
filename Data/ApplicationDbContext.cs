@@ -63,10 +63,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 			.HasForeignKey(link => link.UserCategoryId)
 			.OnDelete(DeleteBehavior.Cascade);
 
-		// Índice único parcial POR USUARIO: un mismo título externo no puede repetirse
-		// dentro de la biblioteca del mismo usuario, pero sí entre usuarios distintos.
+		// Índice único parcial: un mismo ID externo no puede repetirse para el mismo usuario, fuente y tipo de medio.
 		modelBuilder.Entity<MediaItem>()
-			.HasIndex(item => new { item.UserId, item.ExternalId, item.ExternalMediaKind })
+			.HasIndex(item => new { item.UserId, item.SourceType, item.ExternalId, item.ExternalMediaKind })
 			.IsUnique()
 			.HasFilter("\"ExternalId\" IS NOT NULL AND \"ExternalMediaKind\" IS NOT NULL");
 

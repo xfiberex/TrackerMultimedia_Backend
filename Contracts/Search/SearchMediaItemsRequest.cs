@@ -15,5 +15,5 @@ public class SearchMediaItemsRequest
     [Range(1, 12)]
     public int Limit { get; set; } = 12;
 
-    public IReadOnlyCollection<string> Providers { get; set; } = [];
+    public List<string> Providers { get; set; } = [];
 }

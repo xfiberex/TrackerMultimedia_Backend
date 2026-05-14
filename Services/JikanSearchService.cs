@@ -149,39 +149,28 @@ public class JikanSearchService(HttpClient httpClient) : IExternalCatalogProvide
     private static string? MapExternalStatus(string? status)
     {
         if (string.IsNullOrWhiteSpace(status))
-        {
             return null;
-        }
 
-        if (status.Contains("Airing", StringComparison.OrdinalIgnoreCase) ||
-            status.Contains("Publishing", StringComparison.OrdinalIgnoreCase))
+        // Valores exactos devueltos por la API de Jikan (anime y manga)
+        return status switch
         {
-            return "Activo";
-        }
+            var s when s.Equals("Currently Airing", StringComparison.OrdinalIgnoreCase) ||
+                       s.Equals("Publishing", StringComparison.OrdinalIgnoreCase) => "Activo",
 
-        if (status.Contains("Finished", StringComparison.OrdinalIgnoreCase) ||
-            status.Contains("Completed", StringComparison.OrdinalIgnoreCase))
-        {
-            return "Finalizado";
-        }
+            var s when s.Equals("Finished Airing", StringComparison.OrdinalIgnoreCase) ||
+                       s.Equals("Finished", StringComparison.OrdinalIgnoreCase) ||
+                       s.Equals("Completed", StringComparison.OrdinalIgnoreCase) => "Finalizado",
 
-        if (status.Contains("Hiatus", StringComparison.OrdinalIgnoreCase))
-        {
-            return "En Hiato";
-        }
+            var s when s.Equals("On Hiatus", StringComparison.OrdinalIgnoreCase) => "En Hiato",
 
-        if (status.Contains("Discontinued", StringComparison.OrdinalIgnoreCase) ||
-            status.Contains("Cancelled", StringComparison.OrdinalIgnoreCase))
-        {
-            return "Cancelado";
-        }
+            var s when s.Equals("Discontinued", StringComparison.OrdinalIgnoreCase) ||
+                       s.Equals("Cancelled", StringComparison.OrdinalIgnoreCase) => "Cancelado",
 
-        if (status.Contains("yet", StringComparison.OrdinalIgnoreCase))
-        {
-            return "Próximamente";
-        }
+            var s when s.Equals("Not yet aired", StringComparison.OrdinalIgnoreCase) ||
+                       s.Equals("Not yet published", StringComparison.OrdinalIgnoreCase) => "Próximamente",
 
-        return status;
+            _ => status,
+        };
     }
 
     private sealed record SearchTarget(string RequestPath, MediaType SuggestedType, ExternalMediaKind ExternalMediaKind);

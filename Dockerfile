@@ -12,6 +12,9 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
+RUN adduser --disabled-password --gecos '' appuser
+USER appuser
+
 EXPOSE 10000
 
 ENTRYPOINT ["sh", "-c", "dotnet TrackerMultimedia.dll --urls http://0.0.0.0:${PORT:-10000}"]

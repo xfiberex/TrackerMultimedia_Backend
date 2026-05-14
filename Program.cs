@@ -42,7 +42,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("Frontend", policy =>
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod()));
+              .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")));
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
