@@ -75,6 +75,8 @@ public class CreateMediaItemRequest
 
     public List<Guid>? CategoryIds { get; set; }
 
+    public Guid? UserFormatId { get; set; }
+
     public DateTime? StartedAtUtc { get; set; }
 
     public DateTime? CompletedAtUtc { get; set; }

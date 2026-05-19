@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using TrackerMultimedia.Domain.Enums;
 
 namespace TrackerMultimedia.Domain.Entities;
 
@@ -18,8 +17,6 @@ public class UserFormat
     [Required]
     [StringLength(60)]
     public string NormalizedName { get; set; } = string.Empty;
-
-    public ContentKind? ContentKind { get; set; }
 
     public int Order { get; set; }
 

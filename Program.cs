@@ -25,11 +25,11 @@ if (builder.Environment.IsDevelopment())
         .AddEnvironmentVariables();
 }
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnectionPro");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     throw new InvalidOperationException(
-        "Connection string 'DefaultConnectionPro' was not found or is empty. " +
+        "Connection string 'DefaultConnection' was not found or is empty. " +
         "In development, set it via User Secrets or appsettings.Local.json. In production, use an environment variable.");
 }
 
@@ -219,10 +219,10 @@ builder.Services.AddTransient<IExternalCatalogProvider>(sp => sp.GetRequiredServ
 
 var app = builder.Build();
 
-// Uitlizar DefaultConnectionPro para desarrollo
-// Utilizar DefaultConnectionProPro para producción
+// Uitlizar DefaultConnection para desarrollo
+// Utilizar DefaultConnection para producción
 
-var runtimeConnectionString = app.Configuration.GetConnectionString("DefaultConnectionPro");
+var runtimeConnectionString = app.Configuration.GetConnectionString("DefaultConnection");
 var shouldApplyMigrations =
     !string.IsNullOrWhiteSpace(runtimeConnectionString) &&
     runtimeConnectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) &&

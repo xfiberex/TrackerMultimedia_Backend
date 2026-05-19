@@ -44,6 +44,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 			.HasForeignKey(format => format.UserId)
 			.OnDelete(DeleteBehavior.Cascade);
 
+		modelBuilder.Entity<MediaItem>()
+			.HasOne(item => item.UserFormat)
+			.WithMany()
+			.HasForeignKey(item => item.UserFormatId)
+			.OnDelete(DeleteBehavior.SetNull);
+
 		modelBuilder.Entity<UserCategory>()
 			.HasIndex(category => new { category.UserId, category.NormalizedName })
 			.IsUnique();

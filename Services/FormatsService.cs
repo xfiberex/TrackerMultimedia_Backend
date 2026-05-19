@@ -3,23 +3,23 @@ using TrackerMultimedia.Contracts.Common;
 using TrackerMultimedia.Contracts.Formats;
 using TrackerMultimedia.Data;
 using TrackerMultimedia.Domain.Entities;
-using TrackerMultimedia.Domain.Enums;
 
 namespace TrackerMultimedia.Services;
 
 public class FormatsService(ApplicationDbContext dbContext)
 {
-    private static readonly (string Name, ContentKind ContentKind)[] DefaultFormats =
+    private static readonly string[] DefaultFormats =
     [
-        ("Serie",    ContentKind.Series),
-        ("Película", ContentKind.Movie),
-        ("Libro",    ContentKind.Book),
-        ("Cómic",   ContentKind.Comic),
-        ("Juego",    ContentKind.Game),
-        ("Podcast",  ContentKind.Podcast),
-        ("Video",    ContentKind.Video),
-        ("Álbum",   ContentKind.Album),
-        ("Otro",     ContentKind.Other),
+        "Anime",
+        "Serie",
+        "Película",
+        "Manga",
+        "Cómic",
+        "Libro",
+        "Videojuego",
+        "Podcast",
+        "Álbum",
+        "Otro",
     ];
 
     public async Task<IReadOnlyCollection<FormatResponse>> GetAllAsync(Guid userId, CancellationToken cancellationToken)
@@ -63,7 +63,6 @@ public class FormatsService(ApplicationDbContext dbContext)
             UserId = userId,
             Name = name,
             NormalizedName = normalizedName,
-            ContentKind = request.ContentKind,
             Order = nextOrder + 1,
             CreatedAtUtc = DateTime.UtcNow,
         };
@@ -97,7 +96,6 @@ public class FormatsService(ApplicationDbContext dbContext)
 
         format.Name = name;
         format.NormalizedName = normalizedName;
-        format.ContentKind = request.ContentKind;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -119,12 +117,11 @@ public class FormatsService(ApplicationDbContext dbContext)
     private async Task<List<UserFormat>> SeedDefaultFormatsAsync(Guid userId, CancellationToken cancellationToken)
     {
         var formats = DefaultFormats
-            .Select((entry, index) => new UserFormat
+            .Select((name, index) => new UserFormat
             {
                 UserId = userId,
-                Name = entry.Name,
-                NormalizedName = NormalizeNameKey(entry.Name),
-                ContentKind = entry.ContentKind,
+                Name = name,
+                NormalizedName = NormalizeNameKey(name),
                 Order = index + 1,
                 CreatedAtUtc = DateTime.UtcNow,
             })
@@ -139,5 +136,5 @@ public class FormatsService(ApplicationDbContext dbContext)
         => name.Trim().ToUpperInvariant();
 
     private static FormatResponse ToResponse(UserFormat format)
-        => new(format.Id, format.Name, format.ContentKind, format.Order, format.CreatedAtUtc);
+        => new(format.Id, format.Name, format.Order, format.CreatedAtUtc);
 }

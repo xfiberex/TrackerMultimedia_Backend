@@ -29,7 +29,9 @@ public record MediaItemResponse(
     DateTime? StartedAtUtc,
     DateTime? CompletedAtUtc,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    Guid? FormatId,
+    string? FormatName);
 
 public record MediaItemCategorySummaryResponse(
     Guid Id,

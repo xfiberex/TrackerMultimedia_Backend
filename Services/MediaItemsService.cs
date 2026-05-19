@@ -134,6 +134,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         var items = await query
             .Include(item => item.MediaItemCategories)
             .ThenInclude(link => link.UserCategory)
+            .Include(item => item.UserFormat)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
             .AsSplitQuery()
@@ -265,6 +266,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             .AsNoTracking()
             .Include(mediaItem => mediaItem.MediaItemCategories)
             .ThenInclude(link => link.UserCategory)
+            .Include(mediaItem => mediaItem.UserFormat)
             .FirstOrDefaultAsync(mediaItem => mediaItem.Id == id && mediaItem.UserId == userId, cancellationToken);
 
         return item is null ? null : ToResponse(item);
@@ -456,6 +458,8 @@ public class MediaItemsService(ApplicationDbContext dbContext)
                     "Ya existe un elemento con este identificador externo en tu biblioteca.");
         }
 
+        var userFormatId = await ResolveUserFormatIdAsync(request.UserFormatId, userId, cancellationToken);
+
         var item = new MediaItem
         {
             UserId = userId,
@@ -480,6 +484,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             CurrentSeason = request.CurrentSeason,
             PersonalScore = request.PersonalScore,
             Notes = NormalizeOptionalText(request.Notes),
+            UserFormatId = userFormatId,
             StartedAtUtc = NormalizeOptionalUtc(request.StartedAtUtc),
             CompletedAtUtc = NormalizeOptionalUtc(request.CompletedAtUtc),
             CreatedAtUtc = createdAtUtc,
@@ -548,6 +553,8 @@ public class MediaItemsService(ApplicationDbContext dbContext)
                     "Ya existe un elemento con este identificador externo en tu biblioteca.");
         }
 
+        var userFormatId = await ResolveUserFormatIdAsync(request.UserFormatId, userId, cancellationToken);
+
         item.Title = titleResult.Value!;
         item.AlternativeTitle = NormalizeOptionalText(request.AlternativeTitle);
         item.Description = NormalizeOptionalText(request.Description);
@@ -569,6 +576,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         item.CurrentSeason = request.CurrentSeason;
         item.PersonalScore = request.PersonalScore;
         item.Notes = NormalizeOptionalText(request.Notes);
+        item.UserFormatId = userFormatId;
         ReplaceCategoryLinks(item, categoriesResult.Value!);
         item.StartedAtUtc = NormalizeOptionalUtc(request.StartedAtUtc);
         item.CompletedAtUtc = NormalizeOptionalUtc(request.CompletedAtUtc);
@@ -1278,9 +1286,21 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             .AsNoTracking()
             .Include(mediaItem => mediaItem.MediaItemCategories)
             .ThenInclude(link => link.UserCategory)
+            .Include(mediaItem => mediaItem.UserFormat)
             .FirstAsync(mediaItem => mediaItem.Id == id && mediaItem.UserId == userId, cancellationToken);
 
         return ToResponse(item);
+    }
+
+    private async Task<Guid?> ResolveUserFormatIdAsync(Guid? requestedId, Guid userId, CancellationToken cancellationToken)
+    {
+        if (!requestedId.HasValue)
+            return null;
+
+        var exists = await dbContext.UserFormats
+            .AnyAsync(f => f.Id == requestedId.Value && f.UserId == userId, cancellationToken);
+
+        return exists ? requestedId.Value : null;
     }
 
     private static DateTime? NormalizeOptionalUtc(DateTime? value)
@@ -1475,7 +1495,9 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         item.StartedAtUtc,
         item.CompletedAtUtc,
         item.CreatedAtUtc,
-        item.UpdatedAtUtc);
+        item.UpdatedAtUtc,
+        item.UserFormatId,
+        item.UserFormat?.Name);
 
     // Tipo interno para el resultado de normalización de título
     private readonly record struct NormalizeTitleResult(string? Value, string? ErrorField, string? ErrorMessage)

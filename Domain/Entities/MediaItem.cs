@@ -79,6 +79,9 @@ public class MediaItem
     [StringLength(2000)]
     public string? Notes { get; set; }
 
+    public Guid? UserFormatId { get; set; }
+    public UserFormat? UserFormat { get; set; }
+
     public ICollection<MediaItemCategory> MediaItemCategories { get; set; } = new List<MediaItemCategory>();
 
     public DateTime? StartedAtUtc { get; set; }
