@@ -274,6 +274,29 @@ namespace TrackerMultimedia.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "UserFormats",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
+                    NormalizedName = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
+                    ContentKind = table.Column<int>(type: "integer", nullable: true),
+                    Order = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserFormats", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UserFormats_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "MediaItemCategories",
                 columns: table => new
                 {
@@ -345,9 +368,9 @@ namespace TrackerMultimedia.Migrations
                 column: "UserCategoryId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MediaItems_UserId_ExternalId_ExternalMediaKind",
+                name: "IX_MediaItems_UserId_SourceType_ExternalId_ExternalMediaKind",
                 table: "MediaItems",
-                columns: new[] { "UserId", "ExternalId", "ExternalMediaKind" },
+                columns: new[] { "UserId", "SourceType", "ExternalId", "ExternalMediaKind" },
                 unique: true,
                 filter: "\"ExternalId\" IS NOT NULL AND \"ExternalMediaKind\" IS NOT NULL");
 
@@ -365,6 +388,12 @@ namespace TrackerMultimedia.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_UserCategories_UserId_NormalizedName",
                 table: "UserCategories",
+                columns: new[] { "UserId", "NormalizedName" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserFormats_UserId_NormalizedName",
+                table: "UserFormats",
                 columns: new[] { "UserId", "NormalizedName" },
                 unique: true);
         }
@@ -395,6 +424,9 @@ namespace TrackerMultimedia.Migrations
 
             migrationBuilder.DropTable(
                 name: "RefreshTokens");
+
+            migrationBuilder.DropTable(
+                name: "UserFormats");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");

@@ -12,8 +12,8 @@ using TrackerMultimedia.Data;
 namespace TrackerMultimedia.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260514210852_ExtendExternalIdUniqueIndexToSourceType")]
-    partial class ExtendExternalIdUniqueIndexToSourceType
+    [Migration("20260519010320_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -475,6 +475,11 @@ namespace TrackerMultimedia.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)");
 
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
                     b.Property<int>("Order")
                         .HasColumnType("integer");
 
@@ -483,7 +488,8 @@ namespace TrackerMultimedia.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "NormalizedName")
+                        .IsUnique();
 
                     b.ToTable("UserFormats");
                 });

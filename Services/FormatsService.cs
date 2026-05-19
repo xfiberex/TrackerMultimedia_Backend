@@ -48,6 +48,12 @@ public class FormatsService(ApplicationDbContext dbContext)
         if (name.Length == 0)
             return ServiceResult<FormatResponse>.Fail(nameof(request.Name), "El nombre no puede estar vacío.");
 
+        var normalizedName = NormalizeNameKey(name);
+        var alreadyExists = await dbContext.UserFormats
+            .AnyAsync(f => f.UserId == userId && f.NormalizedName == normalizedName, cancellationToken);
+        if (alreadyExists)
+            return ServiceResult<FormatResponse>.Fail(nameof(request.Name), "Ya existe un formato con ese nombre en tu cuenta.");
+
         var nextOrder = await dbContext.UserFormats
             .Where(f => f.UserId == userId)
             .MaxAsync(f => (int?)f.Order, cancellationToken) ?? 0;
@@ -56,6 +62,7 @@ public class FormatsService(ApplicationDbContext dbContext)
         {
             UserId = userId,
             Name = name,
+            NormalizedName = normalizedName,
             ContentKind = request.ContentKind,
             Order = nextOrder + 1,
             CreatedAtUtc = DateTime.UtcNow,
@@ -82,7 +89,14 @@ public class FormatsService(ApplicationDbContext dbContext)
         if (format is null)
             return ServiceResult<FormatResponse>.Fail("id", "Not found");
 
+        var normalizedName = NormalizeNameKey(name);
+        var alreadyExists = await dbContext.UserFormats
+            .AnyAsync(f => f.UserId == userId && f.Id != id && f.NormalizedName == normalizedName, cancellationToken);
+        if (alreadyExists)
+            return ServiceResult<FormatResponse>.Fail(nameof(request.Name), "Ya existe un formato con ese nombre en tu cuenta.");
+
         format.Name = name;
+        format.NormalizedName = normalizedName;
         format.ContentKind = request.ContentKind;
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -109,6 +123,7 @@ public class FormatsService(ApplicationDbContext dbContext)
             {
                 UserId = userId,
                 Name = entry.Name,
+                NormalizedName = NormalizeNameKey(entry.Name),
                 ContentKind = entry.ContentKind,
                 Order = index + 1,
                 CreatedAtUtc = DateTime.UtcNow,
@@ -119,6 +134,9 @@ public class FormatsService(ApplicationDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
         return formats;
     }
+
+    private static string NormalizeNameKey(string name)
+        => name.Trim().ToUpperInvariant();
 
     private static FormatResponse ToResponse(UserFormat format)
         => new(format.Id, format.Name, format.ContentKind, format.Order, format.CreatedAtUtc);

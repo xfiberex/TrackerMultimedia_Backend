@@ -48,6 +48,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 			.HasIndex(category => new { category.UserId, category.NormalizedName })
 			.IsUnique();
 
+		modelBuilder.Entity<UserFormat>()
+			.HasIndex(format => new { format.UserId, format.NormalizedName })
+			.IsUnique();
+
 		modelBuilder.Entity<MediaItemCategory>()
 			.HasKey(link => new { link.MediaItemId, link.UserCategoryId });
 

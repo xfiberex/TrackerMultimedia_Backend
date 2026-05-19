@@ -472,6 +472,11 @@ namespace TrackerMultimedia.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)");
 
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
                     b.Property<int>("Order")
                         .HasColumnType("integer");
 
@@ -480,7 +485,8 @@ namespace TrackerMultimedia.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "NormalizedName")
+                        .IsUnique();
 
                     b.ToTable("UserFormats");
                 });

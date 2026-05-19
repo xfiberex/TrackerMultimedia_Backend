@@ -15,6 +15,10 @@ public class UserFormat
     [StringLength(60)]
     public string Name { get; set; } = string.Empty;
 
+    [Required]
+    [StringLength(60)]
+    public string NormalizedName { get; set; } = string.Empty;
+
     public ContentKind? ContentKind { get; set; }
 
     public int Order { get; set; }
