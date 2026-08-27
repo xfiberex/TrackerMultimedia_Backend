@@ -219,9 +219,9 @@ builder.Services.AddTransient<IExternalCatalogProvider>(sp => sp.GetRequiredServ
 
 var app = builder.Build();
 
-// Uitlizar DefaultConnection para desarrollo
-// Utilizar DefaultConnection para producción
-
+// Las migraciones solo se aplican sobre una conexión PostgreSQL real ("Host=" descarta
+// el SQLite en memoria de los tests) y solo en desarrollo o si se habilita explícitamente
+// con Database:ApplyMigrationsOnStartup.
 var runtimeConnectionString = app.Configuration.GetConnectionString("DefaultConnection");
 var shouldApplyMigrations =
     !string.IsNullOrWhiteSpace(runtimeConnectionString) &&
@@ -232,7 +232,36 @@ if (shouldApplyMigrations)
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    // dbContext.Database.Migrate();
+    var startupLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        var pendingMigrations = (await dbContext.Database.GetPendingMigrationsAsync()).ToArray();
+
+        if (pendingMigrations.Length == 0)
+        {
+            startupLogger.LogInformation("Esquema de base de datos al día: no hay migraciones pendientes.");
+        }
+        else
+        {
+            startupLogger.LogInformation(
+                "Aplicando {Count} migración(es) pendiente(s): {Migrations}",
+                pendingMigrations.Length,
+                string.Join(", ", pendingMigrations));
+
+            await dbContext.Database.MigrateAsync();
+
+            startupLogger.LogInformation("Migraciones aplicadas correctamente.");
+        }
+    }
+    catch (Exception exception)
+    {
+        // No se aborta el arranque: un fallo de migración deja la API en pie para poder
+        // diagnosticarlo, pero queda registrado como error para que no pase inadvertido.
+        startupLogger.LogError(
+            exception,
+            "No se pudieron aplicar las migraciones al arrancar. El esquema puede no estar actualizado.");
+    }
 }
 
 if (app.Environment.IsDevelopment())

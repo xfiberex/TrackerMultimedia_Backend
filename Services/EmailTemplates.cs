@@ -29,6 +29,33 @@ public static class EmailTemplates
         </div>
         """;
 
+    /// <summary>
+    /// Se envía cuando alguien intenta registrarse con un correo que ya tiene cuenta.
+    /// El aviso va al titular de la dirección, nunca a quien envió la petición: así la
+    /// respuesta del endpoint es idéntica exista o no la cuenta.
+    /// </summary>
+    public static string AccountAlreadyExists(string displayName, string loginUrl, string resetPasswordUrl) =>
+        $"""
+        <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:32px">
+          <h2>Ya tienes una cuenta en TrackerMultimedia</h2>
+          <p>Hola <strong>{WebUtility.HtmlEncode(displayName)}</strong>,</p>
+          <p>Alguien ha intentado crear una cuenta con esta dirección de correo,
+             pero ya existe una registrada.</p>
+          <p style="text-align:center;margin:32px 0">
+            <a href="{loginUrl}"
+               style="background:#6366f1;color:#fff;padding:12px 28px;
+                      border-radius:6px;text-decoration:none;font-weight:600">
+              Iniciar sesión
+            </a>
+          </p>
+          <p>¿No recuerdas la contraseña? Puedes
+             <a href="{resetPasswordUrl}">restablecerla aquí</a>.</p>
+          <p style="color:#888;font-size:0.85em">
+            Si no has sido tú, no hace falta que hagas nada: tu cuenta sigue segura.
+          </p>
+        </div>
+        """;
+
     public static string ResetPassword(string displayName, string resetUrl) =>
         $"""
         <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:32px">

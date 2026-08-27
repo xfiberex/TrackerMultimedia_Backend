@@ -27,17 +27,43 @@ public class AuthController(
     IConfiguration configuration,
     ILogger<AuthController> logger) : ControllerBase
 {
+    /// <summary>
+    /// Respuesta única del registro. Es idéntica exista o no el correo, para que la
+    /// petición no sirva para averiguar qué direcciones están dadas de alta.
+    /// </summary>
+    private const string RegisterAcknowledgement =
+        "Si el correo no estaba registrado, recibirás un enlace para confirmar la cuenta.";
+
+    /// <summary>
+    /// Respuesta única de todos los fallos de login. Cubre credenciales incorrectas,
+    /// cuenta inexistente, correo sin confirmar y bloqueo temporal sin distinguirlos:
+    /// cualquier diferencia entre esos casos revela si una dirección tiene cuenta.
+    /// </summary>
+    private const string LoginFailureMessage =
+        "No se pudo iniciar sesión. Comprueba el correo y la contraseña, confirma tu cuenta " +
+        "si acabas de registrarte, o espera unos minutos si has fallado varias veces.";
+
     // -------------------------------------------------------------------------
     // POST /api/auth/register
     // -------------------------------------------------------------------------
 
     [HttpPost("register")]
     [EnableRateLimiting("auth")]
-    public async Task<ActionResult<UserResponse>> Register(
+    public async Task<IActionResult> Register(
         [FromBody] RegisterRequest request,
         CancellationToken cancellationToken)
     {
         var email = request.Email.Trim().ToLowerInvariant();
+
+        var existingUser = await userManager.FindByEmailAsync(email);
+        if (existingUser is not null)
+        {
+            // A quien envía la petición se le responde exactamente igual que en un alta
+            // correcta. Es al titular real de la dirección a quien se le avisa, por correo.
+            logger.LogWarning("Intento de registro sobre un correo ya dado de alta: {UserId}", existingUser.Id);
+            await SendAccountExistsEmailAsync(existingUser, cancellationToken);
+            return Accepted(new { message = RegisterAcknowledgement });
+        }
 
         var user = new ApplicationUser
         {
@@ -52,16 +78,23 @@ public class AuthController(
 
         if (!result.Succeeded)
         {
-            logger.LogWarning("Registro fallido para {Email}: {Errors}",
-                email, string.Join(", ", result.Errors.Select(e => e.Code)));
-            foreach (var error in result.Errors)
+            // Si lo único que falló fue el duplicado, es una carrera con otra petición
+            // simultánea: se responde como si el alta hubiera ido bien, igual que arriba.
+            if (result.Errors.All(IsDuplicateError))
+                return Accepted(new { message = RegisterAcknowledgement });
+
+            logger.LogWarning("Registro fallido: {Errors}",
+                string.Join(", ", result.Errors.Select(error => error.Code)));
+
+            foreach (var error in result.Errors.Where(error => !IsDuplicateError(error)))
                 ModelState.AddModelError(error.Code, error.Description);
+
             return ValidationProblem(ModelState);
         }
 
-        logger.LogInformation("Nuevo usuario registrado: {UserId} ({Email})", user.Id, email);
+        logger.LogInformation("Nuevo usuario registrado: {UserId}", user.Id);
         await SendConfirmationEmailAsync(user, cancellationToken);
-        return CreatedAtAction(nameof(Me), AuthSessionService.ToUserResponse(user));
+        return Accepted(new { message = RegisterAcknowledgement });
     }
 
     // -------------------------------------------------------------------------
@@ -77,38 +110,42 @@ public class AuthController(
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await userManager.FindByEmailAsync(email);
 
-        // No diferenciamos entre "usuario no existe" y "contraseña incorrecta"
-        // para no revelar si un email está registrado.
+        // Todos los motivos de rechazo devuelven el MISMO mensaje y el mismo código.
+        // Distinguir "cuenta bloqueada" o "correo sin confirmar" de "credenciales
+        // inválidas" permitiría averiguar qué direcciones tienen cuenta. El enlace de
+        // reenvío de confirmación está siempre visible en la pantalla de login, así que
+        // el usuario legítimo tiene salida sin necesidad de un mensaje específico.
         if (user is null)
         {
-            logger.LogWarning("Intento de login con email desconocido: {Email}", email);
-            return Unauthorized("Credenciales inválidas.");
+            logger.LogWarning("Intento de login con un correo sin cuenta.");
+            return Unauthorized(LoginFailureMessage);
         }
 
         if (await userManager.IsLockedOutAsync(user))
         {
-            logger.LogWarning("Login bloqueado para usuario {UserId} ({Email})", user.Id, email);
-            return Unauthorized("Cuenta bloqueada temporalmente. Inténtalo más tarde.");
-        }
-
-        // El usuario debe confirmar su email antes de poder iniciar sesión.
-        if (!user.EmailConfirmed)
-        {
-            logger.LogWarning("Login denegado: email no confirmado para {UserId} ({Email})", user.Id, email);
-            return Unauthorized("Debes confirmar tu dirección de correo antes de iniciar sesión.");
+            logger.LogWarning("Login rechazado por bloqueo temporal: {UserId}", user.Id);
+            return Unauthorized(LoginFailureMessage);
         }
 
         var passwordOk = await userManager.CheckPasswordAsync(user, request.Password);
         if (!passwordOk)
         {
             await userManager.AccessFailedAsync(user);
-            logger.LogWarning("Contraseña incorrecta para usuario {UserId} ({Email}). Intentos: {Count}",
-                user.Id, email, await userManager.GetAccessFailedCountAsync(user));
-            return Unauthorized("Credenciales inválidas.");
+            logger.LogWarning("Contraseña incorrecta para el usuario {UserId}. Intentos: {Count}",
+                user.Id, await userManager.GetAccessFailedCountAsync(user));
+            return Unauthorized(LoginFailureMessage);
+        }
+
+        // El correo debe estar confirmado. Se comprueba después de la contraseña para que
+        // un fallo de credenciales y una cuenta sin confirmar consuman el mismo trabajo.
+        if (!user.EmailConfirmed)
+        {
+            logger.LogWarning("Login rechazado: correo sin confirmar para {UserId}", user.Id);
+            return Unauthorized(LoginFailureMessage);
         }
 
         await userManager.ResetAccessFailedCountAsync(user);
-        logger.LogInformation("Login exitoso: {UserId} ({Email})", user.Id, email);
+        logger.LogInformation("Login correcto: {UserId}", user.Id);
 
         var authResponse = await sessionService.CreateSessionAsync(user, cancellationToken);
         return Ok(authResponse);
@@ -200,13 +237,14 @@ public class AuthController(
     {
         var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
 
-        if (userId is null || !Guid.TryParse(userId, out _))
+        if (userId is null || !Guid.TryParse(userId, out var parsedUserId))
             return Unauthorized();
 
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return Unauthorized();
-        await userManager.GetLoginsAsync(user); // precarga por navegación no cargada en este path
-        return Ok(AuthSessionService.ToUserResponse(user));
+
+        var linkedProviders = await sessionService.GetLinkedProvidersAsync(parsedUserId, cancellationToken);
+        return Ok(AuthSessionService.ToUserResponse(user, linkedProviders));
     }
 
     // -------------------------------------------------------------------------
@@ -249,7 +287,8 @@ public class AuthController(
         CancellationToken cancellationToken)
     {
         var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        if (userId is null) return Unauthorized();
+        if (userId is null || !Guid.TryParse(userId, out var parsedUserId))
+            return Unauthorized();
 
         var user = await userManager.FindByIdAsync(userId);
         if (user is null) return Unauthorized();
@@ -257,8 +296,18 @@ public class AuthController(
         if (!string.IsNullOrWhiteSpace(request.DisplayName))
             user.DisplayName = request.DisplayName.Trim();
 
-        await userManager.UpdateAsync(user);
-        return Ok(AuthSessionService.ToUserResponse(user));
+        var updateResult = await userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            logger.LogWarning("Actualización de perfil fallida para usuario {UserId}: {Errors}",
+                parsedUserId, string.Join(", ", updateResult.Errors.Select(error => error.Code)));
+            foreach (var error in updateResult.Errors)
+                ModelState.AddModelError(error.Code, error.Description);
+            return ValidationProblem(ModelState);
+        }
+
+        var linkedProviders = await sessionService.GetLinkedProvidersAsync(parsedUserId, cancellationToken);
+        return Ok(AuthSessionService.ToUserResponse(user, linkedProviders));
     }
 
     // -------------------------------------------------------------------------
@@ -277,20 +326,20 @@ public class AuthController(
         // Respuesta idéntica tanto si el usuario existe como si no (evita enumeración de emails)
         if (user is null)
         {
-            logger.LogWarning("Solicitud de recuperación para email no registrado: {Email}", email);
+            logger.LogWarning("Solicitud de recuperación para un correo sin cuenta.");
             return Ok(new { message = "Si ese correo está registrado, recibirás las instrucciones." });
         }
 
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         logger.LogInformation("Token de recuperación generado para usuario {UserId}", user.Id);
 
-        var frontendBase = configuration["App:FrontendBaseUrl"] ?? "http://localhost:5173";
-        var resetUrl = $"{frontendBase}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
+        var resetUrl = $"{FrontendBaseUrl}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
 
-        await emailService.SendAsync(
-            to: email,
-            subject: "Restablecer contraseña – TrackerMultimedia",
-            htmlBody: EmailTemplates.ResetPassword(user.DisplayName ?? email.Split('@')[0], resetUrl),
+        await SendEmailSafelyAsync(
+            user,
+            "Restablecer contraseña – TrackerMultimedia",
+            EmailTemplates.ResetPassword(user.DisplayName ?? email.Split('@')[0], resetUrl),
+            "recuperación de contraseña",
             cancellationToken);
 
         return Ok(new { message = "Si ese correo está registrado, recibirás las instrucciones." });
@@ -403,18 +452,60 @@ public class AuthController(
     // Helpers privados
     // -------------------------------------------------------------------------
 
+    private static bool IsDuplicateError(IdentityError error) =>
+        error.Code is "DuplicateEmail" or "DuplicateUserName";
+
+    private string FrontendBaseUrl =>
+        configuration["App:FrontendBaseUrl"] ?? "http://localhost:5173";
+
     private async Task SendConfirmationEmailAsync(ApplicationUser user, CancellationToken cancellationToken)
     {
         var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
-        var frontendBase = configuration["App:FrontendBaseUrl"] ?? "http://localhost:5173";
-        var confirmUrl = $"{frontendBase}/confirm-email?email={Uri.EscapeDataString(user.Email!)}&token={Uri.EscapeDataString(token)}";
+        var confirmUrl = $"{FrontendBaseUrl}/confirm-email?email={Uri.EscapeDataString(user.Email!)}&token={Uri.EscapeDataString(token)}";
 
-        await emailService.SendAsync(
-            to: user.Email!,
-            subject: "Confirma tu cuenta – TrackerMultimedia",
-            htmlBody: EmailTemplates.ConfirmEmail(user.DisplayName ?? user.Email!.Split('@')[0], confirmUrl),
+        await SendEmailSafelyAsync(
+            user,
+            "Confirma tu cuenta – TrackerMultimedia",
+            EmailTemplates.ConfirmEmail(user.DisplayName ?? user.Email!.Split('@')[0], confirmUrl),
+            "confirmación de cuenta",
             cancellationToken);
+    }
 
-        logger.LogInformation("Email de confirmación enviado a {UserId} ({Email})", user.Id, user.Email);
+    private async Task SendAccountExistsEmailAsync(ApplicationUser user, CancellationToken cancellationToken)
+    {
+        await SendEmailSafelyAsync(
+            user,
+            "Ya tienes una cuenta – TrackerMultimedia",
+            EmailTemplates.AccountAlreadyExists(
+                user.DisplayName ?? user.Email!.Split('@')[0],
+                $"{FrontendBaseUrl}/login",
+                $"{FrontendBaseUrl}/forgot-password"),
+            "aviso de cuenta existente",
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Envía un correo sin dejar que un fallo del servidor SMTP tumbe la petición.
+    /// Importa sobre todo en el registro: el usuario ya está creado cuando se manda la
+    /// confirmación, así que propagar la excepción devolvía un 500 y dejaba una cuenta
+    /// existente, sin confirmar y sin forma de continuar.
+    /// </summary>
+    private async Task SendEmailSafelyAsync(
+        ApplicationUser user,
+        string subject,
+        string htmlBody,
+        string purpose,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await emailService.SendAsync(user.Email!, subject, htmlBody, cancellationToken);
+            logger.LogInformation("Correo de {Purpose} enviado al usuario {UserId}", purpose, user.Id);
+        }
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogError(exception,
+                "No se pudo enviar el correo de {Purpose} al usuario {UserId}", purpose, user.Id);
+        }
     }
 }

@@ -1,0 +1,46 @@
+# Blueprint de Render. Vive en la raíz de este repositorio, que es también la
+# raíz del proyecto: las rutas son relativas a ella, sin prefijo de carpeta.
+services:
+  - type: web
+    name: trackermultimedia-backend
+    runtime: docker
+    plan: starter
+    region: virginia
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: commit
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Database__ApplyMigrationsOnStartup
+        value: true
+      - key: Jwt__Issuer
+        value: TrackerMultimedia
+      - key: Jwt__Audience
+        value: TrackerMultimedia
+      - key: Jwt__Secret
+        generateValue: true
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: App__FrontendBaseUrl
+        sync: false
+      - key: Cors__AllowedOrigins__0
+        sync: false
+
+# Optional variables to configure manually in Render when enabling email or OAuth:
+# Smtp__Host
+# Smtp__Port
+# Smtp__Username
+# Smtp__Password
+# Smtp__FromAddress
+# Smtp__FromName
+# Smtp__Enabled
+# OAuth__Google__Enabled
+# OAuth__Google__ClientId
+# OAuth__Google__ClientSecret
+# OAuth__Google__RedirectUri
+# OAuth__GitHub__Enabled
+# OAuth__GitHub__ClientId
+# OAuth__GitHub__ClientSecret
+# OAuth__GitHub__RedirectUri

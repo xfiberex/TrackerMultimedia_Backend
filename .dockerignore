@@ -9,3 +9,6 @@ coverage-*/
 appsettings.Local.json
 appsettings.*.local.json
 secrets.json
+# El proyecto de tests vive en este repositorio pero no forma parte de la imagen.
+TrackerMultimedia.Tests/
+.git/

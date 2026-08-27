@@ -7,6 +7,9 @@
     <AssemblyName>TrackerMultimedia</AssemblyName>
     <RootNamespace>TrackerMultimedia</RootNamespace>
     <UserSecretsId>f8b4c210-3a9e-4d52-b71f-6c8a30d5e294</UserSecretsId>
+    <!-- El proyecto de tests vive dentro de esta carpeta, y los globs por defecto
+         del SDK se lo tragarían como código del backend. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);TrackerMultimedia.Tests\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +21,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.OpenApi" Version="2.12.2" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
   </ItemGroup>
 

@@ -20,6 +20,18 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 	{
 		base.OnModelCreating(modelBuilder);
 
+		// La navegación ApplicationUser.ExternalLogins tiene que colgar de la MISMA clave
+		// foránea que ya configura IdentityDbContext (UserId). Sin esta línea, EF Core
+		// interpreta la navegación como una relación adicional y crea una FK sombra
+		// (ApplicationUserId) que UserManager.AddLoginAsync nunca rellena, con lo que la
+		// colección queda siempre vacía y el usuario nunca ve sus proveedores vinculados.
+		modelBuilder.Entity<IdentityUserLogin<Guid>>()
+			.HasOne<ApplicationUser>()
+			.WithMany(user => user.ExternalLogins)
+			.HasForeignKey(login => login.UserId)
+			.OnDelete(DeleteBehavior.Cascade)
+			.IsRequired();
+
 		modelBuilder.Entity<MediaItem>()
 			.Property(item => item.SourceType)
 			.HasDefaultValue(MediaItemSourceType.Manual)
@@ -78,6 +90,18 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 			.HasIndex(item => new { item.UserId, item.SourceType, item.ExternalId, item.ExternalMediaKind })
 			.IsUnique()
 			.HasFilter("\"ExternalId\" IS NOT NULL AND \"ExternalMediaKind\" IS NOT NULL");
+
+		// El índice anterior es PARCIAL, así que PostgreSQL no lo usa para el
+		// "WHERE UserId = @p" de las consultas de biblioteca. Este es el que las cubre,
+		// e incluye CreatedAtUtc porque es la ordenación por defecto del listado.
+		modelBuilder.Entity<MediaItem>()
+			.HasIndex(item => new { item.UserId, item.CreatedAtUtc });
+
+		// Refresh y logout buscan por TokenHash: sin índice era un recorrido secuencial
+		// de toda la tabla en cada renovación de sesión.
+		modelBuilder.Entity<RefreshToken>()
+			.HasIndex(token => token.TokenHash)
+			.IsUnique();
 
 		// OAuthState: índice en StateValue para búsquedas O(1) en callback
 		modelBuilder.Entity<OAuthState>()

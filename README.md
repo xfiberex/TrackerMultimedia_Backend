@@ -120,10 +120,26 @@ Si falla al arrancar por configuración, revisa primero una de estas dos opcione
 
 ## Pruebas y artefactos locales
 
+La suite vive en `TrackerMultimedia.Tests/`, dentro de este mismo repositorio, y se
+abre junto al backend desde `TrackerMultimedia_Backend.slnx`. Un clon limpio basta
+para ejecutarla:
+
+```bash
+dotnet test TrackerMultimedia_Backend.slnx
+```
+
+Son pruebas de integración sobre `WebApplicationFactory` con SQLite en memoria: no
+necesitan PostgreSQL ni ningún secreto configurado.
+
 Los archivos fuente de pruebas forman parte del repositorio, pero sus salidas generadas no.
 
 - El `.gitignore` excluye resultados locales como `TestResults/`, `coverage/`, `*.trx`, `*.coverage` y reportes equivalentes.
 - Si ejecutas pruebas o cobertura en local, esos artefactos deben quedarse fuera del control de versiones.
+
+> El proyecto de tests está anidado dentro de la carpeta del proyecto de backend, así
+> que el `.csproj` del backend lo excluye de sus globs con `DefaultItemExcludes`. Si
+> alguna vez se renombra la carpeta, hay que actualizar también esa propiedad y el
+> `.dockerignore`, o el backend intentará compilar los tests como código propio.
 
 ---
 
@@ -145,6 +161,7 @@ TrackerMultimedia_Backend/
 ├── Infrastructure/
 │   └── Options/        # SmtpOptions, OAuthOptions (bind de appsettings)
 ├── Migrations/         # Historial de migraciones EF Core
+├── TrackerMultimedia.Tests/  # Suite de integración (xUnit + WebApplicationFactory)
 ├── Services/           # Lógica de negocio
 │   ├── AuthSessionService.cs   # Emite JWT + RefreshToken
 │   ├── EmailTemplates.cs       # HTML de correos
@@ -155,7 +172,51 @@ TrackerMultimedia_Backend/
 │   ├── MediaItemsService.cs    # CRUD de ítems
 │   ├── SmtpEmailService.cs     # Implementación SMTP (Mailtrap)
 │   └── TokenService.cs         # Generación/validación de JWT
-├── appsettings.json    # Configuración no-sensible (plantilla)
 ├── appsettings.Local.example.json # Plantilla local no versionada
+├── Dockerfile          # Imagen de runtime usada por Render
+├── render.yaml         # Blueprint de despliegue
 └── Program.cs          # Composición de servicios y middleware
 ```
+
+---
+
+## Despliegue en Render
+
+El blueprint `render.yaml` vive en la raíz de este repositorio y describe el servicio
+completo: runtime Docker, `Dockerfile` y contexto de build en la raíz, health check en
+`/health` y despliegue automático en cada commit. Render lo detecta al conectar el
+repositorio; no hay que rellenar rutas a mano.
+
+### Variables que hay que dar en el panel
+
+El blueprint las declara como `sync: false`, es decir, Render las pide sin valor por
+defecto porque son secretas o dependen del entorno:
+
+- `ConnectionStrings__DefaultConnection` — cadena de conexión de Neon.
+- `App__FrontendBaseUrl` — URL pública del frontend en Netlify. La usan los enlaces de
+  los correos de confirmación y de recuperación de contraseña.
+- `Cors__AllowedOrigins__0` — la misma URL pública del frontend.
+
+`Jwt__Secret` la genera Render automáticamente (`generateValue: true`); no hay que
+inventarla. El backend se niega a arrancar si mide menos de 32 bytes.
+
+### Variables opcionales
+
+Correo (sin ellas el envío queda desactivado y el registro sigue funcionando):
+`Smtp__Enabled`, `Smtp__Host`, `Smtp__Port`, `Smtp__Username`, `Smtp__Password`,
+`Smtp__FromAddress`, `Smtp__FromName`.
+
+OAuth, un bloque por proveedor: `OAuth__Google__Enabled`, `OAuth__Google__ClientId`,
+`OAuth__Google__ClientSecret`, `OAuth__Google__RedirectUri` y sus equivalentes
+`OAuth__GitHub__*`. La *redirect URI* de producción apunta a este backend, no al
+frontend: `https://<backend>.onrender.com/api/auth/<proveedor>/callback`. Hay que
+registrarla también en Google Cloud y en GitHub, o el proveedor rechazará el flujo.
+
+### Notas de producción
+
+- `Database__ApplyMigrationsOnStartup=true` ya viene en el blueprint: el esquema se
+  crea y se actualiza al arrancar, y el log de arranque dice qué migraciones aplicó.
+  Con varias instancias en paralelo esto es una carrera; hoy el plan es de una sola.
+- El backend confía en las cabeceras `X-Forwarded-*` del proxy HTTPS de Render.
+- Si añades un dominio propio en Netlify, súmalo como `Cors__AllowedOrigins__1` y
+  actualiza `App__FrontendBaseUrl`.
