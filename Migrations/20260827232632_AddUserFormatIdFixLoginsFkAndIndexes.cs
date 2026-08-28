@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace TrackerMultimedia.Migrations
 {
     /// <inheritdoc />
-    public partial class FixExternalLoginsFkAndAddQueryIndexes : Migration
+    public partial class AddUserFormatIdFixLoginsFkAndIndexes : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -23,6 +23,12 @@ namespace TrackerMultimedia.Migrations
                 name: "ApplicationUserId",
                 table: "AspNetUserLogins");
 
+            migrationBuilder.AddColumn<Guid>(
+                name: "UserFormatId",
+                table: "MediaItems",
+                type: "uuid",
+                nullable: true);
+
             migrationBuilder.CreateIndex(
                 name: "IX_RefreshTokens_TokenHash",
                 table: "RefreshTokens",
@@ -30,20 +36,45 @@ namespace TrackerMultimedia.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_MediaItems_UserFormatId",
+                table: "MediaItems",
+                column: "UserFormatId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_MediaItems_UserId_CreatedAtUtc",
                 table: "MediaItems",
                 columns: new[] { "UserId", "CreatedAtUtc" });
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_MediaItems_UserFormats_UserFormatId",
+                table: "MediaItems",
+                column: "UserFormatId",
+                principalTable: "UserFormats",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.SetNull);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_MediaItems_UserFormats_UserFormatId",
+                table: "MediaItems");
+
             migrationBuilder.DropIndex(
                 name: "IX_RefreshTokens_TokenHash",
                 table: "RefreshTokens");
 
             migrationBuilder.DropIndex(
+                name: "IX_MediaItems_UserFormatId",
+                table: "MediaItems");
+
+            migrationBuilder.DropIndex(
                 name: "IX_MediaItems_UserId_CreatedAtUtc",
+                table: "MediaItems");
+
+            migrationBuilder.DropColumn(
+                name: "UserFormatId",
                 table: "MediaItems");
 
             migrationBuilder.AddColumn<Guid>(

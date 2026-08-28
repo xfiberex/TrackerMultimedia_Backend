@@ -12,8 +12,8 @@ using TrackerMultimedia.Data;
 namespace TrackerMultimedia.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260827220141_FixExternalLoginsFkAndAddQueryIndexes")]
-    partial class FixExternalLoginsFkAndAddQueryIndexes
+    [Migration("20260827232632_AddUserFormatIdFixLoginsFkAndIndexes")]
+    partial class AddUserFormatIdFixLoginsFkAndIndexes
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

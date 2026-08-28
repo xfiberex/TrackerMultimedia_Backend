@@ -5,7 +5,8 @@ ASP.NET Core 10 Web API con autenticación JWT, correo SMTP y OAuth (Google / Gi
 ## Requisitos
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [PostgreSQL](https://www.postgresql.org/) 14 o superior
+- [Docker](https://www.docker.com/products/docker-desktop/) — la base de datos corre en un
+  contenedor; **no hace falta instalar PostgreSQL en la máquina**
 - [`dotnet-ef` tools](https://learn.microsoft.com/en-us/ef/core/cli/dotnet): `dotnet tool install --global dotnet-ef`
 
 ---
@@ -14,7 +15,16 @@ ASP.NET Core 10 Web API con autenticación JWT, correo SMTP y OAuth (Google / Gi
 
 Los secretos de desarrollo **nunca se versionan**. Se almacenan fuera del repositorio con `dotnet user-secrets` en `%APPDATA%\Microsoft\UserSecrets\`.
 
-Si prefieres un archivo local para esta máquina, el backend también carga `appsettings.Local.json` y `appsettings.Development.local.json` en entorno `Development`. Ambos están ignorados por Git.
+El backend también carga `appsettings.Local.json` y `appsettings.Development.local.json` en
+entorno `Development`, ambos ignorados por Git. **Úsalos solo para configuración no
+sensible** —orígenes CORS, niveles de log, URLs de callback—: los secretos van en
+user-secrets y solo ahí.
+
+> **Qué protege realmente user-secrets, y qué no.** No cifra nada: guarda un `secrets.json`
+> en claro en `%APPDATA%\Microsoft\UserSecrets\<UserSecretsId>\`. Lo que aporta es que ese
+> archivo vive **fuera de la carpeta del repositorio**, así que no puede acabar en un commit
+> por descuido ni colarse en el contexto de build de Docker. Frente a alguien con acceso a
+> tu sesión de Windows no te protege; frente a un `git add .` distraído, sí.
 
 ### 1. Inicializar (una sola vez)
 
@@ -22,73 +32,169 @@ Si prefieres un archivo local para esta máquina, el backend también carga `app
 dotnet user-secrets init
 ```
 
-### 2. Todos los secretos necesarios
+### 2. Los secretos necesarios
 
-```bash
+**En user-secrets va solo lo que es secreto.** Todo lo demás —host y puerto SMTP, si un
+proveedor está activo, las URLs de callback, los tiempos de expiración del token— es
+configuración normal y vive en `appsettings.Local.json`.
+
+En PowerShell, **comillas simples para los valores**: entre comillas dobles, PowerShell
+expande cualquier cosa que empiece por `$` y te deja la clave vacía sin avisar.
+
+```powershell
 # ── Base de datos ────────────────────────────────────────────────────────────
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" \
-  "Host=localhost;Database=tracker_multimedia;Username=<usuario>;Password=<contraseña>"
+# Puerto 5433 y nombre "trackerMultimedia": es lo que define docker-compose.yml.
+# La contraseña es la que pusiste en .env.
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" 'Host=localhost;Port=5433;Database=trackerMultimedia;Username=postgres;Password=<la-de-tu-.env>;'
 
-# ── Seguridad interna ────────────────────────────────────────────────────────
-# Header X-Api-Key para rutas administrativas
-dotnet user-secrets set "Security:ApiKey" "<cadena-aleatoria-larga>"
-
-# ── JWT ─────────────────────────────────────────────────────────────────────
-# Mínimo 32 caracteres
-dotnet user-secrets set "Jwt:Secret" "<cadena-aleatoria-de-32-o-mas-caracteres>"
+# ── JWT ──────────────────────────────────────────────────────────────────────
+# Genéralo sin que aparezca en pantalla ni en el historial de la terminal.
+$bytes = New-Object byte[] 48
+(New-Object System.Security.Cryptography.RNGCryptoServiceProvider).GetBytes($bytes)
+dotnet user-secrets set "Jwt:Secret" ([Convert]::ToBase64String($bytes))
+Remove-Variable bytes
 
 # ── SMTP / Mailtrap ──────────────────────────────────────────────────────────
 # Credenciales en: https://mailtrap.io → Email Testing → SMTP Settings
-dotnet user-secrets set "Smtp:Host"     "sandbox.smtp.mailtrap.io"
-dotnet user-secrets set "Smtp:Port"     "587"
-dotnet user-secrets set "Smtp:Username" "<mailtrap-username>"
-dotnet user-secrets set "Smtp:Password" "<mailtrap-password>"
-dotnet user-secrets set "Smtp:Enabled"  "true"
+# Mailtrap regenera usuario y contraseña a la vez: si rotas, cambia los dos.
+dotnet user-secrets set "Smtp:Username" '<mailtrap-username>'
+dotnet user-secrets set "Smtp:Password" '<mailtrap-password>'
 
 # ── Google OAuth ─────────────────────────────────────────────────────────────
-# Crear en: https://console.cloud.google.com → APIs & Services → Credentials
+# https://console.cloud.google.com → APIs & Services → Credentials
 # Redirect URI autorizada: http://localhost:5218/api/auth/google/callback
-dotnet user-secrets set "OAuth:Google:Enabled"      "true"
-dotnet user-secrets set "OAuth:Google:ClientId"     "<google-client-id>"
-dotnet user-secrets set "OAuth:Google:ClientSecret" "<google-client-secret>"
+dotnet user-secrets set "OAuth:Google:ClientId"     '<google-client-id>'
+dotnet user-secrets set "OAuth:Google:ClientSecret" '<google-client-secret>'
 
 # ── GitHub OAuth ─────────────────────────────────────────────────────────────
-# DESARROLLO: Crear una app de GitHub separada (localhost)
-# Crear en: https://github.com/settings/developers → New OAuth App
+# https://github.com/settings/developers → New OAuth App
 # Authorization callback URL: http://localhost:5218/api/auth/github/callback
-# El backend prioriza DevClientId y DevClientSecret si existen en Development.
-# PowerShell:
-#   $env:DevClientId = "<github-dev-client-id>"
-#   $env:DevClientSecret = "<github-dev-client-secret>"
-dotnet user-secrets set "OAuth:GitHub:Enabled"      "true"
-dotnet user-secrets set "OAuth:GitHub:DevClientId"  "<github-dev-client-id>"
-dotnet user-secrets set "OAuth:GitHub:DevClientSecret" "<github-dev-client-secret>"
+dotnet user-secrets set "OAuth:GitHub:ClientId"     '<github-client-id>'
+dotnet user-secrets set "OAuth:GitHub:ClientSecret" '<github-client-secret>'
+```
 
-# PRODUCCIÓN: Las credenciales se cargan desde Render environment variables:
-# OAuth__GitHub__Enabled = true
-# OAuth__GitHub__ClientId = <github-producción-client-id>
-# OAuth__GitHub__ClientSecret = <github-producción-client-secret>
-# OAuth__GitHub__RedirectUri = https://tu-backend-render-url.onrender.com/api/auth/github/callback
+Los *Client ID* de Google y GitHub **no son secretos**: son identificadores públicos que el
+navegador ve en la URL de autorización. Están aquí por comodidad, para tener toda la
+configuración de un proveedor junta.
 
-> Los valores no-sensibles (`RedirectUri`, `FrontendBaseUrl`, `FromAddress`, tiempos de expiración, etc.) ya están en `appsettings.json` y no necesitan secretos.
+`GitHubAuthService` acepta además `OAuth:GitHub:DevClientId` y `DevClientSecret`, que tienen
+prioridad en entorno `Development`. Sirven para usar una app de GitHub distinta en local sin
+tocar la principal; si no las defines, se usan `ClientId` y `ClientSecret` sin más.
 
-### Alternativa: archivo local ignorado por Git
+Lo no sensible —`Smtp:Host`, `Smtp:Port`, `Smtp:Enabled`, `OAuth:*:Enabled`,
+`OAuth:*:RedirectUri`, `Cors:AllowedOrigins`, `App:FrontendBaseUrl` y los tiempos de vida del
+token— ya viene en `appsettings.Local.example.json`. **No existe ningún `appsettings.json`**
+en este repositorio.
+
+### Configuración local no sensible
 
 ```bash
 cp appsettings.Local.example.json appsettings.Local.json
 ```
 
-Rellena `appsettings.Local.json` con tus valores reales. Ese archivo no se versiona.
+Ese archivo no se versiona, pero **no debe contener secretos**: solo orígenes CORS, niveles
+de log, tiempos de vida del token, host y puerto SMTP, y las URLs de callback OAuth.
 
-### Ver secretos configurados
+### Ver qué secretos hay configurados
 
 ```bash
-dotnet user-secrets list
+dotnet user-secrets list        # imprime los valores: no lo pegues en ningún sitio
 ```
 
 ---
 
+## Rotar credenciales
+
+Rotar una clave son siempre dos pasos: **generarla donde vive** y **guardarla en
+user-secrets**. Ninguna de las dos mitades sirve sola, y sustituir el valor local sin
+invalidar el antiguo en el proveedor no es una rotación.
+
+### Las que puedes generar tú
+
+No dependen de ningún tercero. **Genéralas sin que el valor pase por pantalla**: lo que se
+imprime en la terminal queda en el búfer y en el historial, y lo que se pega en un chat o
+en un ticket deja de ser un secreto.
+
+```powershell
+# Secreto JWT (mínimo 32 bytes; el arranque falla si es más corto)
+$bytes = New-Object byte[] 48
+(New-Object System.Security.Cryptography.RNGCryptoServiceProvider).GetBytes($bytes)
+dotnet user-secrets set "Jwt:Secret" ([Convert]::ToBase64String($bytes))
+Remove-Variable bytes
+```
+
+```powershell
+# Contraseña de PostgreSQL local: cámbiala en .env, recrea el contenedor
+# y actualiza la cadena de conexión. Los datos locales se pierden.
+docker compose down -v
+docker compose up -d
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" 'Host=localhost;Port=5433;Database=trackerMultimedia;Username=postgres;Password=<nueva>;'
+```
+
+Rotar `Jwt:Secret` invalida todos los access token en circulación: las sesiones abiertas se
+caen y hay que volver a entrar. Es el comportamiento correcto.
+
+> ⚠️ **En PowerShell, usa comillas simples para los valores secretos.** Entre comillas
+> dobles, PowerShell expande todo lo que empiece por `$`: un secreto como
+> `$7kTbEi...` se interpreta como una variable inexistente, se sustituye por cadena vacía
+> y `dotnet` responde `Missing parameter value for 'value'`. Con comillas simples el texto
+> va literal. La cadena de conexión también lleva simples, porque contiene `;`.
+
+### Las que solo puede rotar su proveedor
+
+Para cada una: **primero** genera la nueva en el panel, **después** guárdala aquí, y **por
+último** revoca la antigua.
+
+| Credencial | Dónde se rota |
+|---|---|
+| Contraseña de Neon | Panel de Neon → *Roles* → `neondb_owner` → *Reset password*. Actualiza también `ConnectionStrings__DefaultConnection` en Render. |
+| `OAuth:Google:ClientSecret` | Google Cloud → *APIs & Services* → *Credentials* → tu OAuth Client → *Add secret*, y borra el anterior. |
+| `OAuth:GitHub:ClientSecret` | GitHub → *Settings* → *Developer settings* → *OAuth Apps* → *Generate a new client secret*. |
+| `Smtp:Password` | Mailtrap → *Email Testing* → *SMTP Settings* → regenerar credenciales. |
+
+```powershell
+dotnet user-secrets set "OAuth:Google:ClientSecret" '<nuevo>'
+dotnet user-secrets set "OAuth:GitHub:ClientSecret" '<nuevo>'
+dotnet user-secrets set "Smtp:Password"             '<nuevo>'
+```
+
+Los *Client ID* de Google y GitHub **no son secretos**: son identificadores públicos que el
+navegador ve en la URL de autorización. Están en user-secrets por comodidad, no porque haga
+falta ocultarlos; no requieren rotación.
+
+---
+
 ## Base de datos
+
+### PostgreSQL local con Docker
+
+La base de desarrollo se levanta con `docker-compose.yml`, que está en la raíz de este
+repositorio. La contraseña la lee de `.env`, que **no** se versiona: copia `.env.example`
+a `.env` y pon una propia antes del primer arranque.
+
+```bash
+cp .env.example .env         # y rellena POSTGRES_PASSWORD
+docker compose up -d         # levanta PostgreSQL en localhost:5433
+docker compose ps            # debe decir "healthy"
+```
+
+Después, la cadena de conexión va a los secretos, nunca a un archivo del repositorio:
+
+```powershell
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" 'Host=localhost;Port=5433;Database=trackerMultimedia;Username=postgres;Password=<la-de-tu-.env>;'
+```
+
+Detalles que importan:
+
+- **El puerto es 5433, no 5432**, para no chocar con un PostgreSQL instalado nativamente.
+- El contenedor **solo escucha en `127.0.0.1`**: no queda expuesto a la red local.
+- Los datos viven en un volumen con nombre (`trackermultimedia-postgres-data`), así que
+  `docker compose down` los conserva. Para empezar de cero: `docker compose down -v`.
+- La imagen está fijada a **`postgres:17-alpine`**. *Pendiente de verificación:* si Neon
+  usa otra versión mayor, conviene igualarla aquí para que el entorno local reproduzca
+  producción.
+
+### Migraciones
 
 ```bash
 # Aplicar todas las migraciones pendientes
@@ -97,8 +203,31 @@ dotnet ef database update
 # Crear una nueva migración
 dotnet ef migrations add <NombreMigracion>
 
-# Revertir la última migración
+# Revertir la última migración (solo si NO está aplicada en ninguna base)
 dotnet ef migrations remove
+
+# Ver qué migraciones existen y cuáles están aplicadas
+dotnet ef migrations list
+```
+
+> ⚠️ **Una migración sin su `.Designer.cs` no existe para EF Core.** EF identifica las
+> migraciones por el atributo `[Migration("...")]`, que vive en el archivo `.Designer.cs`,
+> **no** por el nombre del archivo. Una migración escrita a mano sin ese archivo se
+> compila, se ve en la carpeta y no se ejecuta jamás: `dotnet ef migrations list` no la
+> menciona y `database update` informa de que no hay nada pendiente. Esto ya pasó una vez
+> y dejó el esquema incompleto en cualquier base creada desde cero. **Crea siempre las
+> migraciones con `dotnet ef migrations add`**, nunca copiando un archivo a mano, y
+> comprueba con `migrations list` que la nueva aparece.
+
+### Comprobar que el esquema es correcto desde cero
+
+La forma segura de validar una migración es levantar una base vacía y aplicarlas todas,
+que es justo lo que Docker hace fácil:
+
+```bash
+docker compose down -v && docker compose up -d
+dotnet ef database update
+dotnet ef migrations list      # las aplicadas salen sin la marca (Pending)
 ```
 
 ---
@@ -180,7 +309,13 @@ TrackerMultimedia_Backend/
 
 ---
 
-## Despliegue en Render
+## Despliegue en Render — *inactivo*
+
+> ⚠️ **No hay despliegue.** Desde el 2026-08-27 el proyecto se usa **solo en local**: los
+> servicios de Render, Neon y Netlify están deshabilitados y sus credenciales, revocadas.
+> Esta sección se conserva como receta para volver a desplegar, no como descripción de algo
+> que exista hoy. Si la reactivas, **todas las variables hay que crearlas de cero**: las que
+> había ya no sirven.
 
 El blueprint `render.yaml` vive en la raíz de este repositorio y describe el servicio
 completo: runtime Docker, `Dockerfile` y contexto de build en la raíz, health check en

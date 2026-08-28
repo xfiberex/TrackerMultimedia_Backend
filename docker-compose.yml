@@ -1,0 +1,40 @@
+# Base de datos local de desarrollo.
+#
+#   docker compose up -d        levanta PostgreSQL
+#   docker compose down         lo para, conservando los datos
+#   docker compose down -v      lo para y BORRA los datos
+#
+# La contraseña sale de `.env`, que no se versiona. Copia `.env.example` y
+# rellénalo, o ejecuta el bloque de rotación del README.
+#
+# El puerto es 5433, no 5432, para no chocar con un PostgreSQL instalado
+# nativamente en la máquina. Solo escucha en 127.0.0.1: el contenedor no
+# queda expuesto a la red local.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: trackermultimedia-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: trackerMultimedia
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD en .env}
+      # Acelera el arranque en desarrollo. NO usar en producción.
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # Sin esto, `docker compose up -d` devuelve el control antes de que la
+      # base acepte conexiones y la primera migración falla.
+      test: ["CMD-SHELL", "pg_isready -U postgres -d trackerMultimedia"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres-data:
+    name: trackermultimedia-postgres-data
