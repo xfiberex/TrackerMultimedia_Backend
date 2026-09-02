@@ -4,6 +4,7 @@ using System.Text.Json;
 using TrackerMultimedia.Contracts.Categories;
 using TrackerMultimedia.Contracts.MediaItems;
 using TrackerMultimedia.Domain.Enums;
+using TrackerMultimedia.Services;
 using TrackerMultimedia.Tests.Helpers;
 
 namespace TrackerMultimedia.Tests.MediaItems;
@@ -204,6 +205,32 @@ public class LibraryTransferTests(AppFactory factory) : IClassFixture<AppFactory
             await response.Content.ReadAsByteArrayAsync(),
             contentType,
             fileName.Trim('"'));
+    }
+
+    [Fact]
+    public async Task Import_RejectsFilesWithMoreItemsThanTheLimit()
+    {
+        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
+
+        // El tope de 10 MB del controlador no acota el trabajo: un JSON pequeño
+        // puede traer decenas de miles de elementos, que se cargan en memoria
+        // junto con la biblioteca del usuario antes de un único SaveChanges.
+        var exceso = MediaItemsService.MaxImportItems + 1;
+        var elementos = string.Join(",", Enumerable.Range(0, exceso).Select(i =>
+            $"{{\"title\":\"Elemento {i}\",\"contentKind\":\"Series\",\"status\":\"Planned\"}}"));
+        var json = $"{{\"categories\":[],\"items\":[{elementos}]}}";
+
+        using var multipart = new MultipartFormDataContent();
+        using var fileContent = new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes(json));
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        multipart.Add(fileContent, "file", "biblioteca.json");
+
+        var response = await client.PostAsync("/api/media-items/import?format=Json", multipart);
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        var cuerpo = await response.Content.ReadAsStringAsync();
+        Assert.Contains(exceso.ToString(), cuerpo, StringComparison.Ordinal);
+        Assert.Contains(MediaItemsService.MaxImportItems.ToString(), cuerpo, StringComparison.Ordinal);
     }
 
     private static async Task<LibraryImportResponse> ImportLibraryAsync(

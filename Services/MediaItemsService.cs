@@ -308,6 +308,14 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         };
     }
 
+    /// <summary>
+    /// Máximo de elementos por importación. El límite de 10 MB del controlador
+    /// acota el tamaño del archivo, no el trabajo que genera: importar una
+    /// biblioteca real no llega a este número ni de lejos, así que superarlo
+    /// apunta a un archivo generado, no a un uso normal.
+    /// </summary>
+    public const int MaxImportItems = 5_000;
+
     public async Task<ServiceResult<LibraryImportResponse>> ImportAsync(
         Stream stream,
         LibraryTransferFormat format,
@@ -317,6 +325,19 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         var envelopeResult = await ReadTransferEnvelopeAsync(stream, format, cancellationToken);
         if (!envelopeResult.IsSuccess)
             return ServiceResult<LibraryImportResponse>.Fail(envelopeResult.ErrorField!, envelopeResult.ErrorMessage!);
+
+        // El tope de 10 MB del controlador no acota el trabajo: en 10 MB de JSON
+        // caben decenas de miles de elementos, y todos se cargan en memoria junto
+        // con la biblioteca entera del usuario antes de un único SaveChanges.
+        // El coste real va por número de elementos, no por bytes.
+        var itemCount = envelopeResult.Value!.Items.Count;
+        if (itemCount > MaxImportItems)
+        {
+            return ServiceResult<LibraryImportResponse>.Fail(
+                "file",
+                $"El archivo contiene {itemCount} elementos y el máximo por importación es {MaxImportItems}. " +
+                "Divide la biblioteca en varios archivos y vuelve a intentarlo.");
+        }
 
         var categoryBlueprintsResult = NormalizeImportedCategories(envelopeResult.Value!);
         if (!categoryBlueprintsResult.IsSuccess)

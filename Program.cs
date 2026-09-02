@@ -5,6 +5,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -124,6 +125,19 @@ builder.Services.AddScoped<AuthSessionService>();
 // ── SMTP / Email ─────────────────────────────────────────────────────────────
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+
+// ── Respuestas de error ──────────────────────────────────────────────────────
+// Da forma RFC 9457 a los errores y añade el identificador de la petición, que es
+// lo que permite cruzar lo que ve el usuario con lo que quedó en el log.
+builder.Services.AddProblemDetails(options =>
+{
+    options.CustomizeProblemDetails = context =>
+    {
+        context.ProblemDetails.Instance ??= context.HttpContext.Request.Path;
+        context.ProblemDetails.Extensions["traceId"] =
+            System.Diagnostics.Activity.Current?.Id ?? context.HttpContext.TraceIdentifier;
+    };
+});
 
 // ── Purga de datos caducados ─────────────────────────────────────────────────
 builder.Services.Configure<CleanupOptions>(builder.Configuration.GetSection(CleanupOptions.SectionName));
@@ -275,6 +289,36 @@ if (shouldApplyMigrations)
             "No se pudieron aplicar las migraciones al arrancar. El esquema puede no estar actualizado.");
     }
 }
+
+// Lo primero del pipeline a propósito: solo captura lo que ocurre por debajo, así
+// que cualquier middleware registrado antes se quedaría fuera de su alcance.
+// Sin esto, una excepción no controlada salía como un 500 con cuerpo vacío: el
+// usuario no veía nada y no había forma de relacionar su incidencia con el log.
+app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
+{
+    var feature = context.Features.Get<IExceptionHandlerFeature>();
+    var handlerLogger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+
+    handlerLogger.LogError(
+        feature?.Error,
+        "Excepción no controlada en {Method} {Path}. TraceId: {TraceId}",
+        context.Request.Method,
+        context.Request.Path,
+        context.TraceIdentifier);
+
+    // El detalle se queda en el log. Al cliente le llega un texto fijo y el
+    // identificador: el mensaje de una excepción describe la infraestructura.
+    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    await Results.Problem(
+        title: "Se produjo un error inesperado.",
+        detail: "Vuelve a intentarlo. Si el problema persiste, indica el identificador de esta respuesta.",
+        statusCode: StatusCodes.Status500InternalServerError,
+        instance: context.Request.Path).ExecuteAsync(context);
+}));
+
+// Convierte en ProblemDetails las respuestas de error que salen sin cuerpo,
+// como un 404 de ruta desconocida o un 401 sin contenido.
+app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
 {

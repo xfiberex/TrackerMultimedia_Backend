@@ -281,6 +281,38 @@ public class OAuthControllerTests
         Assert.DoesNotContain("Npgsql", location, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task UnhandledException_Returns500ProblemDetailsWithoutInternalDetail()
+    {
+        var googleService = new StubGoogleAuthService
+        {
+            FailureMessage = "Timeout conectando con db-interna:5432 desde el pod api-7f9c",
+            FailureIsUnhandled = true,
+        };
+
+        using var factory = await CreateGoogleFactoryAsync(googleService);
+        await SeedStateAsync(factory, "state-boom", "/library");
+        var client = NewNoRedirectClient(factory);
+
+        var response = await client.GetAsync("/api/auth/google/callback?code=ok&state=state-boom");
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+
+        var cuerpo = await response.Content.ReadAsStringAsync();
+        using var document = System.Text.Json.JsonDocument.Parse(cuerpo);
+
+        // El identificador es lo que permite cruzar la incidencia del usuario con
+        // la línea del log; sin él, un 500 no se puede investigar.
+        Assert.True(document.RootElement.TryGetProperty("traceId", out var traceId));
+        Assert.False(string.IsNullOrWhiteSpace(traceId.GetString()));
+
+        // Y el detalle interno se queda en el log, no viaja al cliente.
+        Assert.DoesNotContain("db-interna", cuerpo, StringComparison.Ordinal);
+        Assert.DoesNotContain("api-7f9c", cuerpo, StringComparison.Ordinal);
+        Assert.DoesNotContain("Timeout", cuerpo, StringComparison.Ordinal);
+    }
+
     private static HttpClient NewNoRedirectClient(AppFactory factory)
         => factory.CreateClient(new WebApplicationFactoryClientOptions
         {
@@ -362,9 +394,23 @@ public class OAuthControllerTests
         /// <summary>Si se rellena, el intercambio falla con este mensaje.</summary>
         public string? FailureMessage { get; set; }
 
+        /// <summary>
+        /// Lanza una excepción que el controlador NO captura, para ejercitar el
+        /// manejador global. El bloque catch del callback solo cubre
+        /// <see cref="InvalidOperationException"/>.
+        /// </summary>
+        public bool FailureIsUnhandled { get; set; }
+
         public Task<ExternalUserProfile> ExchangeCodeAsync(string code, CancellationToken cancellationToken = default)
-            => FailureMessage is null
-                ? Task.FromResult(Profile)
-                : throw new InvalidOperationException(FailureMessage);
+        {
+            if (FailureMessage is null)
+            {
+                return Task.FromResult(Profile);
+            }
+
+            throw FailureIsUnhandled
+                ? new TimeoutException(FailureMessage)
+                : new InvalidOperationException(FailureMessage);
+        }
     }
 }
