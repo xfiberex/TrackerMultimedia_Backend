@@ -8,8 +8,10 @@ namespace TrackerMultimedia.Services;
 
 /// <summary>
 /// Implementación de <see cref="IGoogleAuthService"/> para Google OAuth 2.0.
-/// Usa el endpoint estándar de autorización y el endpoint de token de Google,
-/// con validación de id_token para obtener el perfil del usuario.
+/// Intercambia el código por un access token y pide el perfil al endpoint
+/// <c>userinfo</c> con ese token. <b>No</b> valida un <c>id_token</c>: el comentario
+/// anterior lo afirmaba y era falso. Si algún día se quiere esa validación —que
+/// ahorraría la segunda llamada de red— hay que implementarla, no darla por hecha.
 /// </summary>
 public sealed class GoogleAuthService(
     HttpClient httpClient,

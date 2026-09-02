@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using TrackerMultimedia.Contracts.Auth;
 using TrackerMultimedia.Tests.Helpers;
@@ -120,5 +120,25 @@ public class LoginTests(AppFactory factory) : IClassFixture<AppFactory>
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    /// <summary>
+    /// T3-20. `Password` no tenía longitud máxima, así que una cadena enorme llegaba
+    /// hasta CheckPasswordAsync y gastaba CPU en el hashing PBKDF2 antes de fallar.
+    /// Ahora la rechaza el modelo, sin tocar la base de datos.
+    /// </summary>
+    [Fact]
+    public async Task Login_WithAnAbsurdlyLongPassword_Returns400()
+    {
+        var client = factory.CreateClient();
+        var user = await AuthHelpers.CreateConfirmedUserAsync(factory.Services);
+
+        var response = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            email = user.Email,
+            password = new string('a', 5_000),
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 }
