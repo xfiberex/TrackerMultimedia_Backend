@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -479,7 +479,10 @@ public class MediaItemsService(ApplicationDbContext dbContext)
                     "Ya existe un elemento con este identificador externo en tu biblioteca.");
         }
 
-        var userFormatId = await ResolveUserFormatIdAsync(request.UserFormatId, userId, cancellationToken);
+        var formatResult = await ResolveUserFormatIdAsync(request.UserFormatId, userId, cancellationToken);
+        if (!formatResult.IsSuccess)
+            return ServiceResult<MediaItemResponse>.Fail(formatResult.ErrorField!, formatResult.ErrorMessage!);
+        var userFormatId = formatResult.Value;
 
         var item = new MediaItem
         {
@@ -574,7 +577,10 @@ public class MediaItemsService(ApplicationDbContext dbContext)
                     "Ya existe un elemento con este identificador externo en tu biblioteca.");
         }
 
-        var userFormatId = await ResolveUserFormatIdAsync(request.UserFormatId, userId, cancellationToken);
+        var formatResult = await ResolveUserFormatIdAsync(request.UserFormatId, userId, cancellationToken);
+        if (!formatResult.IsSuccess)
+            return ServiceResult<MediaItemResponse>.Fail(formatResult.ErrorField!, formatResult.ErrorMessage!);
+        var userFormatId = formatResult.Value;
 
         item.Title = titleResult.Value!;
         item.AlternativeTitle = NormalizeOptionalText(request.AlternativeTitle);
@@ -1328,15 +1334,21 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         return ToResponse(item);
     }
 
-    private async Task<Guid?> ResolveUserFormatIdAsync(Guid? requestedId, Guid userId, CancellationToken cancellationToken)
+    private async Task<ServiceResult<Guid?>> ResolveUserFormatIdAsync(Guid? requestedId, Guid userId, CancellationToken cancellationToken)
     {
-        if (!requestedId.HasValue)
-            return null;
+        if (!requestedId.HasValue || requestedId.Value == Guid.Empty)
+            return ServiceResult<Guid?>.Ok(null);
 
         var exists = await dbContext.UserFormats
             .AnyAsync(f => f.Id == requestedId.Value && f.UserId == userId, cancellationToken);
 
-        return exists ? requestedId.Value : null;
+        // Un formato ajeno o inexistente es un error de validación, no un "sin formato":
+        // devolverlo en silencio guardaba el elemento incompleto mostrando éxito.
+        return exists
+            ? ServiceResult<Guid?>.Ok(requestedId.Value)
+            : ServiceResult<Guid?>.Fail(
+                nameof(CreateMediaItemRequest.UserFormatId),
+                "El formato debe existir y pertenecer al usuario actual.");
     }
 
     private static DateTime? NormalizeOptionalUtc(DateTime? value)

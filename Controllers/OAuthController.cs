@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using TrackerMultimedia.Contracts.Auth;
 using TrackerMultimedia.Data;
 using TrackerMultimedia.Domain.Entities;
+using TrackerMultimedia.Infrastructure.Logging;
 using TrackerMultimedia.Infrastructure.Options;
 using TrackerMultimedia.Services;
 
@@ -19,6 +20,7 @@ public class OAuthController(
     ApplicationDbContext dbContext,
     UserManager<ApplicationUser> userManager,
     AuthSessionService sessionService,
+    FormatsService formatsService,
     IOptions<OAuthOptions> oauthOptions,
     ILogger<OAuthController> logger,
     IGoogleAuthService? googleAuth = null,
@@ -193,12 +195,14 @@ public class OAuthController(
             var createResult = await userManager.CreateAsync(newUser);
             if (!createResult.Succeeded)
             {
-                logger.LogError("Error al crear usuario OAuth {Email}: {Errors}",
-                    profile.Email, string.Join(", ", createResult.Errors.Select(e => e.Code)));
+                // Todavía no hay UserId que registrar: el alta es justo lo que ha fallado.
+                logger.LogError("Error al crear usuario OAuth {MaskedEmail}: {Errors}",
+                    PersonalData.MaskEmail(profile.Email), string.Join(", ", createResult.Errors.Select(e => e.Code)));
                 return Redirect(BuildErrorRedirect(frontendBase, "create_failed"));
             }
 
             await userManager.AddLoginAsync(newUser, new UserLoginInfo(loginProvider, profile.ProviderUserId, loginProvider));
+            await formatsService.EnsureDefaultFormatsAsync(newUser.Id, cancellationToken);
             logger.LogInformation("Cuenta creada vía OAuth {Provider}: {UserId}", normalizedProvider, newUser.Id);
 
             var session = await sessionService.CreateSessionAsync(newUser, cancellationToken);
@@ -228,7 +232,7 @@ public class OAuthController(
         });
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation("Vinculación requerida para {Email} vía {Provider}", profile.Email, normalizedProvider);
+        logger.LogInformation("Vinculación requerida para el usuario {UserId} vía {Provider}", emailUser.Id, normalizedProvider);
         return Redirect(
             $"{frontendBase}/link-account" +
             $"?link_token={Uri.EscapeDataString(linkToken)}" +

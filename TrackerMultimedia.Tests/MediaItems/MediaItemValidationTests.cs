@@ -1,6 +1,7 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using TrackerMultimedia.Contracts.Categories;
+using TrackerMultimedia.Contracts.Formats;
 using TrackerMultimedia.Contracts.MediaItems;
 using TrackerMultimedia.Domain.Enums;
 using TrackerMultimedia.Tests.Helpers;
@@ -9,6 +10,48 @@ namespace TrackerMultimedia.Tests.MediaItems;
 
 public class MediaItemValidationTests(AppFactory factory) : IClassFixture<AppFactory>
 {
+    /// <summary>
+    /// T2-19. Un UserFormatId ajeno o inexistente se descartaba en silencio: el
+    /// elemento se guardaba sin formato y la interfaz mostraba un guardado correcto.
+    /// </summary>
+    [Fact]
+    public async Task Create_WithForeignUserFormatId_Returns400()
+    {
+        var (ownerClient, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
+        var created = await ownerClient.PostAsJsonAsync("/api/formats", new CreateFormatRequest { Name = "Formato ajeno" });
+        created.EnsureSuccessStatusCode();
+        var foreignFormat = await created.Content.ReadFromJsonAsync<FormatResponse>();
+
+        var (intruderClient, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
+        var response = await intruderClient.PostAsJsonAsync("/api/media-items", new CreateMediaItemRequest
+        {
+            Title = "Con formato ajeno",
+            Type = MediaType.Anime,
+            Status = MediaTrackingStatus.Planned,
+            UserFormatId = foreignFormat!.Id,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains(nameof(CreateMediaItemRequest.UserFormatId), body);
+    }
+
+    [Fact]
+    public async Task Create_WithUnknownUserFormatId_Returns400()
+    {
+        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
+
+        var response = await client.PostAsJsonAsync("/api/media-items", new CreateMediaItemRequest
+        {
+            Title = "Formato inexistente",
+            Type = MediaType.Anime,
+            Status = MediaTrackingStatus.Planned,
+            UserFormatId = Guid.NewGuid(),
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     [Fact]
     public async Task Create_JikanWithoutExternalId_Returns400()
     {

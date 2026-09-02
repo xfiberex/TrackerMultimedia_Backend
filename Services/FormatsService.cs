@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TrackerMultimedia.Contracts.Common;
 using TrackerMultimedia.Contracts.Formats;
 using TrackerMultimedia.Data;
@@ -31,12 +31,25 @@ public class FormatsService(ApplicationDbContext dbContext)
             .ThenBy(f => f.Name)
             .ToListAsync(cancellationToken);
 
-        if (formats.Count == 0)
-        {
-            formats = await SeedDefaultFormatsAsync(userId, cancellationToken);
-        }
-
+        // Aquí no se siembra nada. Un GET que escribe rompe la semántica HTTP y,
+        // con dos peticiones simultáneas de una cuenta recién creada, ambas veían
+        // cero formatos y la segunda violaba el índice único (500). Los formatos
+        // por defecto se crean una sola vez, al dar de alta la cuenta.
         return formats.Select(ToResponse).ToArray();
+    }
+
+    /// <summary>
+    /// Crea los formatos por defecto de una cuenta recién registrada. Es idempotente:
+    /// si ya existe alguno no hace nada, para que un reintento del alta no duplique.
+    /// </summary>
+    public async Task EnsureDefaultFormatsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var alreadyHasFormats = await dbContext.UserFormats
+            .AnyAsync(f => f.UserId == userId, cancellationToken);
+        if (alreadyHasFormats)
+            return;
+
+        await SeedDefaultFormatsAsync(userId, cancellationToken);
     }
 
     public async Task<ServiceResult<FormatResponse>> CreateAsync(

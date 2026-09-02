@@ -1,7 +1,8 @@
-using MailKit.Net.Smtp;
+﻿using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Options;
 using MimeKit;
+using TrackerMultimedia.Infrastructure.Logging;
 using TrackerMultimedia.Infrastructure.Options;
 
 namespace TrackerMultimedia.Services;
@@ -29,8 +30,8 @@ public sealed class SmtpEmailService(
         {
             // Solo loguea remitente y asunto — nunca el body (puede contener URLs de reset).
             logger.LogWarning(
-                "[DEV - SMTP desactivado] Correo para {To} | Asunto: {Subject}",
-                to, subject);
+                "[DEV - SMTP desactivado] Correo para {MaskedTo} | Asunto: {Subject}",
+                PersonalData.MaskEmail(to), subject);
             return;
         }
 
@@ -46,6 +47,6 @@ public sealed class SmtpEmailService(
         await client.SendAsync(message, cancellationToken);
         await client.DisconnectAsync(quit: true, cancellationToken);
 
-        logger.LogInformation("Correo enviado a {To} | Asunto: {Subject}", to, subject);
+        logger.LogInformation("Correo enviado a {MaskedTo} | Asunto: {Subject}", PersonalData.MaskEmail(to), subject);
     }
 }

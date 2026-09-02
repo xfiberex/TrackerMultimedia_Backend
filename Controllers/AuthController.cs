@@ -1,4 +1,4 @@
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Web;
 using Microsoft.AspNetCore.Authorization;
@@ -22,6 +22,7 @@ public class AuthController(
     ApplicationDbContext dbContext,
     TokenService tokenService,
     AuthSessionService sessionService,
+    FormatsService formatsService,
     IEmailService emailService,
     IOptions<OAuthOptions> oauthOptions,
     IConfiguration configuration,
@@ -100,6 +101,7 @@ public class AuthController(
         }
 
         logger.LogInformation("Nuevo usuario registrado: {UserId}", user.Id);
+        await formatsService.EnsureDefaultFormatsAsync(user.Id, cancellationToken);
         await SendConfirmationEmailAsync(user, cancellationToken);
         return Accepted(new { message = RegisterAcknowledgement });
     }
