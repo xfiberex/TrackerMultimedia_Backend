@@ -1,9 +1,8 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using TrackerMultimedia.Contracts.Categories;
+using TrackerMultimedia.Infrastructure.Http;
 using TrackerMultimedia.Services;
 
 namespace TrackerMultimedia.Controllers;
@@ -14,17 +13,10 @@ namespace TrackerMultimedia.Controllers;
 [EnableRateLimiting("user")]
 public class CategoriesController(CategoriesService categoriesService) : ControllerBase
 {
-    private Guid GetUserId()
-    {
-        var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
-            ?? throw new InvalidOperationException("El claim 'sub' no está presente en el token.");
-        return Guid.Parse(sub);
-    }
-
     [HttpGet]
     public async Task<ActionResult<IReadOnlyCollection<CategoryResponse>>> GetAll(CancellationToken cancellationToken)
     {
-        var categories = await categoriesService.GetAllAsync(GetUserId(), cancellationToken);
+        var categories = await categoriesService.GetAllAsync(User.GetUserId(), cancellationToken);
         return Ok(categories);
     }
 
@@ -33,7 +25,7 @@ public class CategoriesController(CategoriesService categoriesService) : Control
         [FromBody] CreateCategoryRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await categoriesService.CreateAsync(request, GetUserId(), cancellationToken);
+        var result = await categoriesService.CreateAsync(request, User.GetUserId(), cancellationToken);
         if (!result.IsSuccess)
         {
             ModelState.AddModelError(result.ErrorField!, result.ErrorMessage!);
@@ -49,7 +41,7 @@ public class CategoriesController(CategoriesService categoriesService) : Control
         [FromBody] UpdateCategoryRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await categoriesService.UpdateAsync(id, request, GetUserId(), cancellationToken);
+        var result = await categoriesService.UpdateAsync(id, request, User.GetUserId(), cancellationToken);
         if (!result.IsSuccess)
         {
             if (result.ErrorField == "id")
@@ -65,7 +57,7 @@ public class CategoriesController(CategoriesService categoriesService) : Control
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        var deleted = await categoriesService.DeleteAsync(id, GetUserId(), cancellationToken);
+        var deleted = await categoriesService.DeleteAsync(id, User.GetUserId(), cancellationToken);
         return deleted ? NoContent() : NotFound();
     }
 }

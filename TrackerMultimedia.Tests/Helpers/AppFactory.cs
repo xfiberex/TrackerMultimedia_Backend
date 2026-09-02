@@ -80,22 +80,22 @@ public sealed class AppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 // Satisface el check de startup (el DbContext se reemplaza después)
                 ["ConnectionStrings:DefaultConnection"] = "DataSource=:memory:",
                 // JWT con valores de test
-                ["Jwt:Secret"]                      = "clave-secreta-para-tests-32chars!!",
-                ["Jwt:Issuer"]                      = "TrackerMultimedia.Tests",
-                ["Jwt:Audience"]                    = "TrackerMultimedia.Tests",
-                ["Jwt:AccessTokenLifetimeMinutes"]  = "15",
-                ["Jwt:RefreshTokenLifetimeDays"]    = "7",
+                ["Jwt:Secret"] = "clave-secreta-para-tests-32chars!!",
+                ["Jwt:Issuer"] = "TrackerMultimedia.Tests",
+                ["Jwt:Audience"] = "TrackerMultimedia.Tests",
+                ["Jwt:AccessTokenLifetimeMinutes"] = "15",
+                ["Jwt:RefreshTokenLifetimeDays"] = "7",
                 // CORS (requerido por startup)
-                ["Cors:AllowedOrigins:0"]           = "http://localhost:5173",
+                ["Cors:AllowedOrigins:0"] = "http://localhost:5173",
                 // Deshabilitar OAuth para no registrar HttpClients externos
-                ["OAuth:Google:Enabled"]            = "false",
-                ["OAuth:GitHub:Enabled"]            = "false",
+                ["OAuth:Google:Enabled"] = "false",
+                ["OAuth:GitHub:Enabled"] = "false",
                 // Sin temporizador de purga en los tests: se ejecuta a mano
                 // resolviendo IExpiredDataCleaner cuando hace falta comprobarla.
-                ["Cleanup:Enabled"]                 = "false",
+                ["Cleanup:Enabled"] = "false",
                 // SMTP vacío (el servicio se reemplaza por no-op)
-                ["Smtp:Host"]                       = "localhost",
-                ["Smtp:FromAddress"]                = "noreply@test.local",
+                ["Smtp:Host"] = "localhost",
+                ["Smtp:FromAddress"] = "noreply@test.local",
             };
 
             foreach (var (key, value) in _configurationOverrides)
@@ -149,8 +149,8 @@ public sealed class AppFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll<IConfigureOptions<RateLimiterOptions>>();
             services.Configure<RateLimiterOptions>(options =>
             {
-                options.AddPolicy("auth",   _ => RateLimitPartition.GetNoLimiter<string>("test"));
-                options.AddPolicy("user",   _ => RateLimitPartition.GetNoLimiter<string>("test"));
+                options.AddPolicy("auth", _ => RateLimitPartition.GetNoLimiter<string>("test"));
+                options.AddPolicy("user", _ => RateLimitPartition.GetNoLimiter<string>("test"));
                 options.AddPolicy("search", _ => RateLimitPartition.GetNoLimiter<string>("test"));
             });
 

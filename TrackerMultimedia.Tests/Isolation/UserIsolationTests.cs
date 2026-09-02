@@ -35,8 +35,8 @@ public class UserIsolationTests(AppFactory factory) : IClassFixture<AppFactory>
     {
         var response = await client.PostAsJsonAsync("/api/media-items", new CreateMediaItemRequest
         {
-            Title  = $"Item_{Guid.NewGuid():N}",
-            Type   = MediaType.Anime,
+            Title = $"Item_{Guid.NewGuid():N}",
+            Type = MediaType.Anime,
             Status = MediaTrackingStatus.Planned,
         });
         response.EnsureSuccessStatusCode();
@@ -89,8 +89,8 @@ public class UserIsolationTests(AppFactory factory) : IClassFixture<AppFactory>
 
         var response = await client.PutAsJsonAsync($"/api/media-items/{itemId}", new UpdateMediaItemRequest
         {
-            Title  = "Título actualizado",
-            Type   = MediaType.Anime,
+            Title = "Título actualizado",
+            Type = MediaType.Anime,
             Status = MediaTrackingStatus.InProgress,
         });
 
@@ -107,8 +107,8 @@ public class UserIsolationTests(AppFactory factory) : IClassFixture<AppFactory>
 
         var response = await clientB.PutAsJsonAsync($"/api/media-items/{itemIdOfA}", new UpdateMediaItemRequest
         {
-            Title  = "Intento de hackeo",
-            Type   = MediaType.Anime,
+            Title = "Intento de hackeo",
+            Type = MediaType.Anime,
             Status = MediaTrackingStatus.Completed,
         });
 

@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
 using TrackerMultimedia.Contracts.Auth;
 using TrackerMultimedia.Tests.Helpers;
@@ -16,7 +16,7 @@ public class LoginTests(AppFactory factory) : IClassFixture<AppFactory>
 
         var response = await _client.PostAsJsonAsync("/api/auth/login", new
         {
-            email    = user.Email,
+            email = user.Email,
             password = AuthHelpers.DefaultPassword,
         });
 
@@ -38,7 +38,7 @@ public class LoginTests(AppFactory factory) : IClassFixture<AppFactory>
 
         var response = await _client.PostAsJsonAsync("/api/auth/login", new
         {
-            email    = user.Email,
+            email = user.Email,
             password = "ContrasenaIncorrecta99!",
         });
 
@@ -50,7 +50,7 @@ public class LoginTests(AppFactory factory) : IClassFixture<AppFactory>
     {
         var response = await _client.PostAsJsonAsync("/api/auth/login", new
         {
-            email    = "nobody@nowhere.com",
+            email = "nobody@nowhere.com",
             password = "Test1234!",
         });
 
@@ -77,14 +77,14 @@ public class LoginTests(AppFactory factory) : IClassFixture<AppFactory>
         var existingUser = await AuthHelpers.CreateConfirmedUserAsync(factory.Services);
         var wrongPassword = await _client.PostAsJsonAsync("/api/auth/login", new
         {
-            email    = existingUser.Email,
+            email = existingUser.Email,
             password = "ContrasenaIncorrecta99!",
         });
 
         // Cuenta inexistente
         var unknownEmail = await _client.PostAsJsonAsync("/api/auth/login", new
         {
-            email    = $"nadie_{Guid.NewGuid():N}@test.com",
+            email = $"nadie_{Guid.NewGuid():N}@test.com",
             password = "Test1234!",
         });
 
@@ -115,7 +115,7 @@ public class LoginTests(AppFactory factory) : IClassFixture<AppFactory>
         // Login con email en mayúsculas
         var response = await _client.PostAsJsonAsync("/api/auth/login", new
         {
-            email    = email.ToUpperInvariant(),
+            email = email.ToUpperInvariant(),
             password = AuthHelpers.DefaultPassword,
         });
 

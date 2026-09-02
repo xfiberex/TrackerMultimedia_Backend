@@ -128,7 +128,7 @@ public class MangaDexSearchService(HttpClient httpClient) : IExternalCatalogProv
         // Specific type searches override language inference.
         if (searchType == MediaSearchType.Manhwa) return (MediaType.Manhwa, ExternalMediaKind.Manga);
         if (searchType == MediaSearchType.Manhua) return (MediaType.Manhua, ExternalMediaKind.Manga);
-        if (searchType == MediaSearchType.Manga)  return (MediaType.Manga,  ExternalMediaKind.Manga);
+        if (searchType == MediaSearchType.Manga) return (MediaType.Manga, ExternalMediaKind.Manga);
 
         // "All" mode: infer from originalLanguage.
         return (originalLanguage?.ToLowerInvariant()) switch

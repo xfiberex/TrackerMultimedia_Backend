@@ -70,7 +70,7 @@ public static class AuthHelpers
         var user = await userManager.FindByEmailAsync(email)
             ?? throw new InvalidOperationException($"Usuario {email} no encontrado.");
 
-        var token  = await userManager.GenerateEmailConfirmationTokenAsync(user);
+        var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
         var result = await userManager.ConfirmEmailAsync(user, token);
 
         if (!result.Succeeded)

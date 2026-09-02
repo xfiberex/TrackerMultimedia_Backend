@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using TrackerMultimedia.Contracts.Common;
 using TrackerMultimedia.Contracts.Formats;
 using TrackerMultimedia.Data;

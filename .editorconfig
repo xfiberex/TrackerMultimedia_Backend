@@ -1,0 +1,32 @@
+# Estilo del repositorio. Lo leen Visual Studio, VS Code, Rider y `dotnet format`,
+# así que el editor deja de imponer sus valores por defecto al guardar.
+#
+# Se añadió al cerrar T3-15: `ApplicationDbContext` mezclaba tabuladores y espacios
+# dentro del mismo bloque y `OAuthController` tenía sangrías descuadradas. Sin un
+# archivo que lo fije, eso vuelve en cuanto alguien abre el proyecto en otro editor.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{json,yml,yaml,md}]
+indent_size = 2
+
+[*.md]
+# En Markdown, dos espacios al final son un salto de línea, no basura.
+trim_trailing_whitespace = false
+
+[*.cs]
+indent_size = 4
+csharp_new_line_before_open_brace = all
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+dotnet_sort_system_directives_first = true
+csharp_using_directive_placement = outside_namespace:suggestion
+csharp_style_namespace_declarations = file_scoped:suggestion
+csharp_prefer_braces = when_multiline:suggestion

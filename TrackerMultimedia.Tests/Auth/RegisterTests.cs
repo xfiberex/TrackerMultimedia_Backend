@@ -17,7 +17,7 @@ public class RegisterTests(AppFactory factory) : IClassFixture<AppFactory>
         var response = await _client.PostAsJsonAsync("/api/auth/register", new
         {
             email,
-            password    = "Test1234!",
+            password = "Test1234!",
             displayName = "Test User",
         });
 
@@ -73,7 +73,7 @@ public class RegisterTests(AppFactory factory) : IClassFixture<AppFactory>
     {
         var response = await _client.PostAsJsonAsync("/api/auth/register", new
         {
-            email    = $"weak_{Guid.NewGuid():N}@test.com",
+            email = $"weak_{Guid.NewGuid():N}@test.com",
             password = "Ab1",  // < 8 chars
         });
 
@@ -85,7 +85,7 @@ public class RegisterTests(AppFactory factory) : IClassFixture<AppFactory>
     {
         var response = await _client.PostAsJsonAsync("/api/auth/register", new
         {
-            email    = $"nodigit_{Guid.NewGuid():N}@test.com",
+            email = $"nodigit_{Guid.NewGuid():N}@test.com",
             password = "sindigito", // sin número
         });
 
@@ -97,7 +97,7 @@ public class RegisterTests(AppFactory factory) : IClassFixture<AppFactory>
     {
         var response = await _client.PostAsJsonAsync("/api/auth/register", new
         {
-            email    = "esto-no-es-un-email",
+            email = "esto-no-es-un-email",
             password = "Test1234!",
         });
 

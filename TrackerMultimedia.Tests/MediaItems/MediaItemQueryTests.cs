@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using TrackerMultimedia.Contracts.Categories;
 using TrackerMultimedia.Contracts.MediaItems;
 using TrackerMultimedia.Domain.Enums;

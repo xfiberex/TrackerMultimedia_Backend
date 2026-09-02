@@ -1,5 +1,3 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using System.Web;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -10,6 +8,7 @@ using Microsoft.Extensions.Options;
 using TrackerMultimedia.Contracts.Auth;
 using TrackerMultimedia.Data;
 using TrackerMultimedia.Domain.Entities;
+using TrackerMultimedia.Infrastructure.Http;
 using TrackerMultimedia.Infrastructure.Options;
 using TrackerMultimedia.Services;
 
@@ -263,8 +262,7 @@ public class AuthController(
     [Authorize]
     public async Task<IActionResult> LogoutAll(CancellationToken cancellationToken)
     {
-        var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        if (userId is null || !Guid.TryParse(userId, out var parsedId))
+        if (!User.TryGetUserId(out var parsedId))
             return Unauthorized();
 
         var revoked = await dbContext.RefreshTokens
@@ -283,12 +281,10 @@ public class AuthController(
     [Authorize]
     public async Task<ActionResult<UserResponse>> Me(CancellationToken cancellationToken)
     {
-        var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-
-        if (userId is null || !Guid.TryParse(userId, out var parsedUserId))
+        if (!User.TryGetUserId(out var parsedUserId))
             return Unauthorized();
 
-        var user = await userManager.FindByIdAsync(userId);
+        var user = await userManager.FindByIdAsync(parsedUserId.ToString());
         if (user is null) return Unauthorized();
 
         var linkedProviders = await sessionService.GetLinkedProvidersAsync(parsedUserId, cancellationToken);
@@ -305,10 +301,9 @@ public class AuthController(
         [FromBody] ChangePasswordRequest request,
         CancellationToken cancellationToken)
     {
-        var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        if (userId is null) return Unauthorized();
+        if (!User.TryGetUserId(out var userId)) return Unauthorized();
 
-        var user = await userManager.FindByIdAsync(userId);
+        var user = await userManager.FindByIdAsync(userId.ToString());
         if (user is null) return Unauthorized();
 
         var result = await userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
@@ -334,11 +329,10 @@ public class AuthController(
         [FromBody] UpdateProfileRequest request,
         CancellationToken cancellationToken)
     {
-        var userId = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-        if (userId is null || !Guid.TryParse(userId, out var parsedUserId))
+        if (!User.TryGetUserId(out var parsedUserId))
             return Unauthorized();
 
-        var user = await userManager.FindByIdAsync(userId);
+        var user = await userManager.FindByIdAsync(parsedUserId.ToString());
         if (user is null) return Unauthorized();
 
         if (!string.IsNullOrWhiteSpace(request.DisplayName))

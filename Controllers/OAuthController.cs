@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -342,7 +342,7 @@ public class OAuthController(
     private static string BuildSuccessRedirect(string frontendBase, string? returnPath, AuthResponse session)
     {
         var target = string.IsNullOrEmpty(returnPath) ? "/library" : returnPath;
-         var user = Uri.EscapeDataString(JsonSerializer.Serialize(session.User));
+        var user = Uri.EscapeDataString(JsonSerializer.Serialize(session.User));
 
         return $"{frontendBase}/oauth-callback" +
                $"#access_token={Uri.EscapeDataString(session.AccessToken)}" +

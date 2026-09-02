@@ -72,7 +72,7 @@ public class CategoryCrudTests(AppFactory factory) : IClassFixture<AppFactory>
     public async Task Delete_Category_RemovesItemAssignments()
     {
         var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
-        var category = await CategoryTestHelpers.CreateCategoryAsync(client, request => request.Name = "Library" );
+        var category = await CategoryTestHelpers.CreateCategoryAsync(client, request => request.Name = "Library");
 
         var item = await MediaItemTestHelpers.CreateMediaItemAsync(client, request =>
         {

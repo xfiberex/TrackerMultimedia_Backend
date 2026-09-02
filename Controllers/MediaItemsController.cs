@@ -1,11 +1,10 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using TrackerMultimedia.Contracts.Common;
 using TrackerMultimedia.Contracts.MediaItems;
+using TrackerMultimedia.Infrastructure.Http;
 using TrackerMultimedia.Services;
 
 namespace TrackerMultimedia.Controllers;
@@ -19,26 +18,19 @@ public class MediaItemsController(MediaItemsService mediaItemsService) : Control
     /// <summary>
     /// Extrae el UserId del JWT. Lanza si el claim no existe (no debería ocurrir con [Authorize]).
     /// </summary>
-    private Guid GetUserId()
-    {
-        var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
-            ?? throw new InvalidOperationException("El claim 'sub' no está presente en el token.");
-        return Guid.Parse(sub);
-    }
-
     [HttpGet]
     public async Task<ActionResult<PagedResponse<MediaItemResponse>>> GetAll(
         [FromQuery] GetMediaItemsRequest request,
         CancellationToken cancellationToken)
     {
-        var response = await mediaItemsService.GetAllAsync(request, GetUserId(), cancellationToken);
+        var response = await mediaItemsService.GetAllAsync(request, User.GetUserId(), cancellationToken);
         return Ok(response);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<MediaItemResponse>> GetById(Guid id, CancellationToken cancellationToken)
     {
-        var item = await mediaItemsService.GetByIdAsync(id, GetUserId(), cancellationToken);
+        var item = await mediaItemsService.GetByIdAsync(id, User.GetUserId(), cancellationToken);
         return item is null ? NotFound() : Ok(item);
     }
 
@@ -47,7 +39,7 @@ public class MediaItemsController(MediaItemsService mediaItemsService) : Control
         [FromQuery] LibraryTransferFormat format,
         CancellationToken cancellationToken)
     {
-        var export = await mediaItemsService.ExportAsync(format, GetUserId(), cancellationToken);
+        var export = await mediaItemsService.ExportAsync(format, User.GetUserId(), cancellationToken);
         return File(export.Content, export.ContentType, export.FileName);
     }
 
@@ -73,7 +65,7 @@ public class MediaItemsController(MediaItemsService mediaItemsService) : Control
         }
 
         await using var stream = file.OpenReadStream();
-        var result = await mediaItemsService.ImportAsync(stream, format, GetUserId(), cancellationToken);
+        var result = await mediaItemsService.ImportAsync(stream, format, User.GetUserId(), cancellationToken);
 
         if (!result.IsSuccess)
         {
@@ -89,7 +81,7 @@ public class MediaItemsController(MediaItemsService mediaItemsService) : Control
         [FromBody] CreateMediaItemRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await mediaItemsService.CreateAsync(request, GetUserId(), cancellationToken);
+        var result = await mediaItemsService.CreateAsync(request, User.GetUserId(), cancellationToken);
         if (!result.IsSuccess)
         {
             ModelState.AddModelError(result.ErrorField!, result.ErrorMessage!);
@@ -105,7 +97,7 @@ public class MediaItemsController(MediaItemsService mediaItemsService) : Control
         [FromBody] UpdateMediaItemRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await mediaItemsService.UpdateAsync(id, request, GetUserId(), cancellationToken);
+        var result = await mediaItemsService.UpdateAsync(id, request, User.GetUserId(), cancellationToken);
         if (!result.IsSuccess)
         {
             if (result.ErrorField == "id")
@@ -121,7 +113,7 @@ public class MediaItemsController(MediaItemsService mediaItemsService) : Control
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        var deleted = await mediaItemsService.DeleteAsync(id, GetUserId(), cancellationToken);
+        var deleted = await mediaItemsService.DeleteAsync(id, User.GetUserId(), cancellationToken);
         return deleted ? NoContent() : NotFound();
     }
 }
