@@ -148,118 +148,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             totalPages);
     }
 
-    public async Task<MediaItemsStatsResponse> GetStatsAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        var baseQuery = dbContext.MediaItems
-            .AsNoTracking()
-            .Where(item => item.UserId == userId);
-
-        var now = DateTime.UtcNow;
-        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var nextMonthStart = monthStart.AddMonths(1);
-
-        var totalCount = await baseQuery.CountAsync(cancellationToken);
-
-        var statusCounts = await baseQuery
-            .GroupBy(item => item.Status)
-            .Select(group => new { Status = group.Key, Count = group.Count() })
-            .ToDictionaryAsync(group => group.Status, group => group.Count, cancellationToken);
-
-        var startedThisMonthCount = await baseQuery
-            .CountAsync(
-                item => item.StartedAtUtc.HasValue &&
-                    item.StartedAtUtc.Value >= monthStart &&
-                    item.StartedAtUtc.Value < nextMonthStart,
-                cancellationToken);
-
-        var completedThisMonthCount = await baseQuery
-            .CountAsync(
-                item => item.CompletedAtUtc.HasValue &&
-                    item.CompletedAtUtc.Value >= monthStart &&
-                    item.CompletedAtUtc.Value < nextMonthStart,
-                cancellationToken);
-
-        var backlogWithoutStartCount = await baseQuery
-            .CountAsync(
-                item => item.Status == MediaTrackingStatus.Planned && !item.StartedAtUtc.HasValue,
-                cancellationToken);
-
-        var scoredItems = await baseQuery
-            .Where(item => item.PersonalScore.HasValue)
-            .Select(item => item.PersonalScore!.Value)
-            .ToListAsync(cancellationToken);
-
-        var contentKindBreakdown = await baseQuery
-            .GroupBy(item => item.ContentKind)
-            .Select(group => new { ContentKind = group.Key, Count = group.Count() })
-            .ToListAsync(cancellationToken);
-
-        var sourceBreakdown = await baseQuery
-            .GroupBy(item => item.SourceType)
-            .Select(group => new { SourceType = group.Key, Count = group.Count() })
-            .ToListAsync(cancellationToken);
-
-        var categoryBreakdown = await dbContext.MediaItemCategories
-            .AsNoTracking()
-            .Where(link => link.MediaItem.UserId == userId)
-            .GroupBy(link => new { link.UserCategoryId, link.UserCategory.Name, link.UserCategory.Color })
-            .Select(group => new
-            {
-                group.Key.UserCategoryId,
-                group.Key.Name,
-                group.Key.Color,
-                Count = group.Count()
-            })
-            .ToListAsync(cancellationToken);
-
-        var averageScoreByContentKind = await baseQuery
-            .Where(item => item.PersonalScore.HasValue)
-            .GroupBy(item => item.ContentKind)
-            .Select(group => new
-            {
-                ContentKind = group.Key,
-                AveragePersonalScore = group.Average(item => item.PersonalScore!.Value),
-                ScoredItemsCount = group.Count()
-            })
-            .ToListAsync(cancellationToken);
-
-        return new MediaItemsStatsResponse(
-            totalCount,
-            GetStatusCount(statusCounts, MediaTrackingStatus.Planned),
-            GetStatusCount(statusCounts, MediaTrackingStatus.InProgress),
-            GetStatusCount(statusCounts, MediaTrackingStatus.Completed),
-            GetStatusCount(statusCounts, MediaTrackingStatus.OnHold),
-            GetStatusCount(statusCounts, MediaTrackingStatus.Dropped),
-            startedThisMonthCount,
-            completedThisMonthCount,
-            backlogWithoutStartCount,
-            scoredItems.Count == 0 ? null : Math.Round(scoredItems.Average(), 1),
-            scoredItems.Count,
-            contentKindBreakdown
-                .Select(item => new ContentKindStatResponse(item.ContentKind, item.Count))
-                .OrderByDescending(item => item.Count)
-                .ThenBy(item => item.ContentKind)
-                .ToList(),
-            sourceBreakdown
-                .Select(item => new MediaSourceStatResponse(item.SourceType, item.Count))
-                .OrderByDescending(item => item.Count)
-                .ThenBy(item => item.SourceType)
-                .ToList(),
-            categoryBreakdown
-                .Select(item => new CategoryStatResponse(item.UserCategoryId, item.Name, item.Color, item.Count))
-                .OrderByDescending(item => item.Count)
-                .ThenBy(item => item.CategoryName)
-                .ToList(),
-            averageScoreByContentKind
-                .Select(item => new ContentKindAverageScoreStatResponse(
-                    item.ContentKind,
-                    Math.Round(item.AveragePersonalScore, 1),
-                    item.ScoredItemsCount))
-                .OrderByDescending(item => item.AveragePersonalScore)
-                .ThenBy(item => item.ContentKind)
-                .ToList());
-    }
-
     public async Task<MediaItemResponse?> GetByIdAsync(Guid id, Guid userId, CancellationToken cancellationToken)
     {
         var item = await dbContext.MediaItems
@@ -1512,11 +1400,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
                 .ThenBy(item => item.Title),
         };
     }
-
-    private static int GetStatusCount(
-        IReadOnlyDictionary<MediaTrackingStatus, int> statusCounts,
-        MediaTrackingStatus targetStatus)
-        => statusCounts.TryGetValue(targetStatus, out var count) ? count : 0;
 
     private static MediaItemResponse ToResponse(MediaItem item) => new(
         item.Id,

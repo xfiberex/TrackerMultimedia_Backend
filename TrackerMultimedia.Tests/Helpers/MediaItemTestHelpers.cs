@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -65,12 +65,6 @@ public static class MediaItemTestHelpers
     {
         var response = await client.GetFromJsonAsync<MediaItemResponse>($"/api/media-items/{itemId}", JsonOpts);
         return response ?? throw new InvalidOperationException("No se pudo deserializar MediaItemResponse.");
-    }
-
-    public static async Task<MediaItemsStatsResponse> GetStatsAsync(HttpClient client)
-    {
-        var response = await client.GetFromJsonAsync<MediaItemsStatsResponse>("/api/media-items/stats", JsonOpts);
-        return response ?? throw new InvalidOperationException("No se pudo deserializar las estadísticas.");
     }
 
     public static async Task SetCreatedAtUtcAsync(AppFactory factory, Guid itemId, DateTime createdAtUtc)

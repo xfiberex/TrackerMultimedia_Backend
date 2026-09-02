@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using TrackerMultimedia.Contracts.Auth;
@@ -17,7 +17,6 @@ public class AuthorizationTests(AppFactory factory) : IClassFixture<AppFactory>
 
     [Theory]
     [InlineData("GET",  "/api/media-items")]
-    [InlineData("GET",  "/api/media-items/stats")]
     [InlineData("GET",  "/api/auth/me")]
     [InlineData("POST", "/api/auth/logout-all")]
     public async Task ProtectedEndpoints_WithoutToken_Return401(string method, string url)

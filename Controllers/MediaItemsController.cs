@@ -35,13 +35,6 @@ public class MediaItemsController(MediaItemsService mediaItemsService) : Control
         return Ok(response);
     }
 
-    [HttpGet("stats")]
-    public async Task<ActionResult<MediaItemsStatsResponse>> GetStats(CancellationToken cancellationToken)
-    {
-        var stats = await mediaItemsService.GetStatsAsync(GetUserId(), cancellationToken);
-        return Ok(stats);
-    }
-
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<MediaItemResponse>> GetById(Guid id, CancellationToken cancellationToken)
     {
