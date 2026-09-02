@@ -7,10 +7,6 @@ appsettings.*.local.json
 secrets.json
 appsettings.json
 
-# Contraseña de la base local que lee docker-compose.yml.
-.env
-.env.local
-
 # ── Claves y certificados ─────────────────────────────────────────────────────
 *.pfx
 *.pem

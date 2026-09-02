@@ -5,8 +5,8 @@ ASP.NET Core 10 Web API con autenticación JWT, correo SMTP y OAuth (Google / Gi
 ## Requisitos
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Docker](https://www.docker.com/products/docker-desktop/) — la base de datos corre en un
-  contenedor; **no hace falta instalar PostgreSQL en la máquina**
+- [PostgreSQL](https://www.postgresql.org/) 17, instalado en la máquina y escuchando en el
+  **puerto 5433**
 - [`dotnet-ef` tools](https://learn.microsoft.com/en-us/ef/core/cli/dotnet): `dotnet tool install --global dotnet-ef`
 
 ---
@@ -43,8 +43,8 @@ expande cualquier cosa que empiece por `$` y te deja la clave vacía sin avisar.
 
 ```powershell
 # ── Base de datos ────────────────────────────────────────────────────────────
-# Puerto 5433 y nombre "trackerMultimedia": es lo que define docker-compose.yml.
-# La contraseña es la que pusiste en .env.
+# El servicio local escucha en el 5433, no en el 5432 por defecto.
+# La contraseña es la del rol `postgres` de tu instalación.
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" 'Host=localhost;Port=5433;Database=trackerMultimedia;Username=postgres;Password=<la-de-tu-.env>;'
 
 # ── JWT ──────────────────────────────────────────────────────────────────────
@@ -124,10 +124,9 @@ Remove-Variable bytes
 ```
 
 ```powershell
-# Contraseña de PostgreSQL local: cámbiala en .env, recrea el contenedor
-# y actualiza la cadena de conexión. Los datos locales se pierden.
-docker compose down -v
-docker compose up -d
+# Contraseña de PostgreSQL local: cámbiala primero en el propio servidor
+#   psql -U postgres -p 5433 -c "ALTER ROLE postgres WITH PASSWORD '<nueva>';"
+# y después actualiza la cadena de conexión.
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" 'Host=localhost;Port=5433;Database=trackerMultimedia;Username=postgres;Password=<nueva>;'
 ```
 
@@ -166,33 +165,29 @@ falta ocultarlos; no requieren rotación.
 
 ## Base de datos
 
-### PostgreSQL local con Docker
+### PostgreSQL local
 
-La base de desarrollo se levanta con `docker-compose.yml`, que está en la raíz de este
-repositorio. La contraseña la lee de `.env`, que **no** se versiona: copia `.env.example`
-a `.env` y pon una propia antes del primer arranque.
+La base de datos es una instalación de **PostgreSQL 17 en la propia máquina**, escuchando en
+el **puerto 5433** (no el 5432 por defecto). En Windows aparece como el servicio
+`postgresql-x64-17`; con el arranque en *Manual* hay que iniciarlo antes de levantar el
+backend.
 
-```bash
-cp .env.example .env         # y rellena POSTGRES_PASSWORD
-docker compose up -d         # levanta PostgreSQL en localhost:5433
-docker compose ps            # debe decir "healthy"
-```
-
-Después, la cadena de conexión va a los secretos, nunca a un archivo del repositorio:
+Crear la base una sola vez:
 
 ```powershell
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" 'Host=localhost;Port=5433;Database=trackerMultimedia;Username=postgres;Password=<la-de-tu-.env>;'
+psql -U postgres -p 5433 -c "CREATE DATABASE \"trackerMultimedia\";"
 ```
 
-Detalles que importan:
+El nombre lleva mayúscula intercalada, así que **va siempre entre comillas dobles en SQL**:
+PostgreSQL pasa a minúsculas cualquier identificador sin comillas, y `CREATE DATABASE
+trackerMultimedia` crearía `trackermultimedia`, que no es la que espera la cadena de
+conexión.
 
-- **El puerto es 5433, no 5432**, para no chocar con un PostgreSQL instalado nativamente.
-- El contenedor **solo escucha en `127.0.0.1`**: no queda expuesto a la red local.
-- Los datos viven en un volumen con nombre (`trackermultimedia-postgres-data`), así que
-  `docker compose down` los conserva. Para empezar de cero: `docker compose down -v`.
-- La imagen está fijada a **`postgres:17-alpine`**. *Pendiente de verificación:* si Neon
-  usa otra versión mayor, conviene igualarla aquí para que el entorno local reproduzca
-  producción.
+Después, esa cadena va a los secretos, nunca a un archivo del repositorio:
+
+```powershell
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" 'Host=localhost;Port=5433;Database=trackerMultimedia;Username=postgres;Password=<la-de-tu-postgres>;'
+```
 
 ### Migraciones
 
@@ -221,13 +216,25 @@ dotnet ef migrations list
 
 ### Comprobar que el esquema es correcto desde cero
 
-La forma segura de validar una migración es levantar una base vacía y aplicarlas todas,
-que es justo lo que Docker hace fácil:
+La forma segura de validar una migración es partir de una base vacía y aplicarlas todas.
+**No es opcional tras tocar el modelo o una migración:** es lo único que detecta una
+migración que no se ejecuta, porque las pruebas usan SQLite con `EnsureCreated()` y se
+saltan las migraciones por completo. Así apareció el fallo de `UserFormatId`.
 
-```bash
-docker compose down -v && docker compose up -d
+```powershell
+dotnet ef database drop --force    # ⚠️ BORRA la base local y todos sus datos
 dotnet ef database update
-dotnet ef migrations list      # las aplicadas salen sin la marca (Pending)
+dotnet ef migrations list          # las aplicadas salen sin la marca (Pending)
+```
+
+`database drop` se lleva por delante lo que tengas en local. Si estás usando la aplicación
+de verdad y no quieres perderlo, haz la comprobación sobre una base aparte:
+
+```powershell
+psql -U postgres -p 5433 -c "CREATE DATABASE \"trackerMultimedia_check\";"
+$env:ConnectionStrings__DefaultConnection = 'Host=localhost;Port=5433;Database=trackerMultimedia_check;Username=postgres;Password=<la-tuya>;'
+dotnet ef database update
+psql -U postgres -p 5433 -c "DROP DATABASE \"trackerMultimedia_check\";"
 ```
 
 ---
