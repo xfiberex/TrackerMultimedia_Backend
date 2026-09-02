@@ -17,6 +17,14 @@ secrets.json
 bin/
 obj/
 
+# Salidas de `dotnet publish` que se dejaron caer dentro del repositorio.
+# Son 68 MB de DLL reconstruibles: nunca deben volver a versionarse.
+artifacts/
+
+# Caché de Visual Studio. Incluye DocumentLayout.json, que guarda rutas
+# absolutas de la máquina donde se abrió la solución.
+.vs/
+
 # ── Testing local / reports ───────────────────────────────────────────────────
 # Los tests se versionan como código fuente; sus resultados y coberturas, no.
 TestResults/
