@@ -125,6 +125,18 @@ builder.Services.AddScoped<AuthSessionService>();
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
+// ── Purga de datos caducados ─────────────────────────────────────────────────
+builder.Services.Configure<CleanupOptions>(builder.Configuration.GetSection(CleanupOptions.SectionName));
+builder.Services.AddScoped<IExpiredDataCleaner, ExpiredDataCleaner>();
+
+var cleanupConfig = builder.Configuration.GetSection(CleanupOptions.SectionName).Get<CleanupOptions>() ?? new CleanupOptions();
+if (cleanupConfig.Enabled)
+{
+    // El servicio en segundo plano se registra solo si está habilitado, para que
+    // los tests no arrastren un temporizador de fondo en cada arranque del host.
+    builder.Services.AddHostedService<ExpiredDataCleanupService>();
+}
+
 // ── OAuth providers ───────────────────────────────────────────────────────────
 builder.Services.Configure<OAuthOptions>(builder.Configuration.GetSection(OAuthOptions.SectionName));
 // Los servicios de Google y GitHub se registran solo si están habilitados en configuración.

@@ -214,6 +214,32 @@ dotnet ef migrations list
 > migraciones con `dotnet ef migrations add`**, nunca copiando un archivo a mano, y
 > comprueba con `migrations list` que la nueva aparece.
 
+### Retención de datos
+
+Dos tablas crecen solas con el uso y se purgan en segundo plano, cada
+`Cleanup:IntervalHours` (6 h por defecto) y también al arrancar:
+
+| Tabla | Se borra cuando | Por defecto |
+|---|---|---|
+| `RefreshTokens` | lleva caducado más de `Cleanup:RefreshTokenRetentionDays` | 7 días |
+| `OAuthStates` | lleva caducado más de `Cleanup:OAuthStateRetentionDays` | 1 día |
+
+Dos matices que explican los plazos:
+
+- **Un token de refresco caducado ya se rechaza al usarse**, así que conservarlo
+  no aporta nada funcionalmente. Los 7 días son un margen por si se añade
+  detección de reutilización de tokens, que necesita ver el token revocado para
+  distinguir «token robado y reusado» de «token desconocido».
+- **`OAuthStates` guarda el email y el nombre del perfil externo.** Su vida útil
+  real son los diez minutos que dura el flujo de autorización, de ahí que la
+  retención sea mucho más corta: es dato personal que no hay motivo para guardar.
+
+`Cleanup:Enabled=false` desactiva la purga por completo. Es lo que hacen los
+tests, que ejecutan `IExpiredDataCleaner` a mano en lugar de esperar al
+temporizador.
+
+---
+
 ### Comprobar que el esquema es correcto desde cero
 
 La forma segura de validar una migración es partir de una base vacía y aplicarlas todas.

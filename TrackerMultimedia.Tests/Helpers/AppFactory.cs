@@ -90,6 +90,9 @@ public sealed class AppFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 // Deshabilitar OAuth para no registrar HttpClients externos
                 ["OAuth:Google:Enabled"]            = "false",
                 ["OAuth:GitHub:Enabled"]            = "false",
+                // Sin temporizador de purga en los tests: se ejecuta a mano
+                // resolviendo IExpiredDataCleaner cuando hace falta comprobarla.
+                ["Cleanup:Enabled"]                 = "false",
                 // SMTP vacío (el servicio se reemplaza por no-op)
                 ["Smtp:Host"]                       = "localhost",
                 ["Smtp:FromAddress"]                = "noreply@test.local",
