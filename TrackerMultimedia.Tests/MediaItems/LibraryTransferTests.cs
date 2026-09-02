@@ -148,6 +148,44 @@ public class LibraryTransferTests(AppFactory factory) : IClassFixture<AppFactory
         Assert.Equal("Backlog", importedItem.Categories!.Single().Name);
     }
 
+    [Fact]
+    public async Task ExportCsv_NeutralisesCellsThatSpreadsheetsWouldEvaluate()
+    {
+        // Un solo test en lugar de un [Theory] con cuatro casos: la conexión
+        // SQLite que comparte AppFactory no es segura entre hilos, y xUnit
+        // ejecutaba los casos en paralelo hasta corromper su estado interno.
+        string[] titulosPeligrosos =
+        [
+            "=1+1",
+            "+cmd|'/c calc'!A1",
+            "-2+3",
+            "@SUM(A1:A9)",
+        ];
+
+        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
+
+        foreach (var titulo in titulosPeligrosos)
+        {
+            await MediaItemTestHelpers.CreateMediaItemAsync(client, request => request.Title = titulo);
+        }
+
+        var export = await ExportLibraryAsync(client, LibraryTransferFormat.Csv);
+        var csv = System.Text.Encoding.UTF8.GetString(export.Content);
+
+        foreach (var titulo in titulosPeligrosos)
+        {
+            // Excel, LibreOffice y Google Sheets evalúan como fórmula toda celda
+            // que empiece por =, +, - o @: un título así se ejecutaría al abrir el
+            // archivo. El apóstrofo delante la marca como texto y no se muestra.
+            var linea = csv.Split('\n')
+                .First(l => l.Contains(titulo, StringComparison.Ordinal));
+
+            // Title es la segunda columna, así que va precedida de ";".
+            Assert.DoesNotContain(";" + titulo, linea, StringComparison.Ordinal);
+            Assert.Contains(";'" + titulo, linea, StringComparison.Ordinal);
+        }
+    }
+
     private static async Task<(byte[] Content, string ContentType, string FileName)> ExportLibraryAsync(
         HttpClient client,
         LibraryTransferFormat format)

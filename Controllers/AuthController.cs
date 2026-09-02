@@ -39,6 +39,13 @@ public class AuthController(
     /// cuenta inexistente, correo sin confirmar y bloqueo temporal sin distinguirlos:
     /// cualquier diferencia entre esos casos revela si una dirección tiene cuenta.
     /// </summary>
+    /// <summary>
+    /// Igual que en login: una sola respuesta para todos los motivos. Distinguir
+    /// «token desconocido» de «token caducado» o de «cuenta bloqueada» le diría a
+    /// quien tenga un token robado en qué estado está la cuenta.
+    /// </summary>
+    private const string RefreshFailureMessage = "Sesión no válida. Vuelve a iniciar sesión.";
+
     private const string LoginFailureMessage =
         "No se pudo iniciar sesión. Comprueba el correo y la contraseña, confirma tu cuenta " +
         "si acabas de registrarte, o espera unos minutos si has fallado varias veces.";
@@ -167,10 +174,49 @@ public class AuthController(
             .Include(rt => rt.User)
             .FirstOrDefaultAsync(rt => rt.TokenHash == tokenHash, cancellationToken);
 
-        if (storedToken is null || storedToken.IsRevoked || storedToken.ExpiresAtUtc < DateTime.UtcNow)
+        if (storedToken is null)
         {
-            logger.LogWarning("Refresh token inválido o expirado. Hash: {Hash}", tokenHash[..8]);
-            return Unauthorized("Refresh token inválido o expirado.");
+            logger.LogWarning("Refresh rechazado: token desconocido.");
+            return Unauthorized(RefreshFailureMessage);
+        }
+
+        // Detección de reutilización. Los tokens rotan: al usar uno se revoca en el
+        // acto, así que presentar uno ya revocado significa que existen dos copias
+        // del mismo token y una de ellas no está en manos del usuario legítimo. No
+        // se puede saber cuál, así que se cierran todas las sesiones y quien de
+        // verdad sea el dueño vuelve a entrar con su contraseña.
+        if (storedToken.IsRevoked)
+        {
+            var revokedCount = await dbContext.RefreshTokens
+                .Where(rt => rt.UserId == storedToken.UserId && !rt.IsRevoked)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(rt => rt.IsRevoked, true), cancellationToken);
+
+            logger.LogWarning(
+                "Reutilización de token de refresco detectada para el usuario {UserId}. " +
+                "Se han revocado {Count} sesión(es) activa(s).",
+                storedToken.UserId,
+                revokedCount);
+
+            return Unauthorized(RefreshFailureMessage);
+        }
+
+        if (storedToken.ExpiresAtUtc < DateTime.UtcNow)
+        {
+            logger.LogInformation("Refresh rechazado: token caducado para el usuario {UserId}.", storedToken.UserId);
+            return Unauthorized(RefreshFailureMessage);
+        }
+
+        // El estado de la cuenta se comprueba también aquí. Sin esto, bloquear a un
+        // usuario o revocarle la confirmación del correo no tenía efecto hasta que
+        // caducase su token de refresco: podía seguir renovando la sesión durante días.
+        if (await userManager.IsLockedOutAsync(storedToken.User) || !storedToken.User.EmailConfirmed)
+        {
+            storedToken.IsRevoked = true;
+            await dbContext.SaveChangesAsync(cancellationToken);
+            logger.LogWarning(
+                "Refresh rechazado por estado de la cuenta {UserId} (bloqueada o correo sin confirmar).",
+                storedToken.UserId);
+            return Unauthorized(RefreshFailureMessage);
         }
 
         // Rotación: invalidar el token usado y emitir uno nuevo

@@ -722,8 +722,23 @@ public class MediaItemsService(ApplicationDbContext dbContext)
     private static string BuildTransferFileName(string extension)
         => $"tracker-library-{DateTime.UtcNow:yyyyMMdd-HHmmss}.{extension}";
 
+    /// <summary>
+    /// Caracteres con los que Excel, LibreOffice y Google Sheets interpretan una
+    /// celda como fórmula. Un título como <c>=cmd|'/c calc'!A1</c> se ejecuta al
+    /// abrir el archivo, así que exportar la biblioteca se convierte en un vector
+    /// de ataque contra quien abra el CSV.
+    /// </summary>
+    private static readonly char[] CsvFormulaTriggers = ['=', '+', '-', '@', '\t', '\r'];
+
     private static string EscapeCsvCell(string value)
     {
+        // Prefijo de apóstrofo: la hoja de cálculo lo trata como marca de texto
+        // literal, no lo muestra en la celda y no evalúa el contenido.
+        if (value.Length > 0 && Array.IndexOf(CsvFormulaTriggers, value[0]) >= 0)
+        {
+            value = "'" + value;
+        }
+
         if (value.IndexOfAny([';', '"', '\r', '\n']) < 0)
             return value;
 

@@ -163,7 +163,18 @@ public class OAuthControllerTests
 
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var linkState = dbContext.OAuthStates.Single(s => s.StateValue == "state-link");
+
+        // El state original queda consumido y así se queda. Antes se resucitaba
+        // poniéndole IsUsed=false y ampliando su caducidad, con lo que el mismo
+        // valor de state seguía sirviendo para un segundo callback durante 15
+        // minutos más, en contra del "solo se consume una vez" del propio modelo.
+        var stateOriginal = dbContext.OAuthStates.Single(s => s.StateValue == "state-link");
+        Assert.True(stateOriginal.IsUsed);
+        Assert.Null(stateOriginal.LinkToken);
+
+        // La vinculación pendiente vive en una fila aparte.
+        var linkState = dbContext.OAuthStates.Single(s => s.LinkToken != null);
+        Assert.NotEqual("state-link", linkState.StateValue);
         Assert.False(linkState.IsUsed);
         Assert.Equal("google-manual", linkState.PendingProviderKey);
         Assert.Equal(email, linkState.PendingEmail);
@@ -210,6 +221,64 @@ public class OAuthControllerTests
             new OAuthLinkConfirmRequest("wrong-password-token", "google", email, "bad-password"));
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Callback_WithLockedOutLinkedUser_DoesNotIssueASession()
+    {
+        var email = $"oauthlocked_{Guid.NewGuid():N}@test.com";
+        var googleService = new StubGoogleAuthService
+        {
+            Profile = new ExternalUserProfile("google-locked", email, "Locked User", null)
+        };
+
+        using var factory = await CreateGoogleFactoryAsync(googleService);
+        await SeedStateAsync(factory, "state-locked", "/library");
+        await CreateLinkedUserAsync(factory.Services, email, "Google", "google-locked");
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByEmailAsync(email);
+            await userManager.SetLockoutEndDateAsync(user!, DateTimeOffset.UtcNow.AddHours(1));
+        }
+
+        var client = NewNoRedirectClient(factory);
+        var response = await client.GetAsync("/api/auth/google/callback?code=ok&state=state-locked");
+
+        // El bloqueo por intentos fallidos protege el login con contraseña. Si el
+        // callback de OAuth no lo comprueba, la cuenta queda cerrada por un camino
+        // y abierta por el otro.
+        Assert.Equal(HttpStatusCode.Found, response.StatusCode);
+        var location = response.Headers.Location?.ToString();
+        Assert.NotNull(location);
+        Assert.Contains("oauth_error=account_unavailable", location, StringComparison.Ordinal);
+        Assert.DoesNotContain("access_token=", location, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Callback_WhenTheProfileFails_DoesNotLeakTheExceptionMessage()
+    {
+        var googleService = new StubGoogleAuthService
+        {
+            FailureMessage = "Npgsql no pudo conectar con db-interna:5432 usando el rol admin",
+        };
+
+        using var factory = await CreateGoogleFactoryAsync(googleService);
+        await SeedStateAsync(factory, "state-fail", "/library");
+        var client = NewNoRedirectClient(factory);
+
+        var response = await client.GetAsync("/api/auth/google/callback?code=ok&state=state-fail");
+
+        var location = response.Headers.Location?.ToString();
+        Assert.NotNull(location);
+        Assert.Contains("oauth_error=profile_error", location, StringComparison.Ordinal);
+
+        // El mensaje de la excepción acababa en la barra de direcciones, y de ahí
+        // al historial del navegador y a cualquier sitio donde se pegue la URL.
+        Assert.DoesNotContain("oauth_error_message", location, StringComparison.Ordinal);
+        Assert.DoesNotContain("db-interna", location, StringComparison.Ordinal);
+        Assert.DoesNotContain("Npgsql", location, StringComparison.Ordinal);
     }
 
     private static HttpClient NewNoRedirectClient(AppFactory factory)
@@ -290,7 +359,12 @@ public class OAuthControllerTests
 
         public string BuildAuthorizationUrl(string state) => $"https://google.test/auth?state={state}";
 
+        /// <summary>Si se rellena, el intercambio falla con este mensaje.</summary>
+        public string? FailureMessage { get; set; }
+
         public Task<ExternalUserProfile> ExchangeCodeAsync(string code, CancellationToken cancellationToken = default)
-            => Task.FromResult(Profile);
+            => FailureMessage is null
+                ? Task.FromResult(Profile)
+                : throw new InvalidOperationException(FailureMessage);
     }
 }

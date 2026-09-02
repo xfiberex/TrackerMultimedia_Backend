@@ -146,8 +146,12 @@ public class OAuthController(
         }
         catch (InvalidOperationException ex)
         {
-            logger.LogWarning("Error al obtener perfil de {Provider}: {Message}", normalizedProvider, ex.Message);
-            return Redirect(BuildErrorRedirect(frontendBase, "profile_error", ex.Message));
+            // El detalle se queda en el log. Lo que llega al usuario es un código:
+            // el mensaje de una excepción puede describir la infraestructura interna
+            // y acababa en la barra de direcciones, en el historial del navegador y
+            // en cualquier sitio donde se pegue esa URL.
+            logger.LogWarning(ex, "Error al obtener el perfil de {Provider}.", normalizedProvider);
+            return Redirect(BuildErrorRedirect(frontendBase, "profile_error"));
         }
 
         // Resolver cuenta local
@@ -156,7 +160,18 @@ public class OAuthController(
 
         if (existingLoginUser is not null)
         {
-            // Caso A: login externo ya vinculado → emitir sesión
+            // Caso A: login externo ya vinculado → emitir sesión.
+            // Las mismas condiciones que exige el login con contraseña. Sin esto,
+            // entrar con Google o GitHub rodeaba el bloqueo por intentos fallidos:
+            // la cuenta quedaba bloqueada para la contraseña y abierta para OAuth.
+            if (await userManager.IsLockedOutAsync(existingLoginUser) || !existingLoginUser.EmailConfirmed)
+            {
+                logger.LogWarning(
+                    "Login OAuth rechazado por estado de la cuenta {UserId} (bloqueada o correo sin confirmar).",
+                    existingLoginUser.Id);
+                return Redirect(BuildErrorRedirect(frontendBase, "account_unavailable"));
+            }
+
             logger.LogInformation("Login OAuth {Provider}: usuario {UserId} ya vinculado", normalizedProvider, existingLoginUser.Id);
             var session = await sessionService.CreateSessionAsync(existingLoginUser, cancellationToken);
             return Redirect(BuildSuccessRedirect(frontendBase, storedState.ReturnPath, session));
@@ -192,13 +207,25 @@ public class OAuthController(
 
         // Caso C: email ya existe en cuenta manual → vinculación explícita requerida
         var linkToken = GenerateSecureToken();
-        storedState.LinkToken = linkToken;
-        storedState.PendingProviderKey = profile.ProviderUserId;
-        storedState.PendingEmail = profile.Email;
-        storedState.PendingDisplayName = profile.DisplayName;
-        // Extender el TTL para dar tiempo al usuario a completar la vinculación
-        storedState.IsUsed = false; // se reutiliza como registro de vinculación
-        storedState.ExpiresAtUtc = DateTime.UtcNow.AddMinutes(15);
+        // El `state` original se queda consumido. Antes se resucitaba poniendo
+        // IsUsed=false y ampliando su caducidad, lo que contradecía el "solo se
+        // puede consumir una vez" que documenta la propia entidad y dejaba el
+        // valor del state válido otros 15 minutos para un segundo callback.
+        // La vinculación pendiente va en una fila nueva, con su propio token.
+        dbContext.OAuthStates.Add(new OAuthState
+        {
+            // Valor irrepetible y sin relación con el state original: esta fila se
+            // busca por LinkToken, no por StateValue.
+            StateValue = GenerateSecureToken(),
+            Provider = normalizedProvider,
+            ReturnPath = storedState.ReturnPath,
+            IsUsed = false,
+            ExpiresAtUtc = DateTime.UtcNow.AddMinutes(15),
+            LinkToken = linkToken,
+            PendingProviderKey = profile.ProviderUserId,
+            PendingEmail = profile.Email,
+            PendingDisplayName = profile.DisplayName,
+        });
         await dbContext.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("Vinculación requerida para {Email} vía {Provider}", profile.Email, normalizedProvider);
@@ -234,8 +261,15 @@ public class OAuthController(
         var user = await userManager.FindByEmailAsync(request.Email);
         if (user is null) return BadRequest("Usuario no encontrado.");
 
-        if (await userManager.IsLockedOutAsync(user))
-            return Unauthorized("Cuenta bloqueada temporalmente.");
+        if (await userManager.IsLockedOutAsync(user) || !user.EmailConfirmed)
+        {
+            // Igual que en login y en el callback: bloqueo y correo sin confirmar
+            // se comprueban en los tres caminos, o la regla se rodea por el más débil.
+            logger.LogWarning(
+                "Vinculación rechazada por estado de la cuenta {UserId} (bloqueada o correo sin confirmar).",
+                user.Id);
+            return Unauthorized("No se pudo completar la vinculación.");
+        }
 
         var passwordOk = await userManager.CheckPasswordAsync(user, request.Password);
         if (!passwordOk)
@@ -303,18 +337,11 @@ public class OAuthController(
              $"&user={user}";
     }
 
-    private static string BuildErrorRedirect(string frontendBase, string errorCode, string? errorMessage = null)
-    {
-        var query = new List<string>
-        {
-            $"oauth_error={Uri.EscapeDataString(errorCode)}"
-        };
-
-        if (!string.IsNullOrWhiteSpace(errorMessage))
-        {
-            query.Add($"oauth_error_message={Uri.EscapeDataString(errorMessage)}");
-        }
-
-        return $"{frontendBase}/login?{string.Join("&", query)}";
-    }
+    /// <summary>
+    /// Construye la redirección de error al frontend. Solo viaja un **código**:
+    /// el parámetro de mensaje libre se eliminó porque se usaba para propagar
+    /// mensajes de excepción internos hasta la URL del navegador.
+    /// </summary>
+    private static string BuildErrorRedirect(string frontendBase, string errorCode)
+        => $"{frontendBase}/login?oauth_error={Uri.EscapeDataString(errorCode)}";
 }
