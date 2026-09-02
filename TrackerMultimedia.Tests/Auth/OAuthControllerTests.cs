@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -281,6 +281,45 @@ public class OAuthControllerTests
         Assert.DoesNotContain("Npgsql", location, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// T2-06. El bloque catch del callback solo cubría <c>InvalidOperationException</c>.
+    /// Bastaba un código de autorización caducado —el fallo más corriente de todos—
+    /// para que el usuario recibiera un 500 en lugar de volver al login: GitHub responde
+    /// 200 con <c>{"error":"bad_verification_code"}</c> y <c>GetProperty("access_token")</c>
+    /// lanzaba <c>KeyNotFoundException</c>. Un solo test que recorre los tipos, y no un
+    /// [Theory], porque compartir la factoría entre casos paralelos destapa la carrera
+    /// de la conexión SQLite compartida (T2-28).
+    /// </summary>
+    [Fact]
+    public async Task Callback_WhenTheProviderFailsInAnyWay_RedirectsToLogin()
+    {
+        Exception[] fallos =
+        [
+            new HttpRequestException("La red se cayó a mitad del intercambio"),
+            new System.Text.Json.JsonException("El proveedor devolvió HTML en vez de JSON"),
+            new KeyNotFoundException("access_token"),
+            new TaskCanceledException("El proveedor no respondió a tiempo"),
+        ];
+
+        foreach (var fallo in fallos)
+        {
+            var googleService = new StubGoogleAuthService { FailureException = fallo };
+
+            using var factory = await CreateGoogleFactoryAsync(googleService);
+            var stateValue = $"state-{fallo.GetType().Name}";
+            await SeedStateAsync(factory, stateValue, "/library");
+            var client = NewNoRedirectClient(factory);
+
+            var response = await client.GetAsync($"/api/auth/google/callback?code=ok&state={stateValue}");
+
+            Assert.Equal(HttpStatusCode.Found, response.StatusCode);
+            var location = response.Headers.Location?.ToString();
+            Assert.NotNull(location);
+            Assert.Contains("oauth_error=profile_error", location!, StringComparison.Ordinal);
+            Assert.DoesNotContain(fallo.Message, location!, StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public async Task UnhandledException_Returns500ProblemDetailsWithoutInternalDetail()
     {
@@ -396,13 +435,22 @@ public class OAuthControllerTests
 
         /// <summary>
         /// Lanza una excepción que el controlador NO captura, para ejercitar el
-        /// manejador global. El bloque catch del callback solo cubre
-        /// <see cref="InvalidOperationException"/>.
+        /// manejador global. <see cref="TimeoutException"/> se eligió justamente por
+        /// quedar fuera de la lista del bloque catch del callback.
         /// </summary>
         public bool FailureIsUnhandled { get; set; }
 
+        /// <summary>
+        /// Excepción concreta a lanzar. Tiene prioridad sobre las dos propiedades
+        /// anteriores; sirve para ejercitar cada tipo que el callback debe capturar.
+        /// </summary>
+        public Exception? FailureException { get; set; }
+
         public Task<ExternalUserProfile> ExchangeCodeAsync(string code, CancellationToken cancellationToken = default)
         {
+            if (FailureException is not null)
+                throw FailureException;
+
             if (FailureMessage is null)
             {
                 return Task.FromResult(Profile);

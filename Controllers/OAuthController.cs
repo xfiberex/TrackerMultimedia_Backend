@@ -146,12 +146,23 @@ public class OAuthController(
                 _ => throw new InvalidOperationException("Proveedor no soportado."),
             };
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (
+            ex is InvalidOperationException     // fallo de contrato que los servicios ya traducen
+            or HttpRequestException             // red caída, DNS, TLS, o EnsureSuccessStatusCode
+            or JsonException                    // el proveedor responde algo que no es el JSON esperado
+            or KeyNotFoundException             // JSON válido al que le falta la propiedad que se pide
+            or TaskCanceledException)           // el proveedor no responde a tiempo
         {
-            // El detalle se queda en el log. Lo que llega al usuario es un código:
-            // el mensaje de una excepción puede describir la infraestructura interna
-            // y acababa en la barra de direcciones, en el historial del navegador y
-            // en cualquier sitio donde se pegue esa URL.
+            // Antes solo se capturaba InvalidOperationException, y bastaba con un código
+            // de autorización caducado —el caso más corriente de todos— para que el
+            // usuario recibiera un 500 en lugar de volver al login. Este endpoint es una
+            // redirección de navegador: cualquier fallo al hablar con el proveedor tiene
+            // que acabar en /login con un código, nunca en una página de error.
+            //
+            // El detalle se queda en el log. Lo que llega al usuario es un código: el
+            // mensaje de una excepción puede describir la infraestructura interna y
+            // acababa en la barra de direcciones, en el historial del navegador y en
+            // cualquier sitio donde se pegue esa URL.
             logger.LogWarning(ex, "Error al obtener el perfil de {Provider}.", normalizedProvider);
             return Redirect(BuildErrorRedirect(frontendBase, "profile_error"));
         }

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Hosting;
+﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
@@ -102,6 +102,31 @@ public class GitHubAuthServiceTests
         });
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.ExchangeCodeAsync("code-123"));
+    }
+
+    /// <summary>
+    /// T2-06. Con un código caducado o ya usado, GitHub responde <b>200</b> con
+    /// <c>{"error":"bad_verification_code"}</c>: el estado HTTP no delata nada y
+    /// <c>GetProperty("access_token")</c> lanzaba <c>KeyNotFoundException</c>, que
+    /// nadie capturaba. Ahora se traduce a <c>InvalidOperationException</c>, que es
+    /// lo que el callback sabe convertir en una vuelta al login.
+    /// </summary>
+    [Fact]
+    public async Task ExchangeCodeAsync_WhenGitHubReturns200WithAnErrorBody_ThrowsInvalidOperation()
+    {
+        var service = CreateService((_, _) => Task.FromResult(DelegateHttpMessageHandler.Json(
+            """
+            {
+              "error": "bad_verification_code",
+              "error_description": "The code passed is incorrect or expired."
+            }
+            """)));
+
+        var excepcion = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.ExchangeCodeAsync("code-caducado"));
+
+        // El texto del proveedor se queda en el log; al usuario no le llega.
+        Assert.DoesNotContain("bad_verification_code", excepcion.Message, StringComparison.Ordinal);
     }
 
     private static GitHubAuthService CreateService(

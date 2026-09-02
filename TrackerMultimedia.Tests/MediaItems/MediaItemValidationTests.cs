@@ -52,6 +52,64 @@ public class MediaItemValidationTests(AppFactory factory) : IClassFixture<AppFac
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    /// <summary>
+    /// T2-18. La comprobación estaba escrita como `SourceType != Jikan`, así que
+    /// AniList y MangaDex pasaban sin identificador: el elemento se guardaba
+    /// incompleto y además se libraba del índice único que evita duplicados, porque
+    /// ese índice solo aplica cuando hay identificador.
+    /// </summary>
+    [Fact]
+    public async Task Create_ExternalSourceWithoutExternalId_Returns400ForEveryProvider()
+    {
+        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
+
+        MediaItemSourceType[] proveedores =
+        [
+            MediaItemSourceType.Jikan,
+            MediaItemSourceType.AniList,
+            MediaItemSourceType.MangaDex,
+        ];
+
+        foreach (var proveedor in proveedores)
+        {
+            var sinId = await client.PostAsJsonAsync("/api/media-items", new CreateMediaItemRequest
+            {
+                Title = $"{proveedor} sin id",
+                Type = MediaType.Anime,
+                Status = MediaTrackingStatus.Planned,
+                SourceType = proveedor,
+                ExternalMediaKind = ExternalMediaKind.Anime,
+            });
+            Assert.Equal(HttpStatusCode.BadRequest, sinId.StatusCode);
+
+            var sinTipo = await client.PostAsJsonAsync("/api/media-items", new CreateMediaItemRequest
+            {
+                Title = $"{proveedor} sin tipo de medio",
+                Type = MediaType.Anime,
+                Status = MediaTrackingStatus.Planned,
+                SourceType = proveedor,
+                ExternalId = 9100 + (int)proveedor,
+            });
+            Assert.Equal(HttpStatusCode.BadRequest, sinTipo.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Create_ManualSource_DoesNotRequireExternalId()
+    {
+        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
+
+        var response = await client.PostAsJsonAsync("/api/media-items", new CreateMediaItemRequest
+        {
+            Title = "Elemento manual",
+            Type = MediaType.Anime,
+            Status = MediaTrackingStatus.Planned,
+            SourceType = MediaItemSourceType.Manual,
+        });
+
+        response.EnsureSuccessStatusCode();
+    }
+
     [Fact]
     public async Task Create_JikanWithoutExternalId_Returns400()
     {

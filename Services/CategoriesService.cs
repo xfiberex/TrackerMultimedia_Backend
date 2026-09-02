@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using TrackerMultimedia.Contracts.Categories;
 using TrackerMultimedia.Contracts.Common;
@@ -74,7 +74,7 @@ public partial class CategoriesService(ApplicationDbContext dbContext)
         var category = await dbContext.UserCategories
             .FirstOrDefaultAsync(item => item.Id == id && item.UserId == userId, cancellationToken);
         if (category is null)
-            return ServiceResult<CategoryResponse>.Fail("id", "Not found");
+            return ServiceResult<CategoryResponse>.Fail("id", "No encontrado.");
 
         var normalizedName = NormalizeNameKey(nameResult.Value!);
         var alreadyExists = await dbContext.UserCategories
@@ -115,7 +115,7 @@ public partial class CategoriesService(ApplicationDbContext dbContext)
         var normalized = name.Trim();
         return normalized.Length > 0
             ? NormalizeTextResult.Ok(normalized)
-            : NormalizeTextResult.Fail(field, "The Name field cannot be empty.");
+            : NormalizeTextResult.Fail(field, "El nombre no puede estar vacío.");
     }
 
     private static NormalizeTextResult NormalizeColor(string? color, string field)

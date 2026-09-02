@@ -99,7 +99,7 @@ public class FormatsService(ApplicationDbContext dbContext)
         var format = await dbContext.UserFormats
             .FirstOrDefaultAsync(f => f.Id == id && f.UserId == userId, cancellationToken);
         if (format is null)
-            return ServiceResult<FormatResponse>.Fail("id", "Not found");
+            return ServiceResult<FormatResponse>.Fail("id", "No encontrado.");
 
         var normalizedName = NormalizeNameKey(name);
         var alreadyExists = await dbContext.UserFormats

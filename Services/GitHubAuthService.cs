@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -113,7 +113,24 @@ public sealed class GitHubAuthService(
         }
 
         var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
-        return json.GetProperty("access_token").GetString()
+
+        // GitHub responde 200 con `{"error":"bad_verification_code"}` cuando el código
+        // ha caducado o ya se usó, así que el estado HTTP no delata nada. Sin esta
+        // comprobación, GetProperty("access_token") lanzaba KeyNotFoundException.
+        if (json.TryGetProperty("error", out var errorProp))
+        {
+            var description = json.TryGetProperty("error_description", out var descProp)
+                ? descProp.GetString()
+                : null;
+            logger.LogWarning("GitHub rechazó el código: {Error} — {Description}",
+                errorProp.GetString(), description);
+            throw new InvalidOperationException("GitHub rechazó el código de autorización.");
+        }
+
+        if (!json.TryGetProperty("access_token", out var tokenProp))
+            throw new InvalidOperationException("GitHub no devolvió access_token.");
+
+        return tokenProp.GetString()
             ?? throw new InvalidOperationException("GitHub no devolvió access_token.");
     }
 

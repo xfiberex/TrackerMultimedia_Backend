@@ -558,7 +558,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             .FirstOrDefaultAsync(mediaItem => mediaItem.Id == id && mediaItem.UserId == userId, cancellationToken);
 
         if (item is null)
-            return ServiceResult<MediaItemResponse>.Fail("id", "Not found");
+            return ServiceResult<MediaItemResponse>.Fail("id", "No encontrado.");
 
         if (request.SourceType != MediaItemSourceType.Manual && request.ExternalId.HasValue && request.ExternalMediaKind.HasValue)
         {
@@ -638,7 +638,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         var normalized = title.Trim();
         return normalized.Length > 0
             ? NormalizeTitleResult.Ok(normalized)
-            : NormalizeTitleResult.Fail(field, "The Title field cannot be empty.");
+            : NormalizeTitleResult.Fail(field, "El título no puede estar vacío.");
     }
 
     private static LibraryTransferCategoryRecord ToTransferCategory(UserCategory category)
@@ -1381,7 +1381,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         if (legacyType.HasValue)
             return ResolveDomainResult.Ok(MapLegacyTypeToContentKind(legacyType.Value));
 
-        return ResolveDomainResult.Fail(field, "Type o ContentKind es obligatorio.");
+        return ResolveDomainResult.Fail(field, "Debes indicar el tipo de contenido.");
     }
 
     private static int ResolveProgressCurrent(int? progressCurrent, int progressCount)
@@ -1448,14 +1448,22 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         int? externalId,
         ExternalMediaKind? externalMediaKind)
     {
-        if (sourceType != MediaItemSourceType.Jikan)
+        // La comprobación va contra Manual, no contra Jikan. Cuando estaba escrita
+        // como `!= Jikan` cubría un único proveedor y AniList y MangaDex pasaban sin
+        // identificador: además de guardar el elemento incompleto, se libraban del
+        // índice único que evita duplicados, porque ese índice es parcial y solo
+        // aplica cuando hay identificador. Cualquier proveedor que se añada al enum
+        // queda cubierto desde el primer día sin tocar esta función.
+        if (sourceType == MediaItemSourceType.Manual)
             return null;
 
         if (!externalId.HasValue)
-            return (nameof(CreateMediaItemRequest.ExternalId), "ExternalId is required when SourceType is Jikan.");
+            return (nameof(CreateMediaItemRequest.ExternalId),
+                $"Falta el identificador externo, obligatorio para los elementos de {sourceType}.");
 
         if (!externalMediaKind.HasValue)
-            return (nameof(CreateMediaItemRequest.ExternalMediaKind), "ExternalMediaKind is required when SourceType is Jikan.");
+            return (nameof(CreateMediaItemRequest.ExternalMediaKind),
+                $"Falta el tipo de medio externo, obligatorio para los elementos de {sourceType}.");
 
         return null;
     }

@@ -1,4 +1,4 @@
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
@@ -43,7 +43,12 @@ public sealed class GoogleAuthService(
     {
         // 1. Intercambiar código por tokens
         var tokenResponse = await ExchangeCodeForTokensAsync(code, cancellationToken);
-        var accessToken = tokenResponse.GetProperty("access_token").GetString()
+        // TryGetProperty y no GetProperty: si Google responde 200 sin el campo, lo que
+        // salía era KeyNotFoundException, que nadie capturaba y acababa en un 500.
+        if (!tokenResponse.TryGetProperty("access_token", out var accessTokenProp))
+            throw new InvalidOperationException("Google no devolvió access_token.");
+
+        var accessToken = accessTokenProp.GetString()
             ?? throw new InvalidOperationException("Google no devolvió access_token.");
 
         // 2. Obtener perfil del usuario con el access token
