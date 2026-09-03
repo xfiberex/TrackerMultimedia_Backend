@@ -311,32 +311,44 @@ Los archivos fuente de pruebas forman parte del repositorio, pero sus salidas ge
 TrackerMultimedia_Backend/
 ├── Contracts/          # DTOs de entrada/salida
 │   ├── Auth/           # Register, Login, OAuth, confirmación de email...
+│   ├── Categories/     # CRUD de categorías del usuario
 │   ├── Common/         # PagedResponse, ServiceResult
+│   ├── Formats/        # CRUD de formatos del usuario
 │   ├── MediaItems/     # CRUD de ítems multimedia
-│   └── Search/         # Búsqueda externa (Jikan)
-├── Controllers/        # Endpoints REST (Auth, OAuth, MediaItems, Search)
+│   └── Search/         # Búsqueda externa (Jikan, AniList, MangaDex)
+├── Controllers/        # Endpoints REST (Auth, OAuth, MediaItems, Categories, Formats, Search)
 ├── Data/               # ApplicationDbContext
 ├── Domain/
-│   ├── Entities/       # ApplicationUser, MediaItem, OAuthState, RefreshToken
-│   ├── Enums/          # MediaType, MediaStatus
-│   └── Validation/     # Constantes de validación de dominio
+│   ├── Entities/       # ApplicationUser, MediaItem, UserCategory, UserFormat, OAuthState, RefreshToken
+│   ├── Enums/          # MediaType, ContentKind, MediaTrackingStatus, MediaItemSourceType...
+│   └── Validation/     # HttpOrHttpsUrlAttribute — un atributo de validación, no constantes
 ├── Infrastructure/
-│   └── Options/        # SmtpOptions, OAuthOptions (bind de appsettings)
+│   ├── Http/           # ClaimsPrincipalExtensions: lectura del claim `sub`
+│   ├── Logging/        # PersonalData: enmascarado de datos personales en el log
+│   └── Options/        # SmtpOptions, OAuthOptions, CleanupOptions (bind de appsettings)
 ├── Migrations/         # Historial de migraciones EF Core
-├── TrackerMultimedia.Tests/  # Suite de integración (xUnit + WebApplicationFactory)
 ├── Services/           # Lógica de negocio
-│   ├── AuthSessionService.cs   # Emite JWT + RefreshToken
-│   ├── EmailTemplates.cs       # HTML de correos
-│   ├── GitHubAuthService.cs    # Flujo OAuth GitHub
-│   ├── GoogleAuthService.cs    # Flujo OAuth Google
-│   ├── IEmailService.cs        # Contrato de envío de email
-│   ├── JikanSearchService.cs   # Búsqueda en Jikan API
-│   ├── MediaItemsService.cs    # CRUD de ítems
-│   ├── SmtpEmailService.cs     # Implementación SMTP (Mailtrap)
-│   └── TokenService.cs         # Generación/validación de JWT
+│   ├── AniListSearchService.cs      # Proveedor de catálogo AniList
+│   ├── AuthSessionService.cs        # Única puerta de emisión de JWT + RefreshToken
+│   ├── CategoriesService.cs         # CRUD de categorías
+│   ├── EmailTemplates.cs            # HTML de correos
+│   ├── ExpiredDataCleaner.cs        # Purga de tokens y states caducados
+│   ├── ExpiredDataCleanupService.cs # Servicio en segundo plano que la ejecuta
+│   ├── ExternalCatalogSearchService.cs # Agrega los tres proveedores externos
+│   ├── FormatsService.cs            # CRUD de formatos y sembrado por defecto
+│   ├── GitHubAuthService.cs         # Flujo OAuth GitHub
+│   ├── GoogleAuthService.cs         # Flujo OAuth Google
+│   ├── JikanSearchService.cs        # Proveedor de catálogo Jikan (MyAnimeList)
+│   ├── MangaDexSearchService.cs     # Proveedor de catálogo MangaDex
+│   ├── MediaItemsService.cs         # CRUD de ítems, importación y exportación
+│   ├── SmtpEmailService.cs          # Implementación SMTP (MailKit)
+│   └── TokenService.cs              # Generación/validación de JWT
+├── TrackerMultimedia.Tests/  # Suite de integración (xUnit + WebApplicationFactory)
+├── .editorconfig       # Estilo del repositorio; lo aplica `dotnet format`
+├── appsettings.json    # Valores por defecto no sensibles (versionado)
 ├── appsettings.Local.example.json # Plantilla local no versionada
-├── Dockerfile          # Imagen de runtime usada por Render
-├── render.yaml         # Blueprint de despliegue
+├── Dockerfile          # Imagen de runtime usada por Render (despliegue inactivo)
+├── render.yaml         # Blueprint de despliegue (inactivo)
 └── Program.cs          # Composición de servicios y middleware
 ```
 

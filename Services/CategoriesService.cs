@@ -25,12 +25,12 @@ public partial class CategoriesService(ApplicationDbContext dbContext)
         CancellationToken cancellationToken)
     {
         var nameResult = NormalizeName(request.Name, nameof(request.Name));
-        if (nameResult.IsFailure)
-            return ServiceResult<CategoryResponse>.Fail(nameResult.ErrorField!, nameResult.ErrorMessage!);
+        if (!nameResult.IsSuccess)
+            return nameResult.ToFailure<CategoryResponse>();
 
         var colorResult = NormalizeColor(request.Color, nameof(request.Color));
-        if (colorResult.IsFailure)
-            return ServiceResult<CategoryResponse>.Fail(colorResult.ErrorField!, colorResult.ErrorMessage!);
+        if (!colorResult.IsSuccess)
+            return colorResult.ToFailure<CategoryResponse>();
 
         var normalizedName = NormalizeNameKey(nameResult.Value!);
         var alreadyExists = await dbContext.UserCategories
@@ -64,12 +64,12 @@ public partial class CategoriesService(ApplicationDbContext dbContext)
         CancellationToken cancellationToken)
     {
         var nameResult = NormalizeName(request.Name, nameof(request.Name));
-        if (nameResult.IsFailure)
-            return ServiceResult<CategoryResponse>.Fail(nameResult.ErrorField!, nameResult.ErrorMessage!);
+        if (!nameResult.IsSuccess)
+            return nameResult.ToFailure<CategoryResponse>();
 
         var colorResult = NormalizeColor(request.Color, nameof(request.Color));
-        if (colorResult.IsFailure)
-            return ServiceResult<CategoryResponse>.Fail(colorResult.ErrorField!, colorResult.ErrorMessage!);
+        if (!colorResult.IsSuccess)
+            return colorResult.ToFailure<CategoryResponse>();
 
         var category = await dbContext.UserCategories
             .FirstOrDefaultAsync(item => item.Id == id && item.UserId == userId, cancellationToken);
@@ -110,35 +110,28 @@ public partial class CategoriesService(ApplicationDbContext dbContext)
     private static CategoryResponse ToResponse(UserCategory category)
         => new(category.Id, category.Name, category.Color, category.CreatedAtUtc);
 
-    private static NormalizeTextResult NormalizeName(string name, string field)
+    private static ServiceResult<string?> NormalizeName(string name, string field)
     {
         var normalized = name.Trim();
         return normalized.Length > 0
-            ? NormalizeTextResult.Ok(normalized)
-            : NormalizeTextResult.Fail(field, "El nombre no puede estar vacío.");
+            ? ServiceResult<string?>.Ok(normalized)
+            : ServiceResult<string?>.Fail(field, "El nombre no puede estar vacío.");
     }
 
-    private static NormalizeTextResult NormalizeColor(string? color, string field)
+    private static ServiceResult<string?> NormalizeColor(string? color, string field)
     {
         var normalized = color?.Trim();
         if (string.IsNullOrWhiteSpace(normalized))
-            return NormalizeTextResult.Ok(null);
+            return ServiceResult<string?>.Ok(null);
 
         normalized = normalized.ToUpperInvariant();
         return CategoryColorRegex().IsMatch(normalized)
-            ? NormalizeTextResult.Ok(normalized)
-            : NormalizeTextResult.Fail(field, "Color debe tener formato hexadecimal #RRGGBB.");
+            ? ServiceResult<string?>.Ok(normalized)
+            : ServiceResult<string?>.Fail(field, "Color debe tener formato hexadecimal #RRGGBB.");
     }
 
     private static string NormalizeNameKey(string name)
         => name.Trim().ToUpperInvariant();
-
-    private readonly record struct NormalizeTextResult(string? Value, string? ErrorField, string? ErrorMessage)
-    {
-        public bool IsFailure => ErrorMessage is not null;
-        public static NormalizeTextResult Ok(string? value) => new(value, null, null);
-        public static NormalizeTextResult Fail(string field, string message) => new(null, field, message);
-    }
 
     [GeneratedRegex("^#[0-9A-F]{6}$")]
     private static partial Regex CategoryColorRegex();

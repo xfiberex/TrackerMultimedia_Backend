@@ -212,7 +212,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
     {
         var envelopeResult = await ReadTransferEnvelopeAsync(stream, format, cancellationToken);
         if (!envelopeResult.IsSuccess)
-            return ServiceResult<LibraryImportResponse>.Fail(envelopeResult.ErrorField!, envelopeResult.ErrorMessage!);
+            return envelopeResult.ToFailure<LibraryImportResponse>();
 
         // El tope de 10 MB del controlador no acota el trabajo: en 10 MB de JSON
         // caben decenas de miles de elementos, y todos se cargan en memoria junto
@@ -229,7 +229,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
 
         var categoryBlueprintsResult = NormalizeImportedCategories(envelopeResult.Value!);
         if (!categoryBlueprintsResult.IsSuccess)
-            return ServiceResult<LibraryImportResponse>.Fail(categoryBlueprintsResult.ErrorField!, categoryBlueprintsResult.ErrorMessage!);
+            return categoryBlueprintsResult.ToFailure<LibraryImportResponse>();
 
         var existingCategories = await dbContext.UserCategories
             .Where(category => category.UserId == userId)
@@ -277,7 +277,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         {
             var normalizedItemResult = NormalizeImportedItem(rawItem);
             if (!normalizedItemResult.IsSuccess)
-                return ServiceResult<LibraryImportResponse>.Fail(normalizedItemResult.ErrorField!, normalizedItemResult.ErrorMessage!);
+                return normalizedItemResult.ToFailure<LibraryImportResponse>();
 
             var importedItem = normalizedItemResult.Value!;
             var existingItem = FindExistingImportedItem(importedItem, itemsById, itemsByExternalKey);
@@ -330,12 +330,12 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         CancellationToken cancellationToken)
     {
         var titleResult = NormalizeTitle(request.Title, nameof(request.Title));
-        if (titleResult.IsFailure)
-            return ServiceResult<MediaItemResponse>.Fail(titleResult.ErrorField!, titleResult.ErrorMessage!);
+        if (!titleResult.IsSuccess)
+            return titleResult.ToFailure<MediaItemResponse>();
 
         var contentKindResult = ResolveContentKind(request.Type, request.ContentKind, nameof(request.ContentKind));
-        if (contentKindResult.IsFailure)
-            return ServiceResult<MediaItemResponse>.Fail(contentKindResult.ErrorField!, contentKindResult.ErrorMessage!);
+        if (!contentKindResult.IsSuccess)
+            return contentKindResult.ToFailure<MediaItemResponse>();
 
         var lifecycleValidation = ValidateLifecycleDates(request.StartedAtUtc, request.CompletedAtUtc);
         if (lifecycleValidation is not null)
@@ -347,10 +347,10 @@ public class MediaItemsService(ApplicationDbContext dbContext)
 
         var categoriesResult = await ResolveCategoriesAsync(request.CategoryIds, userId, cancellationToken);
         if (!categoriesResult.IsSuccess)
-            return ServiceResult<MediaItemResponse>.Fail(categoriesResult.ErrorField!, categoriesResult.ErrorMessage!);
+            return categoriesResult.ToFailure<MediaItemResponse>();
 
         var progressCurrent = ResolveProgressCurrent(request.ProgressCurrent, request.ProgressCount);
-        var progressUnit = ResolveProgressUnit(request.ProgressUnit, request.Type, contentKindResult.Value!.Value);
+        var progressUnit = ResolveProgressUnit(request.ProgressUnit, request.Type, contentKindResult.Value);
         var createdAtUtc = DateTime.UtcNow;
 
         if (request.SourceType != MediaItemSourceType.Manual && request.ExternalId.HasValue && request.ExternalMediaKind.HasValue)
@@ -369,7 +369,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
 
         var formatResult = await ResolveUserFormatIdAsync(request.UserFormatId, userId, cancellationToken);
         if (!formatResult.IsSuccess)
-            return ServiceResult<MediaItemResponse>.Fail(formatResult.ErrorField!, formatResult.ErrorMessage!);
+            return formatResult.ToFailure<MediaItemResponse>();
         var userFormatId = formatResult.Value;
 
         var item = new MediaItem
@@ -379,7 +379,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             AlternativeTitle = NormalizeOptionalText(request.AlternativeTitle),
             Description = NormalizeOptionalText(request.Description),
             Type = request.Type,
-            ContentKind = contentKindResult.Value.Value,
+            ContentKind = contentKindResult.Value,
             Status = request.Status,
             SourceType = request.SourceType,
             ExternalId = request.SourceType != MediaItemSourceType.Manual ? request.ExternalId : null,
@@ -419,12 +419,12 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         CancellationToken cancellationToken)
     {
         var titleResult = NormalizeTitle(request.Title, nameof(request.Title));
-        if (titleResult.IsFailure)
-            return ServiceResult<MediaItemResponse>.Fail(titleResult.ErrorField!, titleResult.ErrorMessage!);
+        if (!titleResult.IsSuccess)
+            return titleResult.ToFailure<MediaItemResponse>();
 
         var contentKindResult = ResolveContentKind(request.Type, request.ContentKind, nameof(request.ContentKind));
-        if (contentKindResult.IsFailure)
-            return ServiceResult<MediaItemResponse>.Fail(contentKindResult.ErrorField!, contentKindResult.ErrorMessage!);
+        if (!contentKindResult.IsSuccess)
+            return contentKindResult.ToFailure<MediaItemResponse>();
 
         var lifecycleValidation = ValidateLifecycleDates(request.StartedAtUtc, request.CompletedAtUtc);
         if (lifecycleValidation is not null)
@@ -436,10 +436,10 @@ public class MediaItemsService(ApplicationDbContext dbContext)
 
         var categoriesResult = await ResolveCategoriesAsync(request.CategoryIds, userId, cancellationToken);
         if (!categoriesResult.IsSuccess)
-            return ServiceResult<MediaItemResponse>.Fail(categoriesResult.ErrorField!, categoriesResult.ErrorMessage!);
+            return categoriesResult.ToFailure<MediaItemResponse>();
 
         var progressCurrent = ResolveProgressCurrent(request.ProgressCurrent, request.ProgressCount);
-        var progressUnit = ResolveProgressUnit(request.ProgressUnit, request.Type, contentKindResult.Value!.Value);
+        var progressUnit = ResolveProgressUnit(request.ProgressUnit, request.Type, contentKindResult.Value);
 
         var item = await dbContext.MediaItems
             .Include(mediaItem => mediaItem.MediaItemCategories)
@@ -467,14 +467,14 @@ public class MediaItemsService(ApplicationDbContext dbContext)
 
         var formatResult = await ResolveUserFormatIdAsync(request.UserFormatId, userId, cancellationToken);
         if (!formatResult.IsSuccess)
-            return ServiceResult<MediaItemResponse>.Fail(formatResult.ErrorField!, formatResult.ErrorMessage!);
+            return formatResult.ToFailure<MediaItemResponse>();
         var userFormatId = formatResult.Value;
 
         item.Title = titleResult.Value!;
         item.AlternativeTitle = NormalizeOptionalText(request.AlternativeTitle);
         item.Description = NormalizeOptionalText(request.Description);
         item.Type = request.Type;
-        item.ContentKind = contentKindResult.Value.Value;
+        item.ContentKind = contentKindResult.Value;
         item.Status = request.Status;
         item.SourceType = request.SourceType;
         item.ExternalId = request.SourceType != MediaItemSourceType.Manual ? request.ExternalId : null;
@@ -521,12 +521,12 @@ public class MediaItemsService(ApplicationDbContext dbContext)
     // Helpers privados
     // -------------------------------------------------------------------------
 
-    private static NormalizeTitleResult NormalizeTitle(string title, string field)
+    private static ServiceResult<string> NormalizeTitle(string title, string field)
     {
         var normalized = title.Trim();
         return normalized.Length > 0
-            ? NormalizeTitleResult.Ok(normalized)
-            : NormalizeTitleResult.Fail(field, "El título no puede estar vacío.");
+            ? ServiceResult<string>.Ok(normalized)
+            : ServiceResult<string>.Fail(field, "El título no puede estar vacío.");
     }
 
     private static LibraryTransferCategoryRecord ToTransferCategory(UserCategory category)
@@ -1037,11 +1037,11 @@ public class MediaItemsService(ApplicationDbContext dbContext)
     private static ServiceResult<ImportedLibraryItem> NormalizeImportedItem(LibraryTransferItemRecord record)
     {
         var titleResult = NormalizeTitle(record.Title ?? string.Empty, "file");
-        if (titleResult.IsFailure)
+        if (!titleResult.IsSuccess)
             return ServiceResult<ImportedLibraryItem>.Fail("file", "El archivo contiene un elemento sin título válido.");
 
         var contentKindResult = ResolveContentKind(record.Type, record.ContentKind, "file");
-        if (contentKindResult.IsFailure)
+        if (!contentKindResult.IsSuccess)
             return ServiceResult<ImportedLibraryItem>.Fail("file", contentKindResult.ErrorMessage!);
 
         var lifecycleValidation = ValidateLifecycleDates(record.StartedAtUtc, record.CompletedAtUtc);
@@ -1058,7 +1058,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         if (record.ProgressTotal.HasValue && record.ProgressTotal.Value <= 0)
             return ServiceResult<ImportedLibraryItem>.Fail("file", "El progreso total importado debe ser mayor que cero.");
 
-        var progressUnit = ResolveProgressUnit(record.ProgressUnit, record.Type, contentKindResult.Value!.Value);
+        var progressUnit = ResolveProgressUnit(record.ProgressUnit, record.Type, contentKindResult.Value);
 
         return ServiceResult<ImportedLibraryItem>.Ok(
             new ImportedLibraryItem(
@@ -1067,7 +1067,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
                 NormalizeOptionalText(record.AlternativeTitle),
                 NormalizeOptionalText(record.Description),
                 record.Type,
-                contentKindResult.Value.Value,
+                contentKindResult.Value,
                 record.Status,
                 record.SourceType,
                 record.SourceType != MediaItemSourceType.Manual ? record.ExternalId : null,
@@ -1252,24 +1252,24 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         };
     }
 
-    private static ResolveDomainResult ResolveContentKind(MediaType? legacyType, ContentKind? contentKind, string field)
+    private static ServiceResult<ContentKind> ResolveContentKind(MediaType? legacyType, ContentKind? contentKind, string field)
     {
         if (contentKind.HasValue)
         {
             if (legacyType.HasValue && MapLegacyTypeToContentKind(legacyType.Value) != contentKind.Value)
             {
-                return ResolveDomainResult.Fail(
+                return ServiceResult<ContentKind>.Fail(
                     field,
                     "ContentKind no coincide con el MediaType legado enviado.");
             }
 
-            return ResolveDomainResult.Ok(contentKind.Value);
+            return ServiceResult<ContentKind>.Ok(contentKind.Value);
         }
 
         if (legacyType.HasValue)
-            return ResolveDomainResult.Ok(MapLegacyTypeToContentKind(legacyType.Value));
+            return ServiceResult<ContentKind>.Ok(MapLegacyTypeToContentKind(legacyType.Value));
 
-        return ResolveDomainResult.Fail(field, "Debes indicar el tipo de contenido.");
+        return ServiceResult<ContentKind>.Fail(field, "Debes indicar el tipo de contenido.");
     }
 
     private static int ResolveProgressCurrent(int? progressCurrent, int progressCount)
@@ -1437,21 +1437,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         item.UpdatedAtUtc,
         item.UserFormatId,
         item.UserFormat?.Name);
-
-    // Tipo interno para el resultado de normalización de título
-    private readonly record struct NormalizeTitleResult(string? Value, string? ErrorField, string? ErrorMessage)
-    {
-        public bool IsFailure => ErrorMessage is not null;
-        public static NormalizeTitleResult Ok(string value) => new(value, null, null);
-        public static NormalizeTitleResult Fail(string field, string message) => new(null, field, message);
-    }
-
-    private readonly record struct ResolveDomainResult(ContentKind? Value, string? ErrorField, string? ErrorMessage)
-    {
-        public bool IsFailure => ErrorMessage is not null;
-        public static ResolveDomainResult Ok(ContentKind value) => new(value, null, null);
-        public static ResolveDomainResult Fail(string field, string message) => new(null, field, message);
-    }
 
     private readonly record struct ExternalItemKey(MediaItemSourceType SourceType, int ExternalId, ExternalMediaKind ExternalMediaKind);
 

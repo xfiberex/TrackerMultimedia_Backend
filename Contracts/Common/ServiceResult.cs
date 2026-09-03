@@ -19,4 +19,18 @@ public sealed class ServiceResult<T>
 
     public static ServiceResult<T> Fail(string field, string message) =>
         new() { ErrorField = field, ErrorMessage = message };
+
+    /// <summary>
+    /// Reenvía este error como resultado de otro tipo. Los servicios encadenan varias
+    /// validaciones que devuelven cosas distintas —un título, un ContentKind, un Guid—
+    /// y todas acaban propagándose al mismo resultado de endpoint; sin esto, cada punto
+    /// de propagación repetía `Fail(x.ErrorField!, x.ErrorMessage!)` con sus dos `!`.
+    /// </summary>
+    public ServiceResult<TOther> ToFailure<TOther>()
+    {
+        if (IsSuccess)
+            throw new InvalidOperationException("ToFailure sobre un resultado correcto.");
+
+        return ServiceResult<TOther>.Fail(ErrorField!, ErrorMessage!);
+    }
 }
