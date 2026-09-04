@@ -403,6 +403,30 @@ registrarla también en Google Cloud y en GitHub, o el proveedor rechazará el f
 
 ---
 
+## Pruebas
+
+Suite de integración con xUnit y `WebApplicationFactory`.
+
+```bash
+dotnet test TrackerMultimedia_Backend.slnx
+```
+
+**Necesita un PostgreSQL en marcha.** Antes corría sobre SQLite en memoria, y eso hacía
+que no se comprobara nada específico del proveedor real: la búsqueda de la biblioteca
+usa `EF.Functions.ILike`, que solo existe en Npgsql, así que ese endpoint devolvía 500 en
+la suite y no podía tener ni un test.
+
+Cada clase de test recibe **su propia base desechable**. Las migraciones se aplican una vez
+por ejecución sobre una plantilla y cada clase la copia con `CREATE DATABASE ... TEMPLATE`,
+que tarda milisegundos. Al terminar, cada base se borra; los restos de una ejecución
+cancelada los limpia la siguiente al empezar.
+
+La cadena de conexión sale de `TRACKERMULTIMEDIA_TEST_POSTGRES` o, si no está definida, de
+los mismos user-secrets que usa la aplicación. **La base de la aplicación no se toca**: de
+esa cadena solo se reutilizan el servidor y las credenciales.
+
+---
+
 ## Licencia
 
 [MIT](LICENSE) © 2026 xfiberex.
