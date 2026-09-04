@@ -238,6 +238,24 @@ Dos matices que explican los plazos:
 tests, que ejecutan `IExpiredDataCleaner` a mano en lugar de esperar al
 temporizador.
 
+### Datos personales: llevárselos y borrarlos
+
+Dos endpoints autenticados cubren el ciclo completo:
+
+- `GET /api/auth/account/export` devuelve un JSON con **todo** lo guardado sobre la cuenta:
+  sus campos, los proveedores externos vinculados, las sesiones abiertas, los formatos y la
+  biblioteca entera con sus categorías.
+- `DELETE /api/auth/account` la borra sin vuelta atrás, previa reautenticación.
+
+La exportación de biblioteca (`GET /api/media-items/export`) es otra cosa y sigue siendo
+necesaria: su formato es el que sabe leer la importación, y por eso deja fuera lo que no se
+puede reimportar. Ampliarlo con los datos de cuenta habría roto la importación.
+
+Lo que la exportación personal **no** incluye, a propósito: contraseñas, tokens de refresco
+—ni siquiera su hash, porque son credenciales en activo— y el `ProviderKey` de los logins
+externos, que es el identificador de la persona dentro de Google o GitHub y no aporta nada
+a quien se lleva sus datos.
+
 ---
 
 ### Comprobar que el esquema es correcto desde cero
@@ -278,6 +296,43 @@ Si falla al arrancar por configuración, revisa primero una de estas dos opcione
 - `dotnet user-secrets list`
 - `appsettings.Local.json`
 
+### Sondas de salud
+
+Hay dos, y responden a preguntas distintas:
+
+| Ruta | Comprueba | Para qué sirve |
+|---|---|---|
+| `/health` | que el proceso está en pie | reinicio automático (*liveness*) |
+| `/health/ready` | además, que la base de datos responde | dejar de enviar tráfico (*readiness*) |
+
+La separación no es ceremonia. `/health` era antes la única sonda y no comprobaba nada:
+`AddHealthChecks()` sin comprobaciones registradas devuelve siempre `Healthy`, así que con
+PostgreSQL caído —la avería que de verdad deja la aplicación inservible— seguía diciendo
+que todo iba bien. Y meter la base de datos dentro de `/health` tampoco vale: el
+`healthCheckPath` de Render reinicia el servicio cuando falla, y reiniciar el proceso no
+levanta una base caída; lo único que consigue es un bucle de reinicios. Por eso
+`render.yaml` apunta a `/health` y la comprobación de base vive en `/health/ready`.
+
+Ninguna de las dos devuelve el detalle del fallo: el mensaje de una excepción de Npgsql
+lleva el host, el puerto y el usuario. Eso queda en el log.
+
+### Especificación OpenAPI
+
+`docs/openapi.json` está versionado, así que se puede consultar el contrato completo sin
+arrancar nada. Para regenerarlo tras cambiar rutas o contratos, con el API en marcha:
+
+```bash
+curl -s http://localhost:5218/openapi/v1.json -o docs/openapi.json
+```
+
+Del archivo generado se quita `servers`, que apunta al puerto de la máquina donde se
+generó y no describe el API.
+
+En ejecución, la especificación se sirve **siempre en desarrollo** y, fuera de él, solo si
+se activa a propósito con `OpenApi__Exposed=true`. Publicarla no es un agujero por sí misma
+—no contiene secretos y no habilita nada—, pero entrega el mapa completo de rutas y
+parámetros, así que es una decisión por despliegue y no un valor por defecto.
+
 ---
 
 ## Pruebas y artefactos locales
@@ -290,8 +345,8 @@ para ejecutarla:
 dotnet test TrackerMultimedia_Backend.slnx
 ```
 
-Son pruebas de integración sobre `WebApplicationFactory` con SQLite en memoria: no
-necesitan PostgreSQL ni ningún secreto configurado.
+Son pruebas de integración sobre `WebApplicationFactory` y **necesitan un PostgreSQL en
+marcha**; ver [Pruebas](#pruebas) más abajo para el detalle de cómo se aísla cada clase.
 
 Los archivos fuente de pruebas forman parte del repositorio, pero sus salidas generadas no.
 
