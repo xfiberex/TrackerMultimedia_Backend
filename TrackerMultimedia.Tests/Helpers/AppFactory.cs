@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -20,15 +19,19 @@ using TrackerMultimedia.Services;
 namespace TrackerMultimedia.Tests.Helpers;
 
 /// <summary>
-/// WebApplicationFactory que reemplaza PostgreSQL por SQLite en memoria
-/// y desactiva el envío de correos reales.
-/// Implementa IAsyncLifetime para crear el esquema de BD antes de los tests.
+/// WebApplicationFactory sobre una base **PostgreSQL desechable**, propia de cada clase
+/// de test, y con el envío de correos desactivado.
+///
+/// Antes esto usaba SQLite en memoria, y por tanto no comprobaba nada específico del
+/// proveedor real: la búsqueda de la biblioteca devolvía 500 en la suite porque
+/// `EF.Functions.ILike` solo existe en Npgsql. Ver <see cref="TestDatabase"/> para el
+/// porqué y el cómo.
 /// </summary>
 public sealed class AppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    // Conexión SQLite persistente: la BD en memoria vive mientras esta conexión esté abierta.
-    private readonly SqliteConnection _connection = new("DataSource=:memory:");
+    private readonly string _connectionString = TestDatabase.CreateForTestClass();
     private readonly IReadOnlyDictionary<string, string?> _configurationOverrides;
+    private bool _databaseDropped;
     private readonly Action<IServiceCollection>? _configureAdditionalTestServices;
 
     public AppFactory()
@@ -43,10 +46,6 @@ public sealed class AppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         _configurationOverrides = configurationOverrides ?? new Dictionary<string, string?>();
         _configureAdditionalTestServices = configureAdditionalTestServices;
         EmailInbox = new TestEmailInbox();
-
-        // Abrir la conexión en el constructor, antes de que se construya el host,
-        // para que el DbContext pueda reutilizarla y la BD no se destruya entre scopes.
-        _connection.Open();
     }
 
     public TestEmailInbox EmailInbox { get; }
@@ -54,20 +53,41 @@ public sealed class AppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     async Task IAsyncLifetime.InitializeAsync()
         => await InitializeDatabaseAsync();
 
+    /// <summary>
+    /// El esquema ya viene aplicado: la base se copia de una plantilla a la que se le
+    /// pasaron las migraciones una vez por ejecución. Esto solo fuerza la construcción
+    /// del host y comprueba que se puede hablar con la base.
+    /// </summary>
     public async Task InitializeDatabaseAsync()
     {
-        // Acceder a Services fuerza la construcción del host.
-        // En este punto el DbContext ya usa SQLite con nuestra conexión.
         using var scope = Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        await db.Database.EnsureCreatedAsync();
+        await db.Database.CanConnectAsync();
     }
 
     Task IAsyncLifetime.DisposeAsync()
     {
-        _connection.Dispose();
         Dispose();
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// La base se borra aquí y no en <c>DisposeAsync</c> porque hay dos formas de usar
+    /// esta factoría: como <c>IClassFixture</c>, donde xUnit llama a
+    /// <c>IAsyncLifetime.DisposeAsync</c>, y con un <c>using</c> local en los tests que
+    /// necesitan una configuración propia, donde solo se llama a <c>Dispose</c>. Ponerlo
+    /// solo en el primero dejaba una base huérfana por cada factoría del segundo tipo:
+    /// 23 tras tres ejecuciones.
+    /// </summary>
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+
+        if (disposing && !_databaseDropped)
+        {
+            _databaseDropped = true;
+            TestDatabase.Drop(_connectionString);
+        }
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -77,8 +97,7 @@ public sealed class AppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             var settings = new Dictionary<string, string?>
             {
-                // Satisface el check de startup (el DbContext se reemplaza después)
-                ["ConnectionStrings:DefaultConnection"] = "DataSource=:memory:",
+                ["ConnectionStrings:DefaultConnection"] = _connectionString,
                 // JWT con valores de test
                 ["Jwt:Secret"] = "clave-secreta-para-tests-32chars!!",
                 ["Jwt:Issuer"] = "TrackerMultimedia.Tests",
@@ -107,16 +126,20 @@ public sealed class AppFactory : WebApplicationFactory<Program>, IAsyncLifetime
         // --- Servicios de test (se ejecutan DESPUÉS de los servicios de la app) ---
         builder.ConfigureTestServices(services =>
         {
-            // En EF Core 7+, AddDbContext registra IDbContextOptionsConfiguration<T>
-            // que se aplica acumulativamente al construir las opciones.
-            // Si no se elimina, tanto Npgsql como SQLite quedan activos a la vez.
+            // **No basta con sobrescribir la cadena de conexión en la configuración.**
+            // `Program.cs` la lee de `builder.Configuration` al componer los servicios,
+            // antes de que se apliquen las fuentes que añade la factoría de tests, así
+            // que el `AddDbContext` de la aplicación se queda con la de los user-secrets:
+            // **la base real**. Quitar este bloque hizo que una tanda de tests escribiera
+            // 199 usuarios en la base de desarrollo. El registro hay que reemplazarlo.
+            //
+            // En EF Core 7+, AddDbContext registra IDbContextOptionsConfiguration<T> que
+            // se aplica acumulativamente: sin eliminarlo, las dos cadenas quedan activas.
             services.RemoveAll<IDbContextOptionsConfiguration<ApplicationDbContext>>();
             services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
             services.RemoveAll<IDatabaseProvider>();
 
-            // Registrar el DbContext con SQLite y la conexión en memoria
-            services.AddDbContext<ApplicationDbContext>(opts =>
-                opts.UseSqlite(_connection));
+            services.AddDbContext<ApplicationDbContext>(opts => opts.UseNpgsql(_connectionString));
 
             // Reemplazar el servicio de email por una implementación vacía
             var emailDescriptor = services.SingleOrDefault(
