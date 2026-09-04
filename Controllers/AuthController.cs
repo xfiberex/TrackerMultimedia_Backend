@@ -353,6 +353,95 @@ public class AuthController(
     }
 
     // -------------------------------------------------------------------------
+    // DELETE /api/auth/account  (requiere autenticación y reautenticación)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Borra la cuenta y todo lo que cuelga de ella. Es la única operación del sistema
+    /// que no tiene vuelta atrás, así que exige reautenticación aunque el JWT sea válido:
+    /// un token puede quedar abierto en un equipo prestado.
+    /// </summary>
+    [HttpDelete("account")]
+    [Authorize]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> DeleteAccount(
+        [FromBody] DeleteAccountRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+            return Unauthorized();
+
+        var user = await userManager.FindByIdAsync(userId.ToString());
+        if (user is null)
+            return Unauthorized();
+
+        var hasPassword = await userManager.HasPasswordAsync(user);
+        if (hasPassword)
+        {
+            if (string.IsNullOrEmpty(request.Password))
+                return BadRequest("Escribe tu contraseña para confirmar el borrado.");
+
+            // Mismo camino que el login —comprobar bloqueo, contar el fallo, reiniciar el
+            // contador al acertar— y no `CheckPasswordAsync` a secas: sin contabilizar los
+            // fallos, este endpoint sería un oráculo de contraseñas sin freno para quien
+            // tuviera un token robado.
+            if (await userManager.IsLockedOutAsync(user))
+            {
+                logger.LogWarning("Borrado de cuenta rechazado por bloqueo temporal: {UserId}", userId);
+                return BadRequest("La contraseña no es correcta.");
+            }
+
+            if (!await userManager.CheckPasswordAsync(user, request.Password))
+            {
+                await userManager.AccessFailedAsync(user);
+                logger.LogWarning("Borrado de cuenta rechazado por contraseña incorrecta: {UserId}", userId);
+                return BadRequest("La contraseña no es correcta.");
+            }
+
+            await userManager.ResetAccessFailedCountAsync(user);
+        }
+        else
+        {
+            // Cuenta creada por Google o GitHub: no hay contraseña que pedir. Escribir la
+            // propia dirección no prueba identidad —se ve en la pantalla de al lado—, pero
+            // sí que la acción es deliberada, que es lo que protege del clic accidental.
+            var confirmation = request.ConfirmationEmail?.Trim();
+            if (!string.Equals(confirmation, user.Email, StringComparison.OrdinalIgnoreCase))
+                return BadRequest("Escribe tu dirección de correo exactamente para confirmar el borrado.");
+        }
+
+        // Todo o nada. A medio camino quedaría una cuenta sin datos o unos datos sin
+        // cuenta, y ninguna de las dos cosas se puede arreglar desde la aplicación.
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        // Los MediaItems, categorías, formatos, tokens de refresco y logins externos caen
+        // por cascada al borrar el usuario. Los OAuthStates NO: no tienen UserId, y su
+        // columna PendingEmail guarda la dirección. Sin esto, borrar la cuenta dejaría el
+        // correo en la base de datos hasta que la purga los retirara al día siguiente.
+        var orphanStates = await dbContext.OAuthStates
+            .Where(state => state.PendingEmail != null && state.PendingEmail == user.Email)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var result = await userManager.DeleteAsync(user);
+        if (!result.Succeeded)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            logger.LogError("Borrado de cuenta fallido para {UserId}: {Errors}",
+                userId, string.Join(", ", result.Errors.Select(error => error.Code)));
+            return Problem("No se pudo borrar la cuenta. Inténtalo de nuevo más tarde.");
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+
+        // Se registra el identificador, no el correo: la cuenta ya no existe y el log no
+        // es el sitio donde conservar el dato que se acaba de borrar.
+        logger.LogInformation("Cuenta borrada: {UserId}. Estados OAuth pendientes retirados: {Count}",
+            userId, orphanStates);
+
+        return NoContent();
+    }
+
+    // -------------------------------------------------------------------------
     // POST /api/auth/forgot-password
     // -------------------------------------------------------------------------
 

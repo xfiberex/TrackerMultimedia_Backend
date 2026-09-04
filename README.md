@@ -400,3 +400,18 @@ registrarla también en Google Cloud y en GitHub, o el proveedor rechazará el f
 - El backend confía en las cabeceras `X-Forwarded-*` del proxy HTTPS de Render.
 - Si añades un dominio propio en Netlify, súmalo como `Cors__AllowedOrigins__1` y
   actualiza `App__FrontendBaseUrl`.
+
+---
+
+## Licencia
+
+[MIT](LICENSE) © 2026 xfiberex.
+
+Dos consecuencias prácticas de elegirla, para que no haya sorpresas: cualquiera puede usar,
+copiar y modificar este código, incluso comercialmente, mientras conserve el aviso de
+copyright; y el software se entrega **sin garantía de ningún tipo**, que es la mitad del
+texto y la que protege a quien lo publica.
+
+El aviso de copyright nombra la identidad de git (`xfiberex`). Si prefieres tu nombre legal
+—que es lo habitual cuando la autoría tiene que poder acreditarse—, cámbialo en el archivo
+`LICENSE` de los dos repositorios.
