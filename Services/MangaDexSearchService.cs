@@ -99,8 +99,15 @@ public class MangaDexSearchService(HttpClient httpClient) : IExternalCatalogProv
 
         var (suggestedType, mediaKind) = ResolveType(attrs.OriginalLanguage, searchType);
 
+        // El identificador de MangaDex es un UUID y de él se deriva el entero que la
+        // biblioteca guarda. Si viniera mal formado, `Guid.Parse` lanzaría
+        // `FormatException`, que **no** está en el filtro del catch de SearchAsync: un
+        // solo elemento defectuoso tumbaría la búsqueda entera con un 500. Se descarta,
+        // igual que se descarta un elemento sin título.
+        if (!TryDeriveIntId(item.Id!, out var externalId)) return null;
+
         return new SearchMediaItemResponse(
-            DeriveIntId(item.Id!),
+            externalId,
             title,
             null,
             suggestedType,
@@ -150,8 +157,17 @@ public class MangaDexSearchService(HttpClient httpClient) : IExternalCatalogProv
 
     // Derives a stable positive int ID from a MangaDex UUID.
     // Uses the first 4 bytes of the GUID's byte array (deterministic for any given UUID).
-    private static int DeriveIntId(string uuid) =>
-        BitConverter.ToInt32(Guid.Parse(uuid).ToByteArray(), 0) & 0x7FFF_FFFF;
+    private static bool TryDeriveIntId(string uuid, out int externalId)
+    {
+        if (!Guid.TryParse(uuid, out var parsed))
+        {
+            externalId = 0;
+            return false;
+        }
+
+        externalId = BitConverter.ToInt32(parsed.ToByteArray(), 0) & 0x7FFF_FFFF;
+        return true;
+    }
 
     // ── Response DTOs ─────────────────────────────────────────────────────────
 

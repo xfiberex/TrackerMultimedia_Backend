@@ -425,6 +425,24 @@ La cadena de conexión sale de `TRACKERMULTIMEDIA_TEST_POSTGRES` o, si no está 
 los mismos user-secrets que usa la aplicación. **La base de la aplicación no se toca**: de
 esa cadena solo se reutilizan el servidor y las credenciales.
 
+### Cobertura
+
+```bash
+dotnet tool restore                                    # solo la primera vez
+dotnet test --collect:"XPlat Code Coverage"
+dotnet reportgenerator -reports:"TrackerMultimedia.Tests/TestResults/**/coverage.cobertura.xml"                        -targetdir:coverage -reporttypes:"Html;TextSummary"
+```
+
+El informe queda en `coverage/index.html` y el resumen en `coverage/Summary.txt`; ninguno
+de los dos se versiona. `ReportGenerator` está declarado en `.config/dotnet-tools.json`, no
+instalado globalmente, para que la versión sea la misma en cualquier equipo.
+
+**Mira la cobertura de ramas, no la de líneas.** La primera medición dio 82,8 % de líneas
+—que suena bien— y 48,4 % de ramas. Y lo que de verdad enseñó no fue el porcentaje sino
+qué estaba a cero: `AniListSearchService` y `MangaDexSearchService` completos (374 líneas,
+dos de los tres proveedores de catálogo) y el actualizar/borrar de formatos. Nada de eso se
+veía leyendo el código.
+
 ---
 
 ## Licencia
