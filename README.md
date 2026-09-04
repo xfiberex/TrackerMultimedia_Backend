@@ -2,6 +2,11 @@
 
 ASP.NET Core 10 Web API con autenticación JWT, correo SMTP y OAuth (Google / GitHub).
 
+> **Este README cubre la instalación y el uso de este repositorio.** La documentación común a
+> backend y frontend —arquitectura, decisiones, trampas del stack, roadmap, changelog e
+> historial— vive en [`docs/`](docs/README.md), versionada aquí porque la carpeta que contiene
+> los dos clones no es un repositorio.
+
 ## Requisitos
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
@@ -373,6 +378,7 @@ TrackerMultimedia_Backend/
 │   └── Search/         # Búsqueda externa (Jikan, AniList, MangaDex)
 ├── Controllers/        # Endpoints REST (Auth, OAuth, MediaItems, Categories, Formats, Search)
 ├── Data/               # ApplicationDbContext
+├── docs/               # Documentación común a los dos repositorios (ver docs/README.md)
 ├── Domain/
 │   ├── Entities/       # ApplicationUser, MediaItem, UserCategory, UserFormat, OAuthState, RefreshToken
 │   ├── Enums/          # MediaType, ContentKind, MediaTrackingStatus, MediaItemSourceType...

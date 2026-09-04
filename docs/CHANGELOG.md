@@ -4,8 +4,9 @@ Todos los cambios notables de TrackerMultimedia se documentan en este archivo.
 
 El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/).
 
-> **Por qué** se tomó cada decisión: [CONTEXT.md](CONTEXT.md).
+> **Por qué** se tomó cada decisión: [DECISIONS.md](DECISIONS.md).
 > **Qué queda pendiente**: [ROADMAP.md](ROADMAP.md).
+> **Cómo se llegó hasta aquí**: [HISTORY.md](HISTORY.md).
 
 > ⚠️ **Reconstrucción aproximada.** Ninguno de los dos repositorios tiene etiquetas de git ni releases publicados, así que las versiones anteriores a `[Sin publicar]` se han reconstruido a partir de los mensajes y fechas de commit (13 en el backend y 15 en el frontend, del 2026-05-07 al 2026-05-23). Las fechas son fiables; el reparto por versión es una interpretación. A partir de ahora, cada corte de versión debe etiquetarse en git y anotarse aquí en el momento de publicarse.
 
@@ -85,7 +86,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - Se mide la cobertura de las pruebas. La primera medición destapó que **dos de los tres catálogos externos —AniList y MangaDex— no tenían ni una sola prueba**, y tampoco el modificar y borrar formatos. Veinte pruebas nuevas (T4-05).
 - **Las pruebas del backend se ejecutan ahora contra PostgreSQL de verdad**, no contra una base de datos distinta en memoria. La diferencia no era teórica: la búsqueda de la biblioteca fallaba en las pruebas —usa una función que solo existe en PostgreSQL— y por eso no tenía ninguna. Ahora tiene cinco (T2-02, T2-04).
 - Las pruebas aplican las migraciones en lugar de construir el esquema por su cuenta, así que una migración rota se detecta. Era justo lo que faltaba para haber pillado antes el fallo de la biblioteca (T2-03).
-- Corregido el fallo intermitente de la suite que aparecía sin relación con el test en ejecución (T2-28).
+- Corregido el fallo intermitente de la suite que aparecía sin relación con el test en ejecución: desapareció al dejar de compartir una sola conexión SQLite entre todos los `DbContext` (T2-28).
 
 - Corregido un comentario que describía una protección inexistente: decía que la sesión guardada en el navegador estaba protegida con `SameSite=Strict`, que es un atributo de *cookie* y no se aplica a `localStorage`. Ahora enumera las defensas que sí existen y deja escrito que esa no está (T2-13).
 - Añadido Prettier con el estilo que ya seguía el código, para que el editor deje de reformatear archivos al guardarlos (T3-22).
@@ -106,16 +107,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - La suite de pruebas del backend pasa a estar bajo control de versiones. Vivía en una carpeta que no pertenecía a ningún repositorio, de modo que un clon limpio no traía ni un solo test y la solución no llegaba a abrirse (T0-02).
 - Cada blueprint de despliegue vive ahora en la raíz del repositorio que describe, con rutas relativas a ella. Los anteriores declaraban prefijos de carpeta propios de un monorepo que no existe, así que ni Render ni Netlify podían reproducir el despliegue desde el repositorio (T0-03).
 - La documentación de despliegue, que solo existía en un archivo sin versionar, se repartió entre el `README.md` del backend y el del frontend.
-- Descartada la integración continua por decisión del propietario: proyecto de un solo desarrollador, verificación en local. La rutina que la sustituye —cinco comandos, menos de un minuto— queda documentada en `CONTEXT.md` (T1-12, anulada).
+- Descartada la integración continua por decisión del propietario: proyecto de un solo desarrollador, verificación en local. La rutina que la sustituye —cinco comandos, alrededor de un minuto— queda documentada en `docs/WORKFLOW.md` (T1-12, anulada).
 - El repositorio del backend vuelve a contener solo código: se sacaron del control de versiones 227 archivos que eran salida de compilación y caché del editor, 68 MB en total. Los archivos siguen en el disco; simplemente dejan de subirse (T1-20).
 - Un clon del repositorio ya arranca siguiendo el README. Faltaba el archivo de configuración base, que además estaba excluido del control de versiones pese a que la documentación decía lo contrario (T1-19).
 - Primera auditoría técnica completa del proyecto (13 áreas, profundidad exhaustiva, normativa GDPR y WCAG 2.2 AA), y los tres documentos vivos: `ROADMAP.md`, `CHANGELOG.md` y `CONTEXT.md`.
+- **La documentación común deja de estar fuera de todo repositorio.** Vivía suelta en la carpeta que contiene los dos clones, que no es un repositorio: sin copia de seguridad ni historial. Ahora está versionada en `docs/` del repositorio de backend, reorganizada por responsabilidad —arquitectura, decisiones, trampas del stack, trabajo diario, roadmap, changelog e historial— y con las afirmaciones que habían envejecido mal corregidas: la suite ya no corre sobre SQLite, `appsettings.json` sí existe, y los recuentos de pruebas y de migraciones estaban desfasados.
 
 ### Conocido y sin corregir
-
-Verificado y pendiente:
-
-- La suite del backend tiene una carrera intermitente: todos los `DbContext` de los tests comparten una sola conexión SQLite y EF registra en ella una colación por cada uno, sobre una estructura que no admite accesos simultáneos. El fallo aparece sin relación con lo que se esté probando, sobre todo al ejecutar un test suelto. La suite completa es estable (T2-28).
 
 Si algún día la aplicación vuelve a publicarse:
 
