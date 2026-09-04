@@ -165,6 +165,29 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         Guid userId,
         CancellationToken cancellationToken)
     {
+        var envelope = await BuildTransferEnvelopeAsync(userId, cancellationToken);
+
+        return format switch
+        {
+            LibraryTransferFormat.Json => BuildJsonExport(envelope),
+            LibraryTransferFormat.Csv => BuildCsvExport(envelope),
+            _ => throw new ArgumentOutOfRangeException(nameof(format), format, null),
+        };
+    }
+
+    /// <summary>
+    /// Devuelve el mismo contenido que exporta <see cref="ExportAsync"/>, pero como objeto
+    /// en vez de como archivo, para poder incrustarlo en la exportación de datos personales
+    /// (<c>GET /api/auth/account/export</c>) sin duplicar el mapeo de cada campo.
+    /// El tipo concreto es privado a propósito: fuera de aquí solo se serializa.
+    /// </summary>
+    public async Task<object> BuildLibraryPayloadAsync(Guid userId, CancellationToken cancellationToken) =>
+        await BuildTransferEnvelopeAsync(userId, cancellationToken);
+
+    private async Task<LibraryTransferEnvelope> BuildTransferEnvelopeAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
         var categories = await dbContext.UserCategories
             .AsNoTracking()
             .Where(category => category.UserId == userId)
@@ -188,12 +211,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             Items = items.Select(ToTransferItem).ToList(),
         };
 
-        return format switch
-        {
-            LibraryTransferFormat.Json => BuildJsonExport(envelope),
-            LibraryTransferFormat.Csv => BuildCsvExport(envelope),
-            _ => throw new ArgumentOutOfRangeException(nameof(format), format, null),
-        };
+        return envelope;
     }
 
     /// <summary>

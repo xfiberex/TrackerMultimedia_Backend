@@ -34,6 +34,13 @@ public sealed class AppFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private bool _databaseDropped;
     private readonly Action<IServiceCollection>? _configureAdditionalTestServices;
 
+    /// <summary>
+    /// El host de pruebas arranca en <c>Development</c>. Los tests que comprueban lo que
+    /// cambia fuera de desarrollo —la especificación OpenAPI, que ahí solo se sirve si se
+    /// activa a mano— tienen que pedir otro entorno explícitamente.
+    /// </summary>
+    private readonly string? _environment;
+
     public AppFactory()
         : this(null, null)
     {
@@ -41,10 +48,12 @@ public sealed class AppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     internal AppFactory(
         IReadOnlyDictionary<string, string?>? configurationOverrides = null,
-        Action<IServiceCollection>? configureAdditionalTestServices = null)
+        Action<IServiceCollection>? configureAdditionalTestServices = null,
+        string? environment = null)
     {
         _configurationOverrides = configurationOverrides ?? new Dictionary<string, string?>();
         _configureAdditionalTestServices = configureAdditionalTestServices;
+        _environment = environment;
         EmailInbox = new TestEmailInbox();
     }
 
@@ -92,93 +101,113 @@ public sealed class AppFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        if (_environment is not null)
+            builder.UseEnvironment(_environment);
+
         // --- Configuración de test (anula appsettings y user-secrets) ---
-        builder.ConfigureAppConfiguration((_, config) =>
-        {
-            var settings = new Dictionary<string, string?>
-            {
-                ["ConnectionStrings:DefaultConnection"] = _connectionString,
-                // JWT con valores de test
-                ["Jwt:Secret"] = "clave-secreta-para-tests-32chars!!",
-                ["Jwt:Issuer"] = "TrackerMultimedia.Tests",
-                ["Jwt:Audience"] = "TrackerMultimedia.Tests",
-                ["Jwt:AccessTokenLifetimeMinutes"] = "15",
-                ["Jwt:RefreshTokenLifetimeDays"] = "7",
-                // CORS (requerido por startup)
-                ["Cors:AllowedOrigins:0"] = "http://localhost:5173",
-                // Deshabilitar OAuth para no registrar HttpClients externos
-                ["OAuth:Google:Enabled"] = "false",
-                ["OAuth:GitHub:Enabled"] = "false",
-                // Sin temporizador de purga en los tests: se ejecuta a mano
-                // resolviendo IExpiredDataCleaner cuando hace falta comprobarla.
-                ["Cleanup:Enabled"] = "false",
-                // SMTP vacío (el servicio se reemplaza por no-op)
-                ["Smtp:Host"] = "localhost",
-                ["Smtp:FromAddress"] = "noreply@test.local",
-            };
+        var settings = BuildSettings();
 
-            foreach (var (key, value) in _configurationOverrides)
-                settings[key] = value;
+        // `UseSetting` entra en la configuración **del host**, que sí está disponible
+        // cuando `Program.cs` lee `builder.Configuration` al componer los servicios.
+        // `ConfigureAppConfiguration` llega más tarde, y en desarrollo eso no se notaba
+        // porque los user-secrets tapaban el hueco; en `Production` no hay nada detrás y
+        // el host ni siquiera arranca por falta de cadena de conexión.
+        foreach (var (key, value) in settings)
+            builder.UseSetting(key, value);
 
-            config.AddInMemoryCollection(settings);
-        });
+        builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(settings));
 
         // --- Servicios de test (se ejecutan DESPUÉS de los servicios de la app) ---
         builder.ConfigureTestServices(services =>
         {
-            // **No basta con sobrescribir la cadena de conexión en la configuración.**
-            // `Program.cs` la lee de `builder.Configuration` al componer los servicios,
-            // antes de que se apliquen las fuentes que añade la factoría de tests, así
-            // que el `AddDbContext` de la aplicación se queda con la de los user-secrets:
-            // **la base real**. Quitar este bloque hizo que una tanda de tests escribiera
-            // 199 usuarios en la base de desarrollo. El registro hay que reemplazarlo.
-            //
-            // En EF Core 7+, AddDbContext registra IDbContextOptionsConfiguration<T> que
-            // se aplica acumulativamente: sin eliminarlo, las dos cadenas quedan activas.
-            services.RemoveAll<IDbContextOptionsConfiguration<ApplicationDbContext>>();
-            services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
-            services.RemoveAll<IDatabaseProvider>();
+            ConfigureTestServices(services);
+        });
+    }
 
-            services.AddDbContext<ApplicationDbContext>(opts => opts.UseNpgsql(_connectionString));
+    private Dictionary<string, string?> BuildSettings()
+    {
+        var settings = new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:DefaultConnection"] = _connectionString,
+            // JWT con valores de test
+            ["Jwt:Secret"] = "clave-secreta-para-tests-32chars!!",
+            ["Jwt:Issuer"] = "TrackerMultimedia.Tests",
+            ["Jwt:Audience"] = "TrackerMultimedia.Tests",
+            ["Jwt:AccessTokenLifetimeMinutes"] = "15",
+            ["Jwt:RefreshTokenLifetimeDays"] = "7",
+            // CORS (requerido por startup)
+            ["Cors:AllowedOrigins:0"] = "http://localhost:5173",
+            // Deshabilitar OAuth para no registrar HttpClients externos
+            ["OAuth:Google:Enabled"] = "false",
+            ["OAuth:GitHub:Enabled"] = "false",
+            // Sin temporizador de purga en los tests: se ejecuta a mano
+            // resolviendo IExpiredDataCleaner cuando hace falta comprobarla.
+            ["Cleanup:Enabled"] = "false",
+            // SMTP vacío (el servicio se reemplaza por no-op)
+            ["Smtp:Host"] = "localhost",
+            ["Smtp:FromAddress"] = "noreply@test.local",
+        };
 
-            // Reemplazar el servicio de email por una implementación vacía
-            var emailDescriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(IEmailService));
-            if (emailDescriptor is not null)
-                services.Remove(emailDescriptor);
+        foreach (var (key, value) in _configurationOverrides)
+            settings[key] = value;
 
-            services.AddSingleton(EmailInbox);
-            services.AddScoped<IEmailService, RecordingEmailService>();
+        return settings;
+    }
 
-            // ── JWT: corregir IssuerSigningKey ─────────────────────────────────
-            // Problema de timing en WebApplicationFactory: jwtSecret se lee como
-            // variable local en Program.cs ANTES de que el factory aplique sus
-            // overrides de configuración, por lo que IssuerSigningKey queda con
-            // el secreto de desarrollo (user-secrets) en lugar del secreto de test.
-            // La solución es reemplazarlo aquí, después de que todos los Configure
-            // han corrido y ya se tienen los valores correctos.
-            const string testSecret = "clave-secreta-para-tests-32chars!!";
-            services.PostConfigure<JwtBearerOptions>(
-                JwtBearerDefaults.AuthenticationScheme, options =>
-                {
-                    options.TokenValidationParameters.IssuerSigningKey =
-                        new SymmetricSecurityKey(Encoding.UTF8.GetBytes(testSecret));
-                });
+    private void ConfigureTestServices(IServiceCollection services)
+    {
+        // **No basta con sobrescribir la cadena de conexión en la configuración.**
+        // `Program.cs` la lee de `builder.Configuration` al componer los servicios,
+        // antes de que se apliquen las fuentes que añade la factoría de tests, así
+        // que el `AddDbContext` de la aplicación se queda con la de los user-secrets:
+        // **la base real**. Quitar este bloque hizo que una tanda de tests escribiera
+        // 199 usuarios en la base de desarrollo. El registro hay que reemplazarlo.
+        //
+        // En EF Core 7+, AddDbContext registra IDbContextOptionsConfiguration<T> que
+        // se aplica acumulativamente: sin eliminarlo, las dos cadenas quedan activas.
+        services.RemoveAll<IDbContextOptionsConfiguration<ApplicationDbContext>>();
+        services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
+        services.RemoveAll<IDatabaseProvider>();
 
-            // ── Rate limiter: deshabilitar en tests ────────────────────────────
-            // El límite "auth" (10 req/min, key="unknown") se agota rápidamente
-            // porque TestServer no tiene RemoteIpAddress. Se eliminan las
-            // configuraciones originales y se registran políticas sin límite.
-            services.RemoveAll<IConfigureOptions<RateLimiterOptions>>();
-            services.Configure<RateLimiterOptions>(options =>
+        services.AddDbContext<ApplicationDbContext>(opts => opts.UseNpgsql(_connectionString));
+
+        // Reemplazar el servicio de email por una implementación vacía
+        var emailDescriptor = services.SingleOrDefault(
+            d => d.ServiceType == typeof(IEmailService));
+        if (emailDescriptor is not null)
+            services.Remove(emailDescriptor);
+
+        services.AddSingleton(EmailInbox);
+        services.AddScoped<IEmailService, RecordingEmailService>();
+
+        // ── JWT: corregir IssuerSigningKey ─────────────────────────────────
+        // Problema de timing en WebApplicationFactory: jwtSecret se lee como
+        // variable local en Program.cs ANTES de que el factory aplique sus
+        // overrides de configuración, por lo que IssuerSigningKey queda con
+        // el secreto de desarrollo (user-secrets) en lugar del secreto de test.
+        // La solución es reemplazarlo aquí, después de que todos los Configure
+        // han corrido y ya se tienen los valores correctos.
+        const string testSecret = "clave-secreta-para-tests-32chars!!";
+        services.PostConfigure<JwtBearerOptions>(
+            JwtBearerDefaults.AuthenticationScheme, options =>
             {
-                options.AddPolicy("auth", _ => RateLimitPartition.GetNoLimiter<string>("test"));
-                options.AddPolicy("user", _ => RateLimitPartition.GetNoLimiter<string>("test"));
-                options.AddPolicy("search", _ => RateLimitPartition.GetNoLimiter<string>("test"));
+                options.TokenValidationParameters.IssuerSigningKey =
+                    new SymmetricSecurityKey(Encoding.UTF8.GetBytes(testSecret));
             });
 
-            _configureAdditionalTestServices?.Invoke(services);
+        // ── Rate limiter: deshabilitar en tests ────────────────────────────
+        // El límite "auth" (10 req/min, key="unknown") se agota rápidamente
+        // porque TestServer no tiene RemoteIpAddress. Se eliminan las
+        // configuraciones originales y se registran políticas sin límite.
+        services.RemoveAll<IConfigureOptions<RateLimiterOptions>>();
+        services.Configure<RateLimiterOptions>(options =>
+        {
+            options.AddPolicy("auth", _ => RateLimitPartition.GetNoLimiter<string>("test"));
+            options.AddPolicy("user", _ => RateLimitPartition.GetNoLimiter<string>("test"));
+            options.AddPolicy("search", _ => RateLimitPartition.GetNoLimiter<string>("test"));
         });
+
+        _configureAdditionalTestServices?.Invoke(services);
     }
 }
 

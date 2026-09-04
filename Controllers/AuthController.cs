@@ -21,6 +21,7 @@ public class AuthController(
     ApplicationDbContext dbContext,
     TokenService tokenService,
     AuthSessionService sessionService,
+    PersonalDataExportService personalDataExportService,
     FormatsService formatsService,
     IEmailService emailService,
     IOptions<OAuthOptions> oauthOptions,
@@ -350,6 +351,30 @@ public class AuthController(
 
         var linkedProviders = await sessionService.GetLinkedProvidersAsync(parsedUserId, cancellationToken);
         return Ok(AuthSessionService.ToUserResponse(user, linkedProviders));
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/auth/account/export  (requiere autenticación)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Descarga todo lo que la aplicación guarda sobre quien la pide. Va limitado por la
+    /// política «auth» y no por «user» porque recorre la biblioteca entera: es la petición
+    /// más cara que puede lanzar una cuenta, y diez por minuto sobran para su uso real.
+    /// </summary>
+    [HttpGet("account/export")]
+    [Authorize]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ExportPersonalData(CancellationToken cancellationToken)
+    {
+        if (!User.TryGetUserId(out var userId))
+            return Unauthorized();
+
+        var export = await personalDataExportService.ExportAsync(userId, cancellationToken);
+        if (export is null)
+            return Unauthorized();
+
+        return File(export.Value.Content, export.Value.ContentType, export.Value.FileName);
     }
 
     // -------------------------------------------------------------------------

@@ -1,11 +1,11 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using TrackerMultimedia.Contracts.Auth;
-using TrackerMultimedia.Tests.Helpers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
+using TrackerMultimedia.Contracts.Auth;
 using TrackerMultimedia.Domain.Entities;
+using TrackerMultimedia.Tests.Helpers;
 
 namespace TrackerMultimedia.Tests.Auth;
 

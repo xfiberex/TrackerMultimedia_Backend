@@ -4,14 +4,16 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using TrackerMultimedia.Data;
 using TrackerMultimedia.Domain.Entities;
+using TrackerMultimedia.Infrastructure.Health;
 using TrackerMultimedia.Infrastructure.Options;
 using TrackerMultimedia.Services;
 
@@ -121,6 +123,7 @@ builder.Services.AddScoped<FormatsService>();
 builder.Services.AddScoped<ExternalCatalogSearchService>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<AuthSessionService>();
+builder.Services.AddScoped<PersonalDataExportService>();
 
 // ── SMTP / Email ─────────────────────────────────────────────────────────────
 builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
@@ -215,7 +218,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
@@ -320,11 +324,17 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 // como un 404 de ruta desconocida o un 401 sin contenido.
 app.UseStatusCodePages();
 
-if (app.Environment.IsDevelopment())
+// La especificación se sirve siempre en desarrollo y, fuera de él, solo si se activa
+// a propósito con `OpenApi:Exposed`. Publicarla no es un agujero por sí mismo —no
+// contiene secretos y no habilita nada—, pero le entrega a cualquiera el mapa completo
+// de rutas y parámetros, así que la decisión se toma por despliegue y no por defecto.
+// El archivo versionado en `docs/openapi.json` sirve para consultarla sin arrancar nada.
+if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("OpenApi:Exposed"))
 {
     app.MapOpenApi();
 }
-else
+
+if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();
 }
@@ -351,7 +361,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapMethods("/", new[] { "GET", "HEAD" }, () => Results.Ok(new { status = "ok" }));
-app.MapHealthChecks("/health");
+// Dos sondas con propósitos distintos. `/health` solo dice que el proceso está en pie
+// —es la que debe contestar un reinicio en marcha— y `/health/ready` comprueba además
+// que la base de datos responde, que es lo que decide si la aplicación puede atender.
+// Ninguna de las dos devuelve el detalle del fallo: eso queda en el log.
+app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 app.MapControllers();
 
 app.Run();
