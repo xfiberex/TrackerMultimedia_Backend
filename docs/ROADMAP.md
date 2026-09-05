@@ -10,10 +10,12 @@
 | 2 | Mejoras sustanciales | 26 | 26 | — |
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
 | 4 | Futuro / Opcional | 11 | 7 | 3 abiertas + T4-06 en suspenso |
-| **Total** | | **90** | **81** | **5 + 4 en suspenso o anuladas** |
+| 5 | Sistema de diseño | 6 | 4 | 2, ninguna bloqueante |
+| **Total** | | **96** | **85** | **7 + 4 en suspenso o anuladas** |
 
-**Estado (2026-09-04).** Cerrados los Tiers 0, 2 y 3; del Tier 1 quedan T1-05 y T1-13, reabierta. Las dos suites
-en verde —**171/171** backend sobre PostgreSQL real y **174/174** frontend—, con `npm run lint`,
+**Estado (2026-09-05).** Cerrados los Tiers 0, 2 y 3; del Tier 1 quedan T1-05 y T1-13, reabierta. El
+**Tier 5 se abre el 2026-09-05** y no viene de la auditoría: sale de revisar el lenguaje visual. Las dos suites
+en verde —**171/171** backend sobre PostgreSQL real y **179/179** frontend—, con `npm run lint`,
 `tsc -b` y `npm run build` limpios. `npm audit` da **0 vulnerabilidades**, comprobado el
 2026-09-02; es una afirmación que caduca, así que lleva fecha.
 
@@ -71,6 +73,39 @@ servicio público queda en suspenso, no resuelto, y **vuelve en el momento en qu
 - **T4-04 · Añadir pruebas end-to-end** — QA. Playwright sobre registro, login, OAuth, CRUD e
   importación/exportación. · Esfuerzo alto
 
+### Tier 5 — Sistema de diseño
+
+*Abierto el 2026-09-05.* No sale de la auditoría del 2026-08-27 sino de revisar el lenguaje visual
+con la interfaz ya construida, y por eso no comparte numeración con los otros tiers. **Ninguna de
+las cuatro es un defecto funcional**: la aplicación se usa igual sin ellas.
+
+El punto de partida es que **el proyecto ya tiene un sistema de diseño**, no CSS suelto: una capa de
+33 tokens con nombres semánticos y una paleta que es la escala `slate` de Tailwind transcrita a
+mano, en estilo *soft UI* con superficies esmeriladas. Dos análisis independientes —leer el CSS y
+consultar la base de datos de la skill `ui-ux-pro-max`— coinciden en la misma dirección
+(*Glassmorphism* sobre neutros fríos), así que **lo que toca es terminarlo, no sustituirlo**.
+Migrar a Tailwind o a una librería de componentes serían semanas para llegar al mismo aspecto,
+tirando por el camino la accesibilidad ya pagada en T1-16 a T1-23.
+
+**T5-01 y T5-02 se cerraron el 2026-09-05**, el mismo día que se abrió el tier. Ver la tabla de cerradas.
+
+**T5-03 · Completar la capa de tokens: espaciado, radios y tipografía** — UI/UX · Esfuerzo alto
+: Los 33 tokens son **todos de color y sombra**. Espaciados, radios y tamaños de texto están
+  escritos a mano en las 239 clases, y eso explica por sí solo que `index.css` tenga casi 3.000
+  líneas. Es la tarea de fondo del tier: sin escala, cada componente nuevo vuelve a inventar sus
+  medidas.
+: *Nota:* la skill `ui-ux-pro-max` documenta un dial `--density` que debería emitir una tabla
+  `--space-*`; al ejecutarlo el 2026-09-05 **no la emitió**, así que la escala hay que definirla a
+  mano y no copiarla de ahí.
+: *Criterio:* existe la escala y al menos una vista está migrada entera a ella, como plantilla del
+  resto.
+
+**T5-04 · Decidir qué hacer con `--surface-strong: #ffffff`** — UI/UX · Esfuerzo bajo
+: La ficha de *Glassmorphism* lista «fondos blancos puros» como anti-patrón del estilo: el efecto de
+  cristal necesita algo detrás que se transparente, y sobre blanco puro no hay nada que enseñar.
+: **Es una decisión, no un defecto**, y puede cerrarse resolviendo que se queda como está. Lo que no
+  vale es que nadie lo haya mirado.
+
 ---
 
 ## En suspenso y anuladas
@@ -122,7 +157,7 @@ El hallazgo de la auditoría era erróneo.
 
 ## Cerradas
 
-Resumen de las 81 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
+Resumen de las 85 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
 [HISTORY.md](HISTORY.md), por sesión; el efecto visible, en [CHANGELOG.md](CHANGELOG.md).
 
 **T1-13 sigue apareciendo en la tabla de Tier 1 aunque esté reabierta.** Su fila se conserva, marcada,
@@ -234,3 +269,12 @@ porque borrarla escondería justo lo que hay que recordar: que se dio por cerrad
 | T4-09 | Un identificador mal formado de MangaDex tumbaba la búsqueda entera | 2026-09-02 · Hallazgo nuevo aparecido al escribir los tests de T4-05. `Guid.Parse` lanzaba fuera del filtro del `catch` |
 | T4-10 | La sonda de salud no comprobaba nada | 2026-09-04 · Separada de T4-06. Dos sondas: `/health` de vida, `/health/ready` con base de datos |
 | T4-11 | Correlación de peticiones y registro estructurado | 2026-09-04 · Separada de T4-06. Un solo identificador entre respuesta y log —antes eran dos distintos—, salida JSON fuera de desarrollo y los fallos parciales de búsqueda dejan de ser silenciosos |
+
+### Tier 5 — Sistema de diseño
+
+| ID | Tarea | Cierre |
+|---|---|---|
+| T5-01 | Separar la semántica de acción de la de estado | 2026-09-05 · El botón de borrar tomaba su tinta de `--status-dropped` y en oscuro nadie sobreescribía el color: **2,47:1**, ilegible. Tokens `--action-*` y `--destructive-*` propios de cada tema, y 3 pruebas más |
+| T5-02 | Números tabulares en los progresos | 2026-09-05 · `font-variant-numeric` no aparecía ni una vez. Progreso, año y puntuación se comparan en columna y con Inter proporcional bailaban de fila en fila |
+| T5-06 | El enlace «Saltar al contenido» era ilegible en oscuro | 2026-09-05 · Pedía `--surface`, `--border` y `--accent`, tres variables que el proyecto nunca definió: caían en su respaldo y el fondo se quedaba blanco fijo mientras el texto sí seguía al tema. **1,48:1** en la propia ayuda de accesibilidad de T1-18 |
+| T5-05 | La pantalla de acceso no seguía al tema oscuro | 2026-09-05 · Estaba escrita entera en claro con solo dos reglas oscuras; lo legible se salvaba por orden de aparición. Marca, título, enlaces del pie y mensaje de error en tinta fija: entre **1,1:1** y **2,77:1**. Tokenizada y verificada en el navegador |

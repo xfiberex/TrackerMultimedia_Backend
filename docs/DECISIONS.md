@@ -187,6 +187,24 @@ baja de 4,5:1 (T1-23). Hizo falta porque nada más lo detecta: `eslint-plugin-js
 marcado y no los colores, `tsc` no ve CSS, y un test de componente pasa igual con texto ilegible
 porque `getByText` encuentra el nodo aunque nadie pueda leerlo. Estuvo mal meses.
 
+**Los tokens de acción no son tokens de estado.** `--status-*` describe un elemento de la
+biblioteca —planeado, en curso, abandonado—; `--action-*` y `--destructive-*` describen lo que hace
+un control. Compartirlos parecía economía y era acoplamiento: el botón de borrar tomaba su tinta de
+`--status-dropped`, de modo que retocar cómo se ve «abandonado» repintaba el control más destructivo
+de la aplicación. Y como ese color se afinó para el tema claro y el oscuro solo sobreescribía su
+fondo, el botón de borrar quedó en **2,47:1** en oscuro (T5-01).
+
+**Cada tema define su tinta de peligro, no la hereda.** En claro es `#b14a52`; en oscuro, `#f87171`.
+Un mismo rojo no puede contrastar sobre un fondo claro y sobre uno oscuro, y dar por hecho que sí es
+exactamente cómo se llegó al defecto anterior.
+
+**Una tinta fija que no sigue al tema desaparece; un fondo fijo solo se ve raro.** Por eso la regla
+que se comprueba en la pantalla de acceso es sobre `color`: ninguna de sus reglas fija la tinta a
+mano. Esa pantalla se escribió entera con valores del tema claro y solo dos reglas
+`[data-theme='dark']`; lo que se veía bien se salvaba porque una regla oscura genérica aparecía más
+abajo en el archivo y ganaba el desempate **por orden de aparición**. En cuanto una de esas
+desapareció al tokenizar los botones, el acceso se volvió ilegible de golpe (T5-05).
+
 **`--accent-*` son tonos de superficie; la tinta es `--accent-ink`.** Usar un color de acento como
 color de texto es el error que dejó la pestaña activa del catálogo en 1,41:1 sobre el panel oscuro,
 indistinguible de las inactivas.

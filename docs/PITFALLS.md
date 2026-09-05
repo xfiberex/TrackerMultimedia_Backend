@@ -187,3 +187,26 @@ producción cada proyecto tiene su dominio. La defensa buena es **darle a cada p
 propio** —los navegadores resuelven cualquier `*.localhost` a `127.0.0.1` sin tocar el `hosts`—
 porque cambiar el host sí separa el `localStorage` **y** el tarro de cookies. Fijar puertos
 distintos con `strictPort` separa el `localStorage`, pero **no las cookies**.
+
+**`VITE_API_URL` con una URL absoluta manda las credenciales al vecino.** Comprobado el 2026-09-05
+en este equipo: el `.env` local traía `VITE_API_URL=http://localhost:5173/api`, contra lo que fijó
+T3-01 y contra lo que dice el propio `.env.example`. Como el 5173 estaba ocupado por otro proyecto,
+Vite arrancó en el **5174** y la aplicación siguió apuntando al 5173 — es decir, **enviaba el correo
+y la contraseña al servidor de desarrollo de otro proyecto**, que además no es tuyo controlar qué
+hace con ellos.
+
+El síntoma que se ve es engañoso: «Error de conexión. Verifica tu internet e intenta de nuevo».
+Suena a red caída, y lo que pasa es que el backend real responde perfectamente por el proxy mientras
+la petición se va a otro sitio y la rechaza CORS. Con la ruta relativa `/api` esto no puede ocurrir:
+el navegador la resuelve contra el host que sirvió la página, sea el puerto que sea.
+
+Va junto a la trampa de `localhost` de más arriba, y por el mismo motivo de fondo: **dar por hecho
+el puerto**. Si un proyecto se queda con el 5173, el siguiente arranca en otro y todo lo que tenga
+un puerto escrito a mano apunta al proyecto equivocado.
+
+**Una variable CSS que no existe no falla: cae en su respaldo, en silencio.** El enlace de saltar al
+contenido pedía `--surface`, `--border` y `--accent`; los nombres de este proyecto son
+`--surface-strong`, `--border-strong` y `--accent-primary`. Los tres caían en su valor por defecto,
+así que su fondo se quedaba blanco fijo — pero `--text-primary` sí existía y sí seguía al tema, de
+modo que en oscuro el texto se aclaraba sobre un fondo que no: 1,48:1 (T5-06). Lo detecta ahora una
+prueba que compara las variables usadas con las definidas.
