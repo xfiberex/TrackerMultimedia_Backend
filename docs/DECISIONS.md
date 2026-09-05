@@ -209,6 +209,16 @@ desapareció al tokenizar los botones, el acceso se volvió ilegible de golpe (T
 color de texto es el error que dejó la pestaña activa del catálogo en 1,41:1 sobre el panel oscuro,
 indistinguible de las inactivas.
 
+**Un `backdrop-filter` solo se declara donde algo puede atravesarlo.** El cristal se paga con una
+capa de composición y un repintado por scroll, así que difuminar un fondo que luego se tapa es coste
+sin efecto. Cuatro emergentes lo hacían sobre un alfa de 0,97–0,98 —pasaba el 2–3 %— y `.auth-card`
+sobre un blanco **opaco**, donde no podía verse nada (T5-07). Se quitó el desenfoque en vez de bajar
+el alfa, y esa parte no es estética: son las superficies con más texto de la aplicación y aparecen
+sobre contenido arbitrario, de modo que translúcidas su contraste dejaría de ser una propiedad del
+CSS para depender de lo que hubiera debajo —justo lo que la red de pruebas de contraste no puede
+medir—. El cristal se queda donde se ve y no lleva texto encima: la cabecera (0,88), las tarjetas y
+el cargador (0,92) y los dos velos de fondo (0,40).
+
 **El modo por defecto es siempre el más cerrado.** Exponer la aplicación a la red es una opción
 que se escribe al lanzarla (`npm run dev:lan`), no un comportamiento que traiga el script.
 Este criterio ha hecho falta tres veces: `vite --host` reapareció dos veces en `dev` y se quitó
