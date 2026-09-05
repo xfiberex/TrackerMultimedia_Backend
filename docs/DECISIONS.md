@@ -176,9 +176,21 @@ a mano y una capa de tokens propia. La paleta no es arbitraria: `#64748b`, `#94a
 con superficies esmeriladas —neutros fríos, `rgba(255,255,255,0.92)`, sombras multicapa suaves,
 degradado de fondo, Inter—. Revisado el 2026-09-04: migrar a Tailwind o a una librería de
 componentes son semanas de trabajo para llegar al mismo aspecto y tirar por el camino la
-accesibilidad ya pagada (T1-16 a T1-22). Lo que sí falta es **completar** la capa de tokens: los que
-hay son todos de color y sombra, así que espaciados, radios y tipografía siguen escritos a mano en
-cada clase, y eso explica que el archivo tenga casi 3.000 líneas.
+accesibilidad ya pagada (T1-16 a T1-22). La capa de tokens se completó el 2026-09-05 con la escala
+de medidas (T5-03), que hasta entonces no existía: los 33 tokens eran todos de color y sombra.
+
+**Las medidas salen de una escala, y los tamaños de texto llevan `--type-`, no `--text-`.** El
+espaciado es una rejilla de 4px donde el número del token es el múltiplo (`--space-3` = 12px); los
+radios giran alrededor de `--radius-md`, que son los 4px que ya usaban 34 de las 49 esquinas del
+archivo. Lo que obligó a la escala fue medir lo que había: **39 espaciados, 9 radios y 19 tamaños de
+texto**, y entre esos tamaños seis que se diferenciaban en `0,02rem` —un tercio de píxel—, o sea seis
+maneras de escribir lo mismo sin que nadie pudiera verlas distintas (T5-03).
+
+El prefijo `--type-` no es capricho: `--text-primary` ya significa *tinta*, y usar el mismo prefijo
+para el color y para el cuerpo de la letra haría que el nombre no dijera cuál de las dos cosas es.
+Aparte queda `--control-min-height`, que **no** sale de la escala de espaciado a propósito: son los
+44px de objetivo táctil que pide la accesibilidad, y un valor que existe por una regla externa no
+debe poder moverse porque alguien reajuste el ritmo visual.
 
 **El contraste del texto se comprueba con una prueba, no con la vista.** Los colores de texto se
 eligen contra el **peor** fondo de su tema —el arranque del degradado de página, no el blanco de las

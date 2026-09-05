@@ -10,12 +10,12 @@
 | 2 | Mejoras sustanciales | 26 | 26 | — |
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
 | 4 | Futuro / Opcional | 11 | 7 | 3 abiertas + T4-06 en suspenso |
-| 5 | Sistema de diseño | 7 | 6 | 1, la de fondo |
-| **Total** | | **97** | **87** | **6 + 4 en suspenso o anuladas** |
+| 5 | Sistema de diseño | 8 | 7 | 1, la migración del resto |
+| **Total** | | **98** | **88** | **6 + 4 en suspenso o anuladas** |
 
 **Estado (2026-09-05).** Cerrados los Tiers 0, 2 y 3; del Tier 1 quedan T1-05 y T1-13, reabierta. El
 **Tier 5 se abre el 2026-09-05** y no viene de la auditoría: sale de revisar el lenguaje visual. Las dos suites
-en verde —**171/171** backend sobre PostgreSQL real y **185/185** frontend—, con `npm run lint`,
+en verde —**171/171** backend sobre PostgreSQL real y **188/188** frontend—, con `npm run lint`,
 `tsc -b` y `npm run build` limpios. `npm audit` da **0 vulnerabilidades**, comprobado el
 2026-09-02; es una afirmación que caduca, así que lleva fecha.
 
@@ -82,7 +82,8 @@ con la interfaz ya construida, y por eso no comparte numeración con los otros t
 de las seis tareas con que nació resultaron ser defectos medibles —texto entre 1,1:1 y 2,77:1, es
 decir, ilegible— y no cuestiones de gusto. La quinta, T5-04, sí era una decisión, y se resolvió
 dejando el token como estaba, aunque al mirarlo destapó T5-07: cinco desenfoques que no podían
-verse. Queda T5-03, que es el trabajo de fondo del tier.
+verse. La sexta, T5-03, era el trabajo de fondo, y lo que midió al abrirla habla por sí solo: 39
+espaciados, 9 radios y **19 tamaños de texto**, varios separados por un tercio de píxel.
 
 El punto de partida es que **el proyecto ya tiene un sistema de diseño**, no CSS suelto: una capa de
 33 tokens con nombres semánticos y una paleta que es la escala `slate` de Tailwind transcrita a
@@ -92,18 +93,19 @@ consultar la base de datos de la skill `ui-ux-pro-max`— coinciden en la misma 
 Migrar a Tailwind o a una librería de componentes serían semanas para llegar al mismo aspecto,
 tirando por el camino la accesibilidad ya pagada en T1-16 a T1-23.
 
-**Todo el Tier 5 menos T5-03 se cerró el 2026-09-05**, el mismo día que se abrió el tier. Ver la tabla de cerradas.
+**Las siete tareas con que nació el tier se cerraron el 2026-09-05**, el mismo día que se abrió.
+Ver la tabla de cerradas. Queda la que salió de la última:
 
-**T5-03 · Completar la capa de tokens: espaciado, radios y tipografía** — UI/UX · Esfuerzo alto
-: Los 33 tokens son **todos de color y sombra**. Espaciados, radios y tamaños de texto están
-  escritos a mano en las 239 clases, y eso explica por sí solo que `index.css` tenga casi 3.000
-  líneas. Es la tarea de fondo del tier: sin escala, cada componente nuevo vuelve a inventar sus
-  medidas.
-: *Nota:* la skill `ui-ux-pro-max` documenta un dial `--density` que debería emitir una tabla
-  `--space-*`; al ejecutarlo el 2026-09-05 **no la emitió**, así que la escala hay que definirla a
-  mano y no copiarla de ahí.
-: *Criterio:* existe la escala y al menos una vista está migrada entera a ella, como plantilla del
-  resto.
+**T5-08 · Migrar el resto de las vistas a la escala** — UI/UX · Esfuerzo alto
+: T5-03 dejó la escala montada y **una** vista sobre ella. Las otras ~238 clases siguen con sus
+  medidas a mano, así que el archivo todavía contiene los 39 espaciados y los 19 tamaños de texto
+  originales: lo que hay es la escala y la plantilla para aplicarla, no el trabajo hecho.
+: *Cómo:* la pantalla de acceso es la referencia, y la prueba que la vigila se amplía a cada vista
+  migrada añadiendo su prefijo. Vista por vista, no de una vez: cada una snapea unos cuantos valores
+  y eso se mira en el navegador.
+: *Criterio:* la prueba cubre todos los prefijos y no queda ninguna medida a mano fuera de las
+  excepciones que se documenten (las que no son medidas de diseño, como los desplazamientos de
+  subrayado o los `1px` de borde).
 
 ---
 
@@ -279,3 +281,4 @@ porque borrarla escondería justo lo que hay que recordar: que se dio por cerrad
 | T5-05 | La pantalla de acceso no seguía al tema oscuro | 2026-09-05 · Estaba escrita entera en claro con solo dos reglas oscuras; lo legible se salvaba por orden de aparición. Marca, título, enlaces del pie y mensaje de error en tinta fija: entre **1,1:1** y **2,77:1**. Tokenizada y verificada en el navegador |
 | T5-04 | Decidir qué hacer con `--surface-strong: #ffffff` | 2026-09-05 · **Se queda como está.** El anti-patrón habla del cristal y este token no lo es: sus 4 usuarios son superficies opacas a propósito y ninguno lleva `backdrop-filter`. Además no se vería, porque `--surface-primary` ya compone a **#fdfdfe** sobre el degradado. Queda una prueba que fija la premisa, y T5-07 recoge lo que sí apareció |
 | T5-07 | Cinco `backdrop-filter` que no difuminaban nada | 2026-09-05 · Los cuatro emergentes tapaban lo difuminado con un fondo al 0,97–0,98 de alfa, y `.auth-card` con un blanco **opaco**: pasaba entre el 3 % y el 0 %. Se quitó el desenfoque en vez de bajar el alfa, porque son las superficies con más texto y aparecen sobre contenido arbitrario: translúcidas, su contraste dejaría de ser una propiedad del CSS. El cristal se queda donde sí se ve y no lleva texto encima |
+| T5-03 | La capa de tokens no medía nada, solo pintaba | 2026-09-05 · Los 33 tokens eran todos de color y sombra, así que cada clase inventaba sus medidas: **39 espaciados, 9 radios y 19 tamaños de texto**, seis de ellos indistinguibles entre sí por menos de un píxel. Escala de espaciado en rejilla de 4px, radios, `--type-*` y alturas de línea, más `--control-min-height` para que el objetivo táctil de 44px tenga nombre propio. La pantalla de acceso queda migrada entera como plantilla, con una prueba que falla si vuelve a escribirse una medida a mano |

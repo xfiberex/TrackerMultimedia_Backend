@@ -67,6 +67,16 @@ que la sonda de salud: `AddHealthChecks()` **sin comprobaciones registradas devu
 `Healthy`**, así que `/health` decía «todo bien» con PostgreSQL caído y nadie lo miró en un año.
 **Una sonda que no puede fallar no es una sonda** (T4-10).
 
+**Una barra invertida dentro de una plantilla de JavaScript desaparece, y con ella la
+comprobación.** `` new RegExp(`[\s;]...`) `` construye la expresión `[s;]`: la plantilla se come
+la barra, el corchete pasa a significar «una ese o un punto y coma» y la regla deja de encontrar
+nada. La prueba entonces **pasa siempre**, que es la peor forma de fallar. Ocurrió dos veces al
+escribir las pruebas del CSS, y las dos veces por el mismo camino: redactar el archivo con un
+heredoc, que ya se había comido otra barra antes de llegar a JavaScript. Dos defensas: escribir la
+expresión **literal** (`/[\s;]/g`) en vez de construirla con `new RegExp` y una plantilla, y
+—sobre todo— **romper a mano lo que la prueba vigila y comprobar que se pone en rojo** antes de
+darla por buena. El `no-useless-escape` de ESLint avisa de algunos casos, pero no de todos.
+
 **Un test en rojo que parece obsoleto se lee antes de reescribirlo.** El 2026-08-27 uno de ellos
 estaba señalando un defecto real de accesibilidad que llevaba tiempo en producción.
 
