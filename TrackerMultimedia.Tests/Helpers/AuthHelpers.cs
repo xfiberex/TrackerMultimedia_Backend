@@ -129,4 +129,29 @@ public static class AuthHelpers
         var auth = await LoginAsync(client, user.Email!, password);
         return (user.Email!, auth);
     }
+
+    /// <summary>
+    /// Como <see cref="CreateAndLoginAsync"/>, pero devuelve también el token de refresco
+    /// en claro leído de la cookie. Desde T4-01 ese valor no aparece en ninguna respuesta
+    /// del API, así que la cookie es el único sitio del que un test puede sacarlo — y hace
+    /// falta para poder afirmar que **no** sale por ningún otro.
+    /// </summary>
+    public static async Task<(string Email, AuthResponse Auth, string RefreshToken)> CreateAndLoginCapturingCookieAsync(
+        HttpClient client,
+        IServiceProvider services,
+        string? email = null,
+        string? password = null)
+    {
+        password ??= DefaultPassword;
+        var user = await CreateConfirmedUserAsync(services, email, password);
+
+        var response = await client.PostAsJsonAsync("/api/auth/login",
+            new { email = user.Email!, password });
+        response.EnsureSuccessStatusCode();
+
+        var auth = await response.Content.ReadFromJsonAsync<AuthResponse>()
+            ?? throw new InvalidOperationException("Login devolvió respuesta nula.");
+
+        return (user.Email!, auth, SessionCookies.Read(response));
+    }
 }

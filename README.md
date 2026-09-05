@@ -10,8 +10,10 @@ ASP.NET Core 10 Web API con autenticación JWT, correo SMTP y OAuth (Google / Gi
 ## Requisitos
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [PostgreSQL](https://www.postgresql.org/) 17, instalado en la máquina y escuchando en el
-  **puerto 5433**
+- [PostgreSQL](https://www.postgresql.org/) 17, instalado en la máquina. **Comprueba en qué
+  puerto escucha el tuyo** (`netstat -an | grep 543`) en vez de suponerlo: el equipo original
+  usaba el 5433 y el actual el 5432 por defecto. Es el dato que más veces se ha escrito mal en
+  una cadena de conexión
 - [`dotnet-ef` tools](https://learn.microsoft.com/en-us/ef/core/cli/dotnet): `dotnet tool install --global dotnet-ef`
 
 ---
@@ -48,7 +50,7 @@ expande cualquier cosa que empiece por `$` y te deja la clave vacía sin avisar.
 
 ```powershell
 # ── Base de datos ────────────────────────────────────────────────────────────
-# El servicio local escucha en el 5433, no en el 5432 por defecto.
+# Ajusta el puerto al de TU instalación (ver Requisitos): no siempre es el mismo.
 # La contraseña es la del rol `postgres` de tu instalación.
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" 'Host=localhost;Port=5433;Database=trackerMultimedia;Username=postgres;Password=<la-de-tu-.env>;'
 
@@ -88,8 +90,8 @@ tocar la principal; si no las defines, se usan `ClientId` y `ClientSecret` sin m
 
 Lo no sensible —`Smtp:Host`, `Smtp:Port`, `Smtp:Enabled`, `OAuth:*:Enabled`,
 `OAuth:*:RedirectUri`, `Cors:AllowedOrigins`, `App:FrontendBaseUrl` y los tiempos de vida del
-token— ya viene en `appsettings.Local.example.json`. **No existe ningún `appsettings.json`**
-en este repositorio.
+token— ya viene en `appsettings.json`, que **sí está versionado** desde T1-19 y contiene solo
+valores por defecto que puedan verse en un repositorio público.
 
 ### Configuración local no sensible
 
@@ -99,6 +101,30 @@ cp appsettings.Local.example.json appsettings.Local.json
 
 Ese archivo no se versiona, pero **no debe contener secretos**: solo orígenes CORS, niveles
 de log, tiempos de vida del token, host y puerto SMTP, y las URLs de callback OAuth.
+
+### La cookie de sesión
+
+El token de refresco viaja en una cookie `HttpOnly` que el frontend no puede leer (T4-01). Sus
+atributos se configuran en `Auth:RefreshCookie`, y los valores por defecto de `appsettings.json`
+sirven para el uso local:
+
+| Clave | Por defecto | Para qué |
+|---|---|---|
+| `Name` | `tm_refresh` | Nombre de la cookie |
+| `Path` | `/api/auth` | La acota a los endpoints de sesión; el resto del API usa el Bearer |
+| `SameSite` | `Strict` | `Strict`, `Lax` o `None` |
+| `Secure` | *(sin valor)* | Sin valor: `true` fuera de `Development`. En local va a `false` porque el servidor habla HTTP y el navegador descartaría una cookie `Secure` sin avisar |
+
+En local funciona porque el navegador carga la aplicación del servidor de Vite y este hace de
+proxy de `/api`: frontend y API comparten sitio, así que la cookie es first-party. **Si alguien
+pone `VITE_API_URL` a una URL absoluta, deja de serlo y la sesión no sobrevive a una recarga**, sin
+más síntoma que un 401 en el refresh.
+
+**Para un despliegue con frontend y backend en dominios distintos** (Netlify + Render) hacen falta
+`SameSite=None` y `Secure=true`. `AllowCredentials` en CORS ya está puesto. Con `SameSite=None` la
+única defensa contra CSRF que queda es la cabecera `X-TM-Client` que exigen `/auth/refresh` y
+`/auth/logout`, así que el allowlist de `Cors:AllowedOrigins` pasa a ser parte de la seguridad, no
+solo de la configuración.
 
 ### Ver qué secretos hay configurados
 

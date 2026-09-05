@@ -6,21 +6,23 @@
 | Tier | Nombre | Tareas | Cerradas | Abiertas |
 |------|--------|--------|----------|----------|
 | 0 | Crítico / Bloqueante | 6 | 5 | T0-05 en suspenso |
-| 1 | Alta prioridad | 21 | 20 | T1-05, reclasificada Bajo |
+| 1 | Alta prioridad | 21 | 19 | T1-05 (reclasificada Bajo) y T1-13 (reabierta) |
 | 2 | Mejoras sustanciales | 26 | 26 | — |
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
-| 4 | Futuro / Opcional | 10 | 5 | 5, sin estimar |
+| 4 | Futuro / Opcional | 10 | 6 | 4, sin estimar |
 | **Total** | | **88** | **79** | **6 + 3 en suspenso o anuladas** |
 
-**Estado (2026-09-04).** Cerrados los Tiers 0, 2 y 3; del Tier 1 solo queda T1-05. Las dos suites
-en verde —**165/165** backend sobre PostgreSQL real y **165/165** frontend—, con `npm run lint`,
+**Estado (2026-09-04).** Cerrados los Tiers 0, 2 y 3; del Tier 1 quedan T1-05 y T1-13, reabierta. Las dos suites
+en verde —**168/168** backend sobre PostgreSQL real y **167/167** frontend—, con `npm run lint`,
 `tsc -b` y `npm run build` limpios. `npm audit` da **0 vulnerabilidades**, comprobado el
 2026-09-02; es una afirmación que caduca, así que lleva fecha.
 
 ## El proyecto es de uso local
 
-Decisión del propietario del 2026-08-27: **Render, Neon y Netlify quedan deshabilitados** y sus
-credenciales revocadas. Los repositorios siguen en GitHub.
+Decisión del propietario del 2026-08-27: **Render, Neon y Netlify quedan deshabilitados**. Los
+repositorios siguen en GitHub. La revocación de las credenciales se dio por hecha y **no lo estaba
+en el caso de Neon** (T1-13, reabierta): deshabilitar un servicio y revocar la credencial que lo
+abre son dos acciones, y aquí solo se hizo la primera.
 
 Esto no cierra hallazgos por sí solo: **cambia cuáles están activos**. Lo que dependía de haber un
 servicio público queda en suspenso, no resuelto, y **vuelve en el momento en que se vuelva a desplegar**.
@@ -45,11 +47,23 @@ servicio público queda en suspenso, no resuelto, y **vuelve en el momento en qu
 - **Criterio:** enviar 50 peticiones a `/api/auth/login` con una `X-Forwarded-For` distinta cada
   vez acaba devolviendo 429.
 
+### T1-13 — Revocar de verdad la credencial de Neon · REABIERTA el 2026-09-04
+
+- **Área:** Seguridad · **Severidad:** Alto · **Esfuerzo:** bajo (son cinco minutos en un panel)
+- **Por qué vuelve:** la fila de cerradas decía «todas rotadas y Neon deshabilitado». No lo estaba.
+  Al recuperar el proyecto en este equipo, `appsettings.Local.json` traía la cadena de conexión de
+  Neon **y funcionaba**: el 2026-09-04 se crearon y borraron bases de datos remotas con ella por
+  error. Sacar la credencial del disco —ya hecho— no la invalida.
+- **Qué hacer:** revocar o rotar el rol `neondb_owner` en el panel de Neon, o eliminar el proyecto
+  entero si ya no se usa. Después, actualizar la fila de T1-13 en la tabla de cerradas, que hoy
+  afirma algo que no era cierto.
+- **Criterio:** intentar conectar con la cadena antigua falla por autenticación.
+- **Lección, más allá de esta credencial:** «rotada» y «el servicio está deshabilitado» son
+  afirmaciones distintas, y ninguna de las dos se comprueba sola. Lo que cerró la tarea en su día
+  fue la intención de revocarla, no la verificación de que lo estuviera.
+
 ### Tier 4 — Futuro / Opcional
 
-- **T4-01 · Migrar el refresh token a una cookie `httpOnly`** — Seguridad. Es la mitigación real
-  contra el robo por XSS que el propio `tokenStore.ts` ya propone. Implica cookies, CORS con
-  credenciales y protección CSRF. · Esfuerzo alto
 - **T4-02 · Añadir PKCE a los flujos OAuth** — Seguridad. Con cliente confidencial no es
   obligatorio, pero es defensa en profundidad frente a la interceptación del código. · Esfuerzo medio
 - **T4-03 · Internacionalizar la interfaz** — UI/UX. Todos los textos están incrustados en español
@@ -98,7 +112,7 @@ El hallazgo de la auditoría era erróneo.
 
 ## Cerradas
 
-Resumen de las 79 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
+Resumen de las 80 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
 [HISTORY.md](HISTORY.md), por sesión; el efecto visible, en [CHANGELOG.md](CHANGELOG.md).
 
 ### Tier 0 — Crítico
@@ -125,7 +139,7 @@ Resumen de las 79 tareas cerradas y verificadas. El detalle de cómo se resolvi�
 | T1-09 | Simular `matchMedia` en el arranque de los tests | 2026-08-27 |
 | T1-10 | Actualizar los tests de `LibraryView` a la interfaz vigente | 2026-08-27 |
 | T1-11 | Corregir la aserción errónea del test de Jikan | 2026-08-27 |
-| T1-13 | Rotar las credenciales y sacarlas del disco en claro | 2026-08-27 · Todas rotadas y, además, Neon, Render y Netlify deshabilitados: ya no hay servicio al que dieran acceso |
+| T1-13 | Rotar las credenciales y sacarlas del disco en claro | 2026-08-27 · **Cierre incorrecto: la de Neon seguía activa.** Reabierta el 2026-09-04, ver *Abiertas* |
 | T1-14 | Implementar el borrado de cuenta | 2026-09-02 · `DELETE /api/auth/account` con reautenticación, transacción y borrado de los `OAuthStates` que la cascada no cubría |
 | T1-15 | Declarar una licencia | 2026-09-02 · MIT en los dos repositorios |
 | T1-16 | Gestión de foco en los diálogos modales | 2026-08-27 · Hook compartido; aparecieron tres defectos no previstos por el camino |
@@ -172,7 +186,7 @@ Resumen de las 79 tareas cerradas y verificadas. El detalle de cómo se resolvi�
 | ID | Tarea | Cierre |
 |---|---|---|
 | T3-01 | Unificar los cinco valores documentados de `VITE_API_URL` | 2026-08-27 · Un único valor, `/api`, ruta relativa |
-| T3-02 | Eliminar o implementar `Security:ApiKey` | 2026-08-27 · Eliminada; no existía en el código |
+| T3-02 | Eliminar o implementar `Security:ApiKey` | 2026-08-27 · Eliminada; no existía en el código. Quedaba una copia en el `appsettings.Local.json` de este equipo, borrada el 2026-09-04 |
 | T3-03 | Eliminar `DefaultConnectionPro` | 2026-08-27 · Cadena de producción que solo servía para tener la credencial en el portátil |
 | T3-04 | Sustituir `TODO.md` por documentación vigente | 2026-08-27 · Eliminado |
 | T3-05 | Documentar cómo ejecutar las pruebas | 2026-08-27 |
@@ -199,6 +213,7 @@ Resumen de las 79 tareas cerradas y verificadas. El detalle de cómo se resolvi�
 
 | ID | Tarea | Cierre |
 |---|---|---|
+| T4-01 | Migrar el refresh token a una cookie `httpOnly` | 2026-09-04 · Cookie `HttpOnly` + `SameSite=Strict`, cabecera `X-TM-Client` contra CSRF, y el callback OAuth deja de llevar tokens en la URL |
 | T4-05 | Medir y publicar la cobertura de pruebas | 2026-09-02 · Destapó que AniList y MangaDex no tenían ni una prueba. Veinte tests nuevos; 87,4 % líneas / 56,1 % ramas |
 | T4-07 | Publicar la especificación OpenAPI | 2026-09-04 · `docs/openapi.json` versionado (30 rutas) y, en ejecución, tras `OpenApi__Exposed=true` fuera de desarrollo |
 | T4-08 | Exportación completa de datos personales | 2026-09-04 · `GET /api/auth/account/export`. De paso, los formatos personalizados quedan por fin exportables |

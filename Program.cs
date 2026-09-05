@@ -14,6 +14,7 @@ using Microsoft.IdentityModel.Tokens;
 using TrackerMultimedia.Data;
 using TrackerMultimedia.Domain.Entities;
 using TrackerMultimedia.Infrastructure.Health;
+using TrackerMultimedia.Infrastructure.Http;
 using TrackerMultimedia.Infrastructure.Options;
 using TrackerMultimedia.Services;
 
@@ -41,10 +42,15 @@ var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get
 var applyMigrationsOnStartup = builder.Configuration.GetValue<bool>("Database:ApplyMigrationsOnStartup");
 var dataProtectionKeysDirectory = builder.Configuration["DataProtection:KeysDirectory"];
 
+// `AllowCredentials` es imprescindible desde que el token de refresco viaja en cookie:
+// sin él el navegador no la adjunta a las peticiones del API. Obliga a que el allowlist
+// sea explícito —`AllowAnyOrigin` es incompatible con credenciales—, que es justo lo que
+// sostiene la defensa contra CSRF de `RequireClientHeaderAttribute`.
 builder.Services.AddCors(options =>
     options.AddPolicy("Frontend", policy =>
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
+              .AllowCredentials()
               .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")));
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -123,6 +129,8 @@ builder.Services.AddScoped<FormatsService>();
 builder.Services.AddScoped<ExternalCatalogSearchService>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<AuthSessionService>();
+builder.Services.Configure<RefreshCookieOptions>(builder.Configuration.GetSection(RefreshCookieOptions.SectionName));
+builder.Services.AddSingleton<RefreshTokenCookie>();
 builder.Services.AddScoped<PersonalDataExportService>();
 
 // ── SMTP / Email ─────────────────────────────────────────────────────────────

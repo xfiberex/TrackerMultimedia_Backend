@@ -21,6 +21,7 @@ public class AuthController(
     ApplicationDbContext dbContext,
     TokenService tokenService,
     AuthSessionService sessionService,
+    RefreshTokenCookie refreshCookie,
     PersonalDataExportService personalDataExportService,
     FormatsService formatsService,
     IEmailService emailService,
@@ -156,21 +157,34 @@ public class AuthController(
         await userManager.ResetAccessFailedCountAsync(user);
         logger.LogInformation("Login correcto: {UserId}", user.Id);
 
-        var authResponse = await sessionService.CreateSessionAsync(user, cancellationToken);
-        return Ok(authResponse);
+        var session = await sessionService.CreateSessionAsync(user, cancellationToken);
+        refreshCookie.Write(Response, session.RefreshToken, session.RefreshLifetime);
+        return Ok(session.Response);
     }
 
     // -------------------------------------------------------------------------
     // POST /api/auth/refresh
     // -------------------------------------------------------------------------
 
+    /// <remarks>
+    /// El token sale de la cookie, no del cuerpo: el cliente no lo tiene. Eso convierte a
+    /// este endpoint en el primero del API que se autentica con credencial ambiente, de
+    /// ahí <see cref="RequireClientHeaderAttribute"/>.
+    /// </remarks>
     [HttpPost("refresh")]
     [EnableRateLimiting("auth")]
-    public async Task<ActionResult<AuthResponse>> Refresh(
-        [FromBody] RefreshRequest request,
-        CancellationToken cancellationToken)
+    [RequireClientHeader]
+    public async Task<ActionResult<AuthResponse>> Refresh(CancellationToken cancellationToken)
     {
-        var tokenHash = tokenService.ComputeHash(request.RefreshToken);
+        var presentedToken = refreshCookie.Read(Request);
+        if (presentedToken is null)
+        {
+            // Sin cookie no hay nada que comprobar. Se responde antes de tocar la base de
+            // datos: es el caso normal de quien nunca ha entrado, no un fallo.
+            return Unauthorized(RefreshFailureMessage);
+        }
+
+        var tokenHash = tokenService.ComputeHash(presentedToken);
 
         var storedToken = await dbContext.RefreshTokens
             .Include(rt => rt.User)
@@ -178,6 +192,10 @@ public class AuthController(
 
         if (storedToken is null)
         {
+            // La cookie se borra en cada salida de fallo. Si no, el navegador seguiría
+            // mandando un token muerto en cada arranque de la aplicación y cada uno
+            // gastaría una petición del cupo del rate limiter.
+            refreshCookie.Delete(Response);
             logger.LogWarning("Refresh rechazado: token desconocido.");
             return Unauthorized(RefreshFailureMessage);
         }
@@ -199,11 +217,13 @@ public class AuthController(
                 storedToken.UserId,
                 revokedCount);
 
+            refreshCookie.Delete(Response);
             return Unauthorized(RefreshFailureMessage);
         }
 
         if (storedToken.ExpiresAtUtc < DateTime.UtcNow)
         {
+            refreshCookie.Delete(Response);
             logger.LogInformation("Refresh rechazado: token caducado para el usuario {UserId}.", storedToken.UserId);
             return Unauthorized(RefreshFailureMessage);
         }
@@ -215,6 +235,7 @@ public class AuthController(
         {
             storedToken.IsRevoked = true;
             await dbContext.SaveChangesAsync(cancellationToken);
+            refreshCookie.Delete(Response);
             logger.LogWarning(
                 "Refresh rechazado por estado de la cuenta {UserId} (bloqueada o correo sin confirmar).",
                 storedToken.UserId);
@@ -225,22 +246,29 @@ public class AuthController(
         storedToken.IsRevoked = true;
         logger.LogInformation("Token refrescado para usuario {UserId}", storedToken.User.Id);
 
-        var authResponse = await sessionService.CreateSessionAsync(storedToken.User, cancellationToken);
-        return Ok(authResponse);
+        var session = await sessionService.CreateSessionAsync(storedToken.User, cancellationToken);
+        refreshCookie.Write(Response, session.RefreshToken, session.RefreshLifetime);
+        return Ok(session.Response);
     }
 
     // -------------------------------------------------------------------------
     // POST /api/auth/logout
     // -------------------------------------------------------------------------
 
+    /// <remarks>
+    /// Responde 204 aunque no haya cookie o el token ya no exista. Cerrar sesión es
+    /// idempotente por definición, y devolver un error solo conseguiría que el cliente
+    /// se quedara con la sesión local puesta por algo que ya estaba como debía.
+    /// </remarks>
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout(
-        [FromBody] RefreshRequest? request,
-        CancellationToken cancellationToken)
+    [RequireClientHeader]
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
-        if (request is not null && !string.IsNullOrWhiteSpace(request.RefreshToken))
+        var presentedToken = refreshCookie.Read(Request);
+
+        if (presentedToken is not null)
         {
-            var tokenHash = tokenService.ComputeHash(request.RefreshToken);
+            var tokenHash = tokenService.ComputeHash(presentedToken);
             var storedToken = await dbContext.RefreshTokens
                 .FirstOrDefaultAsync(rt => rt.TokenHash == tokenHash, cancellationToken);
 
@@ -252,6 +280,7 @@ public class AuthController(
             }
         }
 
+        refreshCookie.Delete(Response);
         return NoContent();
     }
 
@@ -270,6 +299,7 @@ public class AuthController(
             .Where(rt => rt.UserId == parsedId && !rt.IsRevoked)
             .ExecuteUpdateAsync(setters => setters.SetProperty(rt => rt.IsRevoked, true), cancellationToken);
 
+        refreshCookie.Delete(Response);
         logger.LogInformation("Logout-all: {Count} sesiones revocadas para usuario {UserId}", revoked, parsedId);
         return NoContent();
     }
@@ -462,6 +492,11 @@ public class AuthController(
         // es el sitio donde conservar el dato que se acaba de borrar.
         logger.LogInformation("Cuenta borrada: {UserId}. Estados OAuth pendientes retirados: {Count}",
             userId, orphanStates);
+
+        // La fila del token ya cayó por cascada, pero la cookie sigue en el navegador. Sin
+        // esto, el siguiente arranque de la aplicación mandaría el token de una cuenta que
+        // ya no existe y se llevaría un 401 en vez de una pantalla de inicio limpia.
+        refreshCookie.Delete(Response);
 
         return NoContent();
     }

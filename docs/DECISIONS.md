@@ -5,16 +5,43 @@
 
 ## Sesión y tokens
 
-**Access token en memoria, refresh token en `localStorage`.** El access token vive en una variable
-de módulo (`Frontend/src/shared/api/tokenStore.ts`), fuera del árbol de React, para que el
-interceptor de Axios pueda leerlo sin depender del ciclo de vida de los componentes. Nunca se
-persiste: un XSS no puede extraerlo del almacenamiento. El refresh token sí, porque sin él la
-sesión se perdería en cada recarga. Riesgo aceptado conscientemente; la alternativa correcta
-—cookie `httpOnly`— está registrada como T4-01, no descartada.
+**Access token en memoria, refresh token en cookie `HttpOnly`.** El access token vive en una
+variable de módulo (`Frontend/src/shared/api/tokenStore.ts`), fuera del árbol de React, para que
+el interceptor de Axios pueda leerlo sin depender del ciclo de vida de los componentes. Nunca se
+persiste. El refresh va en una cookie que el código de la página no puede leer.
 
-**No hay ninguna mitigación de cookie sobre el refresh token.** `SameSite` es un atributo de
-cookie y no existe en `localStorage`. Las defensas reales son las tres del servidor: hash,
-rotación en cada uso y revocación de toda la familia ante reutilización.
+*Decisión anterior, superada el 2026-09-04 (T4-01):* el refresh se guardaba en `localStorage`,
+legible por cualquier JS del origen. Se aceptó conscientemente a cambio de que la sesión
+sobreviviera a las recargas, con la cookie ya registrada como alternativa correcta. Lo que la
+cerró es que las mitigaciones que había —hash en servidor, rotación y revocación de familia— son
+de **detección**, no de prevención: reducen la ventana de un robo, no lo impiden.
+
+**Solo dos endpoints se autentican con la cookie, y es a propósito.** `/auth/refresh` y
+`/auth/logout`. Todo lo demás sigue yendo con el Bearer en memoria, que no es credencial ambiente
+y por tanto no es atacable por CSRF. Mantener esa frontera es lo que hace que la superficie de
+CSRF sea de dos endpoints y no de toda la API. **No mover un endpoint a la cookie sin volver a
+pensar esto.**
+
+**Contra CSRF: `SameSite` más una cabecera obligatoria, no doble envío.** La cookie va
+`SameSite=Strict` y los dos endpoints exigen `X-TM-Client`. Un `<form>` de otro sitio no puede
+añadir cabeceras, y un `fetch` que lo intente deja de ser una petición simple y dispara un
+preflight que el allowlist de CORS rechaza. Se eligió frente al doble envío con token porque no
+añade estado que sincronizar en login, refresh, logout y arranque, y porque **sigue funcionando si
+la cookie tiene que pasar a `SameSite=None`** en un despliegue con dominios distintos — que es
+justo la trampa que dejaba confiar solo en `SameSite`. Los atributos son configurables en
+`Auth:RefreshCookie`.
+
+**La renovación de sesión tiene una sola petición en vuelo.** `refreshSession`, en
+`shared/api/axios.ts`, es el único camino: lo usan tanto el arranque de la aplicación como el
+interceptor de 401. No es una optimización sino correctitud, porque los tokens rotan y dos
+renovaciones simultáneas presentan el mismo valor: la segunda parece un robo y revoca todas las
+sesiones. **Cualquier llamada nueva a `/auth/refresh` pasa por ahí.**
+
+**El callback de OAuth no lleva ningún token en la URL.** El backend escribe la cookie en la
+propia redirección y el fragmento solo lleva `return_path`; el frontend cambia eso por un access
+token llamando a `/auth/refresh`. El fragmento no se manda al servidor, así que nunca llegó a los
+logs, pero sí queda en el historial del navegador y en cualquier sitio donde se pegue la
+dirección, y eso no tiene arreglo una vez ocurre. El precio es una ida y vuelta al entrar.
 
 **El servidor solo guarda el hash del refresh token.** SHA-256 en base64, nunca el valor en claro,
 rotado en cada uso: el token consumido se marca revocado y se emite uno nuevo. Presentar uno ya
@@ -24,10 +51,6 @@ rotado revoca **todas** las sesiones del usuario.
 sitio que emite un par de tokens, vengan de login manual, de Google o de GitHub. Con tres caminos
 duplicando la lógica era cuestión de tiempo que uno se olvidara de persistir o de rotar.
 **No reabrir**: cualquier camino de acceso nuevo pasa por ahí.
-
-**Los tokens de OAuth vuelven al frontend en el fragmento de la URL (`#`), no en la query.** El
-fragmento no se envía al servidor, así que no acaba en los logs de acceso ni en el `Referer`.
-`OAuthCallbackView` los lee de `window.location.hash` al montarse y navega con `replace`.
 
 ## OAuth
 
@@ -133,7 +156,7 @@ Revisado y decidido **no** hacerlo. No volver a proponerlo sin un hecho nuevo.
 | **`VITE_API_URL` es una ruta relativa, no una URL absoluta** | Decidido el 2026-08-27 al cerrar T3-01. `/api` se resuelve contra el host desde el que el navegador cargó la página, así que funciona igual en `localhost` y al servir con `--host` desde otro dispositivo. Una URL absoluta a `localhost` rompe el segundo caso sin avisar: el otro dispositivo hablaría con su propio localhost. |
 | **No añadir banner de consentimiento de cookies** | Revisado el 2026-08-27: no hay cookies, ni analítica, ni rastreadores. Solo `localStorage` para el token de refresco, el tema y los proveedores seleccionados, todos estrictamente necesarios. No requiere consentimiento previo, aunque sí describirse en la política de privacidad (T0-05). |
 | **No eliminar `ReactQueryDevtools` de `main.tsx`** | Revisado el 2026-08-27 sobre `dist/assets/index-*.js`: Vite lo elimina por completo en el build. |
-| **No sustituir la lectura de tokens desde el fragmento de URL en el callback OAuth** | Revisado el 2026-08-27: mantiene los tokens fuera de los logs del servidor. Su sustitución real es T4-01 (cookie `httpOnly`), no un parche intermedio. |
+| ~~**No sustituir la lectura de tokens desde el fragmento de URL en el callback OAuth**~~ · **SUPERADA el 2026-09-04** | Se cumplió lo que la propia decisión anunciaba: la sustitución real era T4-01, y llegó. El fragmento ya no lleva tokens, solo `return_path`. ~~Decisión original:~~ revisado el 2026-08-27, el patrón mantenía los tokens fuera de los logs del servidor, y por eso no se cambió por un parche intermedio. |
 | **No tratar `navigate(returnPath)` del callback como redirección abierta** | Revisado el 2026-08-27: `returnPath` llega sin revalidar desde el fragmento, pero `history.pushState` rechaza destinos de otro origen y no se pudo construir un caso explotable. Defensa en profundidad, no vulnerabilidad. |
 | **No añadir `aria-hidden` a los iconos de Heroicons** | Revisado el 2026-08-27 en `node_modules`: la librería ya lo emite por defecto. |
 | **No añadir `aria-current` a mano en la navegación (T2-25)** | Revisado el 2026-08-27 al ir a implementarlo: `NavLink` de React Router **ya lo emite**. El hallazgo de la auditoría era erróneo. Segunda vez que un hallazgo de auditoría envejece mal; verificar antes de implementar. |

@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using TrackerMultimedia.Contracts.Auth;
 using TrackerMultimedia.Data;
 using TrackerMultimedia.Domain.Entities;
+using TrackerMultimedia.Infrastructure.Http;
 using TrackerMultimedia.Infrastructure.Logging;
 using TrackerMultimedia.Infrastructure.Options;
 using TrackerMultimedia.Services;
@@ -20,6 +21,7 @@ public class OAuthController(
     ApplicationDbContext dbContext,
     UserManager<ApplicationUser> userManager,
     AuthSessionService sessionService,
+    RefreshTokenCookie refreshCookie,
     FormatsService formatsService,
     IOptions<OAuthOptions> oauthOptions,
     ILogger<OAuthController> logger,
@@ -187,7 +189,8 @@ public class OAuthController(
 
             logger.LogInformation("Login OAuth {Provider}: usuario {UserId} ya vinculado", normalizedProvider, existingLoginUser.Id);
             var session = await sessionService.CreateSessionAsync(existingLoginUser, cancellationToken);
-            return Redirect(BuildSuccessRedirect(frontendBase, storedState.ReturnPath, session));
+            refreshCookie.Write(Response, session.RefreshToken, session.RefreshLifetime);
+            return Redirect(BuildSuccessRedirect(frontendBase, storedState.ReturnPath));
         }
 
         var emailUser = await userManager.FindByEmailAsync(profile.Email);
@@ -217,7 +220,8 @@ public class OAuthController(
             logger.LogInformation("Cuenta creada vía OAuth {Provider}: {UserId}", normalizedProvider, newUser.Id);
 
             var session = await sessionService.CreateSessionAsync(newUser, cancellationToken);
-            return Redirect(BuildSuccessRedirect(frontendBase, storedState.ReturnPath, session));
+            refreshCookie.Write(Response, session.RefreshToken, session.RefreshLifetime);
+            return Redirect(BuildSuccessRedirect(frontendBase, storedState.ReturnPath));
         }
 
         // Caso C: email ya existe en cuenta manual → vinculación explícita requerida
@@ -320,7 +324,8 @@ public class OAuthController(
 
         logger.LogInformation("Cuenta {UserId} vinculada a {Provider}", user.Id, request.Provider);
         var session = await sessionService.CreateSessionAsync(user, cancellationToken);
-        return Ok(session);
+        refreshCookie.Write(Response, session.RefreshToken, session.RefreshLifetime);
+        return Ok(session.Response);
     }
 
     // -------------------------------------------------------------------------
@@ -335,21 +340,21 @@ public class OAuthController(
         char.ToUpper(provider[0]) + provider[1..];
 
     /// <summary>
-    /// Construye la URL de redirección al frontend con los tokens de sesión.
-    /// Los tokens viajan en el fragment (#) para que no queden en server logs.
-    /// El frontend los lee desde window.location.hash al montar el callback.
+    /// Construye la redirección al frontend tras un login OAuth correcto.
+    ///
+    /// **Ya no viaja ningún token en la URL.** La sesión se entrega en la cookie de
+    /// refresco que se escribe en esta misma respuesta, y el frontend cambia el fragmento
+    /// por un access token llamando a <c>/auth/refresh</c> nada más montar el callback.
+    ///
+    /// Antes el fragmento llevaba el access token, el refresh y el usuario serializado.
+    /// El fragmento no se manda al servidor, así que no llegaba a los logs, pero sí queda
+    /// en el historial del navegador y en cualquier sitio donde se pegue la URL. Eso ya no
+    /// tiene arreglo una vez ocurre, y el precio de evitarlo es una ida y vuelta.
     /// </summary>
-    private static string BuildSuccessRedirect(string frontendBase, string? returnPath, AuthResponse session)
+    private static string BuildSuccessRedirect(string frontendBase, string? returnPath)
     {
         var target = string.IsNullOrEmpty(returnPath) ? "/library" : returnPath;
-        var user = Uri.EscapeDataString(JsonSerializer.Serialize(session.User));
-
-        return $"{frontendBase}/oauth-callback" +
-               $"#access_token={Uri.EscapeDataString(session.AccessToken)}" +
-               $"&refresh_token={Uri.EscapeDataString(session.RefreshToken)}" +
-               $"&expires_in={session.ExpiresIn}" +
-             $"&return_path={Uri.EscapeDataString(target)}" +
-             $"&user={user}";
+        return $"{frontendBase}/oauth-callback#return_path={Uri.EscapeDataString(target)}";
     }
 
     /// <summary>

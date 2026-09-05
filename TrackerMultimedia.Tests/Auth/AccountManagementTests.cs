@@ -76,8 +76,8 @@ public class AccountManagementTests(AppFactory factory) : IClassFixture<AppFacto
 
         Assert.Equal(HttpStatusCode.NoContent, logoutAllResponse.StatusCode);
 
-        var refreshA = await loginClientA.PostAsJsonAsync("/api/auth/refresh", new RefreshRequest(authA.RefreshToken));
-        var refreshB = await loginClientB.PostAsJsonAsync("/api/auth/refresh", new RefreshRequest(authB.RefreshToken));
+        var refreshA = await SessionCookies.RefreshAsync(loginClientA);
+        var refreshB = await SessionCookies.RefreshAsync(loginClientB);
 
         Assert.Equal(HttpStatusCode.Unauthorized, refreshA.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, refreshB.StatusCode);

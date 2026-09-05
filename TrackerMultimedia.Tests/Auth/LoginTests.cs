@@ -25,8 +25,9 @@ public class LoginTests(AppFactory factory) : IClassFixture<AppFactory>
         var body = await response.Content.ReadFromJsonAsync<AuthResponse>();
         Assert.NotNull(body);
         Assert.False(string.IsNullOrEmpty(body.AccessToken));
-        Assert.False(string.IsNullOrEmpty(body.RefreshToken));
         Assert.True(body.ExpiresIn > 0);
+        // El refresco ya no viene en el cuerpo: va en la cookie HttpOnly (T4-01).
+        Assert.True(SessionCookies.TryRead(response, out _));
         Assert.Equal(user.Email, body.User.Email);
         Assert.True(body.User.EmailConfirmed);
     }

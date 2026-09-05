@@ -14,32 +14,39 @@ public class AuthSessionService(
     ApplicationDbContext dbContext)
 {
     /// <summary>
-    /// Genera un par de tokens, persiste el refresh token hasheado y devuelve
-    /// el <see cref="AuthResponse"/> listo para enviar al cliente.
+    /// Genera un par de tokens, persiste el refresh token hasheado y devuelve las dos
+    /// mitades por separado: la que se envía en el cuerpo y la que va a la cookie.
+    ///
+    /// Van separadas a propósito. El token de refresco en claro solo debe pasar por el
+    /// controlador que escribe la cookie; si viviera dentro del <see cref="AuthResponse"/>
+    /// bastaría con serializar la respuesta para devolverlo al cliente por accidente, que
+    /// es exactamente lo que hacía antes de T4-01.
     /// </summary>
-    public async Task<AuthResponse> CreateSessionAsync(
+    public async Task<IssuedSession> CreateSessionAsync(
         ApplicationUser user,
         CancellationToken cancellationToken = default)
     {
         var accessToken = tokenService.GenerateAccessToken(user);
         var (rawToken, tokenHash) = tokenService.GenerateRefreshToken();
+        var refreshLifetime = TimeSpan.FromDays(tokenService.GetRefreshTokenLifetimeDays());
 
         dbContext.RefreshTokens.Add(new RefreshToken
         {
             TokenHash = tokenHash,
             UserId = user.Id,
-            ExpiresAtUtc = DateTime.UtcNow.AddDays(tokenService.GetRefreshTokenLifetimeDays()),
+            ExpiresAtUtc = DateTime.UtcNow.Add(refreshLifetime),
         });
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var linkedProviders = await GetLinkedProvidersAsync(user.Id, cancellationToken);
 
-        return new AuthResponse(
+        var response = new AuthResponse(
             accessToken,
-            rawToken,
             tokenService.GetAccessTokenLifetimeMinutes() * 60,
             ToUserResponse(user, linkedProviders));
+
+        return new IssuedSession(response, rawToken, refreshLifetime);
     }
 
     /// <summary>
@@ -90,3 +97,14 @@ public class AuthSessionService(
             logins);
     }
 }
+
+/// <summary>
+/// Una sesión recién emitida, con sus dos mitades separadas por destino.
+/// </summary>
+/// <param name="Response">Lo que se serializa al cliente. No contiene el refresh.</param>
+/// <param name="RefreshToken">El valor en claro, solo para escribirlo en la cookie.</param>
+/// <param name="RefreshLifetime">
+/// Vida del refresh en base de datos. La cookie caduca a la vez: una cookie que sobreviva
+/// al token solo consigue que el navegador mande algo que el servidor ya rechaza.
+/// </param>
+public record IssuedSession(AuthResponse Response, string RefreshToken, TimeSpan RefreshLifetime);

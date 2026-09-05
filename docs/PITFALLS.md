@@ -97,6 +97,21 @@ donde el diálogo devuelve `null`: se desmonta y se vuelve a montar al instante,
 **durante el render**, comparando con el valor anterior guardado también en estado —no en una ref,
 que `react-hooks/refs` prohíbe leer ahí—.
 
+**`StrictMode` monta los efectos dos veces, y con tokens que rotan eso es un robo aparente.**
+El efecto que recupera la sesión al arrancar salía dos veces en desarrollo. Las dos peticiones
+partían antes de que llegara la respuesta de la primera, así que **ambas presentaban el mismo
+token de refresco**; la segunda llegaba con uno ya rotado, que es exactamente la señal de robo de
+T2-12, y el backend revocaba **todas** las sesiones del usuario. El síntoma era peor que un error
+visible: la aplicación seguía funcionando con el access token que ya había obtenido, y la sesión
+aparecía muerta solo en la recarga siguiente, sin nada que la relacionara con la anterior.
+Apareció el 2026-09-04 al comprobar T4-01 en un navegador de verdad; la suite no podía verlo
+porque jsdom no monta dos veces y cada test tenía su propio módulo. Es **anterior a T4-01** —el
+código que leía el token de `localStorage` tenía la misma carrera—, solo que sin cookie nadie
+había mirado. La solución es que la renovación tenga **una sola petición en vuelo**
+(`refreshSession` en `shared/api/axios.ts`), compartida por el arranque y por el interceptor de
+401. **Regla general: con tokens de un solo uso, cualquier llamada que pueda solaparse consigo
+misma necesita deduplicación, no reintentos.**
+
 **El límite de error va por fuera de los proveedores.** Colocado por dentro, un fallo del propio
 proveedor no lo alcanza.
 
@@ -134,6 +149,41 @@ es una avalancha de `error CS0246: no se encontró 'Fact'` **atribuidos al proye
 no al de tests. La solución es `DefaultItemExcludes` en `TrackerMultimedia_Backend.csproj:12`; si
 se renombra la carpeta de tests hay que actualizar esa propiedad **y** el `.dockerignore`.
 
+**`core.autocrlf` de Git rompe el hash de la CSP al clonar en Windows.** Apareció el 2026-09-04 al
+mover el proyecto a otro equipo. Git en Windows trae `core.autocrlf=true`, y el repositorio del
+frontend no tenía `.gitattributes`: el checkout convirtió los 319 archivos de texto a CRLF. El
+`index.html` servido deja de coincidir con el hash SHA-256 con el que la CSP autoriza su script en
+línea, así que **el navegador lo bloquea y vuelve el destello de tema claro que T3-18 corrigió**,
+sin un solo error a la vista. El test de la CSP lo detectó, que es exactamente para lo que se
+escribió. El `.editorconfig` no protege de esto: manda sobre el editor, no sobre el checkout. La
+solución es un `.gitattributes` con `* text=auto eol=lf`, que además no genera ningún cambio de
+contenido porque los blobs del repositorio ya eran LF. **Ojo con el diagnóstico:** tras añadirlo,
+`git status` marca cientos de archivos como modificados mientras `git diff` no ve nada — es caché
+de `stat`, y se asienta con `git add --renormalize .` seguido de `git reset`.
+
+**Y el mismo problema al revés en el backend:** su `.editorconfig` declara `end_of_line = crlf`, así
+que ahí CRLF es lo correcto. Cualquier script que reescriba archivos del backend con LF —los de
+Python con `newline='
+'`, por ejemplo— deja `dotnet format whitespace --verify-no-changes` en
+rojo. Es la tercera vez que este proyecto tropieza con los finales de línea.
+
 **`npm run build` no ejecuta el linter.** Solo hace `tsc -b && vite build`, así que un error de
 ESLint llega a producción sin que el build se queje (T2-23). Y al revés: `tsc -b` no ejecuta los
 tests, y los tests no comprueban los tipos.
+
+**`localhost` es un vecindario compartido, y las cookies no distinguen el puerto.** Para
+`localStorage` el origen es esquema + host + **puerto**, así que `localhost:5173` y `localhost:5174`
+están aislados. Para las **cookies no**: el puerto no forma parte de su identidad. Una cookie puesta
+en `localhost:5173` se manda a cualquier cosa que escuche en `localhost`, sea del proyecto que sea.
+
+Aquí eso importa dos veces. La primera, comprobada el 2026-09-04: en el `localStorage` de
+`localhost:5173` conviven las claves de otros proyectos locales que usan el puerto por defecto de
+Vite —y una de ellas guardaba un refresh token ajeno en claro—, porque **todos comparten el mismo
+origen**. La segunda es sobre `tm_refresh` (T4-01): `Path=/api/auth` la limita, pero cualquier
+proyecto que sirva esa ruta en `localhost` la recibiría.
+
+No es un fallo de la aplicación, es cómo está definido el origen, y solo pasa en desarrollo: en
+producción cada proyecto tiene su dominio. La defensa buena es **darle a cada proyecto un host
+propio** —los navegadores resuelven cualquier `*.localhost` a `127.0.0.1` sin tocar el `hosts`—
+porque cambiar el host sí separa el `localStorage` **y** el tarro de cookies. Fijar puertos
+distintos con `strictPort` separa el `localStorage`, pero **no las cookies**.

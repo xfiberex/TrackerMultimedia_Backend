@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Net;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -65,7 +66,13 @@ public class PersonalDataExportTests(AppFactory factory) : IClassFixture<AppFact
     [Fact]
     public async Task Export_ListsSessionsWithoutTheTokenThatOpensThem()
     {
-        var (client, email, auth) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
+        // El cliente se monta a mano en vez de con el helper porque este test necesita el
+        // token de refresco en claro, y desde T4-01 solo está en la cookie.
+        var client = factory.CreateClient();
+        var (email, auth, refreshToken) =
+            await AuthHelpers.CreateAndLoginCapturingCookieAsync(client, factory.Services);
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", auth.AccessToken);
         var userId = await GetUserIdAsync(email);
 
         var response = await client.GetAsync("/api/auth/account/export");
@@ -80,7 +87,7 @@ public class PersonalDataExportTests(AppFactory factory) : IClassFixture<AppFact
         // …pero ni el token de refresco en claro ni su hash pueden aparecer en el archivo:
         // el primero abre la cuenta y el segundo es lo que se compara contra él.
         var tokenHash = await GetRefreshTokenHashAsync(userId);
-        Assert.DoesNotContain(auth.RefreshToken, raw, StringComparison.Ordinal);
+        Assert.DoesNotContain(refreshToken, raw, StringComparison.Ordinal);
         Assert.DoesNotContain(tokenHash, raw, StringComparison.Ordinal);
         Assert.DoesNotContain(auth.AccessToken, raw, StringComparison.Ordinal);
     }

@@ -87,7 +87,7 @@ public class OAuthControllerTests
     }
 
     [Fact]
-    public async Task Callback_WithExistingLinkedUser_RedirectsWithSessionTokens()
+    public async Task Callback_WithExistingLinkedUser_SetsTheCookieAndLeavesNoTokenInTheUrl()
     {
         var email = $"oauthlinked_{Guid.NewGuid():N}@test.com";
         var googleService = new StubGoogleAuthService
@@ -106,9 +106,17 @@ public class OAuthControllerTests
         var location = response.Headers.Location?.ToString();
         Assert.NotNull(location);
         Assert.StartsWith("http://frontend.test/oauth-callback#", location, StringComparison.Ordinal);
-        Assert.Contains("access_token=", location, StringComparison.Ordinal);
-        Assert.Contains("refresh_token=", location, StringComparison.Ordinal);
         Assert.Contains("return_path=%2Flibrary", location, StringComparison.Ordinal);
+
+        // La sesión se entrega por cookie, no por la URL. El fragmento no llega al
+        // servidor, pero sí queda en el historial del navegador y en cualquier sitio
+        // donde se pegue la dirección, y eso ya no tiene arreglo una vez ocurre.
+        Assert.DoesNotContain("access_token=", location, StringComparison.Ordinal);
+        Assert.DoesNotContain("refresh_token=", location, StringComparison.Ordinal);
+        Assert.DoesNotContain("user=", location, StringComparison.Ordinal);
+
+        var setCookie = SessionCookies.Attributes(response);
+        Assert.Contains("httponly", setCookie, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -199,6 +207,8 @@ public class OAuthControllerTests
         var auth = await response.Content.ReadFromJsonAsync<AuthResponse>();
         Assert.NotNull(auth);
         Assert.False(string.IsNullOrWhiteSpace(auth!.AccessToken));
+        // La vinculación deja al usuario dentro, así que emite sesión como el login.
+        Assert.True(SessionCookies.TryRead(response, out _));
 
         using var scope = factory.Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();

@@ -75,13 +75,15 @@ Domain/Enums/                 # ContentKind, MediaType (legado), ProgressUnit, e
 Domain/Validation/            # HttpOrHttpsUrlAttribute
 Contracts/                    # DTOs de entrada y salida, con anotaciones de validación
 Infrastructure/
-├── Http/                     #   ClaimsPrincipalExtensions: lectura del claim `sub`
+├── Http/                     #   ClaimsPrincipalExtensions (claim `sub`), RefreshTokenCookie
+│                             #     (único sitio que conoce los atributos de la cookie) y
+│                             #     RequireClientHeader (defensa CSRF de refresh y logout)
 ├── Logging/                  #   PersonalData: enmascarado de datos personales en el log
-└── Options/                  #   SmtpOptions, OAuthOptions, CleanupOptions
+└── Options/                  #   SmtpOptions, OAuthOptions, CleanupOptions, RefreshCookieOptions
 Data/ApplicationDbContext.cs  # Mapeo, índices y relaciones
 Migrations/                   # 3 migraciones EF, aplicadas al arrancar desde el 2026-08-27
 docs/                         # Esta documentación, común a los dos repositorios
-TrackerMultimedia.Tests/      # 165 tests sobre PostgreSQL real
+TrackerMultimedia.Tests/      # 168 tests sobre PostgreSQL real
 ├── Helpers/TestDatabase.cs   #   Una base desechable por clase, copiada de una plantilla
 ├── Helpers/AppFactory.cs     #   WebApplicationFactory: desactiva el rate limiter y sustituye
 │                             #     el correo por un buzón de prueba

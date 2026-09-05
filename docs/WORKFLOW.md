@@ -9,34 +9,38 @@
 | Comando | Para qué | Requisitos |
 |---|---|---|
 | `Start-Service postgresql-x64-17` | Arranca la base de datos si su servicio está en *Manual* | PowerShell como administrador |
+| `netstat -an \| grep 543` | Ver en qué puerto escucha PostgreSQL en **este** equipo | — |
 | `dotnet run` | Levanta la API en `http://localhost:5218` | Servicio de PostgreSQL arrancado y secretos en user-secrets |
 | `dotnet user-secrets list` | Ver la configuración sensible de esta máquina | Ejecutar en la raíz del repositorio de backend |
 | `dotnet ef database update` | Aplicar las migraciones pendientes a mano | `dotnet-ef` global. El arranque también las aplica desde el 2026-08-27 |
 | `dotnet ef migrations add <Nombre>` | Crear una migración tras cambiar el modelo | **Nunca con `--no-build`**: genera migraciones vacías |
 | `dotnet ef migrations list` | Ver qué migraciones existen y cuáles están aplicadas | La comprobación que destapó T0-06 |
 | `dotnet ef database drop --force` | **Borra la base local entera.** Solo para comprobar el esquema desde cero | El servicio arrancado |
-| `dotnet test TrackerMultimedia_Backend.slnx` | Suite del backend, 165 pruebas | **Necesita PostgreSQL en marcha** |
+| `dotnet test TrackerMultimedia_Backend.slnx` | Suite del backend, 168 pruebas | **Necesita PostgreSQL en marcha** |
 | `dotnet format whitespace --verify-no-changes` | Comprobar el estilo del `.editorconfig` | — |
 | `npm run dev` (en `Frontend/`) | Interfaz en `http://localhost:5173`, **solo en este equipo** | `.env` copiado de `.env.example` |
 | `npm run dev:lan` | Lo mismo, accesible desde el móvil u otro equipo de la red | — |
-| `npm run test` | Suite del frontend, 165 pruebas | — |
+| `npm run test` | Suite del frontend, 167 pruebas | — |
 | `npm run lint` | ESLint. **`npm run build` no lo ejecuta** | — |
 | `npm run build` | Build de producción a `dist/`. Incluye `tsc -b` | — |
 | `npx prettier --check .` | Estilo del frontend | — |
 
-**Puertos:** backend `5218`, frontend `5173`, PostgreSQL `5433`.
+**Puertos:** backend `5218`, frontend `5173`. El de PostgreSQL cambia según el equipo: ver abajo.
 
 ## Base de datos
 
-PostgreSQL 17 **instalado en la máquina**, no en contenedor. Escucha en el **puerto 5433**, no en
-el 5432 por defecto: es el detalle que más veces se olvida al escribir una cadena de conexión. En
-Windows es el servicio `postgresql-x64-17` y su arranque está en *Manual*, así que hay que
-iniciarlo antes de levantar el backend.
+PostgreSQL 17 **instalado en la máquina**, no en contenedor. En Windows es el servicio
+`postgresql-x64-17`, y hay que tenerlo arrancado antes de levantar el backend.
+
+**El puerto depende del equipo, así que compruébalo en vez de suponerlo:** `netstat -an | grep 543`.
+El equipo original usaba el **5433**; el actual, el **5432** por defecto. Esta documentación decía
+5433 sin matices hasta el 2026-09-04, y es el detalle que más veces se ha escrito mal en una cadena
+de conexión.
 
 El nombre de la base, `trackerMultimedia`, lleva mayúscula intercalada: en SQL va **siempre entre
 comillas dobles**, porque PostgreSQL pasa a minúsculas todo identificador sin comillar.
 
-**El servicio nativo escucha en `0.0.0.0:5433`**, es decir, en todas las interfaces, no solo en
+**El servicio nativo escucha en `0.0.0.0`**, es decir, en todas las interfaces, no solo en
 loopback. En una red doméstica de confianza no es grave, pero conviene saberlo si alguna vez se
 sirve la aplicación con `npm run dev:lan`: la base también es alcanzable desde la red, y su única
 defensa es la contraseña del rol `postgres`.
@@ -47,8 +51,32 @@ propietario. No volver a proponer el cambio.*
 ## Secretos
 
 Van **solo** en `dotnet user-secrets` desde el 2026-08-27. `appsettings.json` está versionado y
-contiene únicamente valores por defecto no sensibles; `appsettings.Local.json` sigue existiendo,
-no se versiona y tampoco contiene secretos: es configuración local no sensible.
+contiene únicamente valores por defecto no sensibles; `appsettings.Local.json` no se versiona y
+tampoco debería contener secretos: es configuración local no sensible.
+
+En este equipo se cumple desde el 2026-09-04. Al mover el proyecto de máquina los user-secrets no
+viajaron —viven fuera del repositorio, que es justamente su razón de ser— y todo acabó en
+`appsettings.Local.json`: `Jwt:Secret`, `Smtp:Password`, los *client secret* de Google y GitHub y una
+cadena de conexión a Neon. Ya está corregido: los ocho secretos están en user-secrets y el archivo
+local solo contiene configuración no sensible.
+
+> ⚠️ **Al cambiar de equipo, los secretos se vuelven a poner a mano.** No hay ningún mecanismo que
+> los transporte, y ese es el precio de que no estén en el repositorio. La plantilla
+> `appsettings.Local.example.json` dice qué claves hacen falta; los valores salen del gestor de
+> contraseñas o se regeneran. **Copiarlos a `appsettings.Local.json` "hasta que haya tiempo" es
+> exactamente cómo ocurrió la vez anterior.**
+
+De paso se eliminaron dos restos que solo existían en esta máquina: `Security:ApiKey`, que T3-02 dio
+por eliminada y ningún código lee desde entonces, y una carpeta `artifacts/` de mayo con tres copias
+en claro de los mismos secretos. Ambas estaban ignoradas por git, así que nunca llegaron a un commit.
+
+> ⚠️ **La credencial de Neon estuvo en claro en esta máquina y sigue sin revocarse.** Sacarla del
+> repositorio no la invalida: mientras el rol `neondb_owner` siga activo, quien tenga esa cadena
+> entra. T1-13 la dio por revocada y no lo estaba. Revocarla en el panel de Neon es lo único que
+> cierra el asunto.
+
+**La suite de tests no lee `appsettings.Local.json`.** Solo mira `TRACKERMULTIMEDIA_TEST_POSTGRES`
+y los user-secrets. Sin ninguno de los dos no arranca, con un mensaje que lo explica.
 
 **user-secrets no cifra nada.** Guarda un `secrets.json` en claro en
 `%APPDATA%\Microsoft\UserSecrets\`. Lo que aporta es que ese archivo vive fuera de la carpeta del
@@ -80,7 +108,7 @@ alrededor de un minuto.
 En la raíz del repositorio de backend:
 
 ```bash
-dotnet test TrackerMultimedia_Backend.slnx     # 165 pruebas. Debe decir "Con error: 0"
+dotnet test TrackerMultimedia_Backend.slnx     # 168 pruebas. Debe decir "Con error: 0"
 dotnet restore                                 # No debe emitir ningún NU1903
 ```
 
@@ -88,7 +116,7 @@ En `Frontend/`:
 
 ```bash
 npm run lint                                   # Debe salir sin ningún error
-npm run test -- --run                          # 165 pruebas
+npm run test -- --run                          # 167 pruebas
 npm run build                                  # Incluye tsc -b; falla si hay error de tipos
 ```
 

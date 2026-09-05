@@ -60,7 +60,7 @@ public class RecoveryAndConfirmationTests(AppFactory factory) : IClassFixture<Ap
 
         Assert.Equal(HttpStatusCode.NoContent, resetResponse.StatusCode);
 
-        var refreshResponse = await NewClient().PostAsJsonAsync("/api/auth/refresh", new RefreshRequest(auth.RefreshToken));
+        var refreshResponse = await SessionCookies.RefreshAsync(loginClient);
         var oldLoginResponse = await NewClient().PostAsJsonAsync("/api/auth/login", new LoginRequest(email, AuthHelpers.DefaultPassword));
         var newLoginResponse = await NewClient().PostAsJsonAsync("/api/auth/login", new LoginRequest(email, newPassword));
 

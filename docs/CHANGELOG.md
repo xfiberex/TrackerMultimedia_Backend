@@ -24,6 +24,7 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Corregido
 
+- **La sesión dejaba de valer sola tras recargar la página.** Al arrancar, la aplicación pedía dos veces a la vez la renovación de la sesión, y el servidor interpretaba la segunda como que alguien había copiado la sesión: cerraba todas por seguridad. No se veía en el momento —la pantalla seguía funcionando— sino en la recarga siguiente, que devolvía al inicio de sesión sin explicación. El defecto era anterior y no se había detectado nunca (T4-01).
 - La biblioteca vuelve a funcionar en instalaciones nuevas. Una migración mal creada hacía que a la tabla de elementos le faltara la columna del formato, así que cualquier base de datos creada desde cero devolvía un error del servidor al abrir la biblioteca. El fallo no se veía en la base ya existente, solo al desplegar de nuevo o al empezar de cero (T0-06).
 - El perfil ya muestra las cuentas de Google y GitHub vinculadas. Antes la lista aparecía siempre vacía aunque la vinculación hubiera funcionado (T1-01, T1-02).
 - Registrarse ya no falla cuando el servidor de correo no responde. Antes la cuenta se creaba igualmente pero la pantalla mostraba un error, y al reintentar decía que el correo ya existía: se quedaba sin poder entrar ni recibir la confirmación (T1-03).
@@ -55,6 +56,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Seguridad
 
+- **La sesión guardada deja de ser accesible desde la propia página.** El identificador de larga vida que mantiene la sesión entre recargas pasa a una cookie que el navegador guarda y envía él solo, y que el código de la página no puede leer. Antes vivía en un almacén que cualquier script de la página podía consultar: bastaba una inyección para llevarse la sesión y seguir usándola durante días desde otro sitio. **Efecto al actualizar: se cierran todas las sesiones abiertas y hay que volver a entrar una vez** (T4-01).
+- **Entrar con Google o GitHub ya no deja ningún dato de sesión en la barra de direcciones.** Antes la dirección de vuelta llevaba las credenciales colgando, y de ahí pasaban al historial del navegador y a cualquier sitio donde se pegara ese enlace. Ahora solo lleva a qué pantalla volver. Se nota en que entrar tarda una fracción de segundo más (T4-01).
 - La política de seguridad del navegador deja de permitir conexiones a tres servicios externos con los que la aplicación nunca habla —los consulta el servidor— y a un dominio de despliegue fijado a mano. Añadidas además las cabeceras que impiden que la aplicación se incruste en otra página (T2-14).
 
 - Actualizadas las dependencias con avisos de seguridad conocidos: de 13 (uno crítico) a ninguno. Ningún cambio de versión mayor, así que no cambia nada de cómo funciona la aplicación (T3-21).
