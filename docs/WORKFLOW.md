@@ -16,7 +16,7 @@
 | `dotnet ef migrations add <Nombre>` | Crear una migración tras cambiar el modelo | **Nunca con `--no-build`**: genera migraciones vacías |
 | `dotnet ef migrations list` | Ver qué migraciones existen y cuáles están aplicadas | La comprobación que destapó T0-06 |
 | `dotnet ef database drop --force` | **Borra la base local entera.** Solo para comprobar el esquema desde cero | El servicio arrancado |
-| `dotnet test TrackerMultimedia_Backend.slnx` | Suite del backend, 168 pruebas | **Necesita PostgreSQL en marcha** |
+| `dotnet test TrackerMultimedia_Backend.slnx` | Suite del backend, 171 pruebas | **Necesita PostgreSQL en marcha** |
 | `dotnet format whitespace --verify-no-changes` | Comprobar el estilo del `.editorconfig` | — |
 | `npm run dev` (en `Frontend/`) | Interfaz en `http://localhost:5173`, **solo en este equipo** | `.env` copiado de `.env.example` |
 | `npm run dev:lan` | Lo mismo, accesible desde el móvil u otro equipo de la red | — |
@@ -97,6 +97,35 @@ Para cobertura, ver la sección *Cobertura* del README del backend. **Mira la co
 no la de líneas:** la primera medición dio 82,8 % de líneas y 48,4 % de ramas, y lo que enseñó no
 fue el porcentaje sino qué estaba a cero.
 
+## Leer el log
+
+En desarrollo la salida es texto legible. Cada línea de una petición lleva su ámbito delante, y ahí
+está el identificador que también recibe el usuario cuando algo falla:
+
+```text
+=> SpanId:d5ff15a5bea4e05a, TraceId:6ebc4753fd242bab1e03caa1b64eaf24, ParentId:0000000000000000
+   => ConnectionId:0HNOATN8Q8LHV => RequestPath:/health/ready
+```
+
+**Si alguien reporta un error, pide el `traceId` de la respuesta** —32 caracteres hexadecimales— y
+búscalo tal cual: aparece en *todas* las líneas de esa petición, no solo en la del error. Ojo con no
+confundirlo con `RequestId`, que sale al lado, tiene la forma `0HNOATN8Q8LHV:00000001` y es otra
+cosa: usar ese era precisamente el fallo que corrigió T4-11.
+
+Fuera de desarrollo la salida es una línea JSON por evento, y el `TraceId` es un campo con nombre
+dentro de `Scopes`, así que se filtra sin expresiones regulares:
+
+```bash
+jq 'select(.Scopes[]?.TraceId == "6ebc4753fd242bab1e03caa1b64eaf24")' registro.log
+```
+
+**Métricas:** no hay ninguna propia y es deliberado mientras el uso sea local (T4-06, en suspenso).
+Los medidores que ya publican ASP.NET Core, EF Core y el runtime se leen en vivo sin tocar el código:
+
+```bash
+dotnet-counters monitor -n TrackerMultimedia --counters Microsoft.AspNetCore.Hosting
+```
+
 ---
 
 ## Verificación local antes de cada commit
@@ -108,7 +137,7 @@ alrededor de un minuto.
 En la raíz del repositorio de backend:
 
 ```bash
-dotnet test TrackerMultimedia_Backend.slnx     # 168 pruebas. Debe decir "Con error: 0"
+dotnet test TrackerMultimedia_Backend.slnx     # 171 pruebas. Debe decir "Con error: 0"
 dotnet restore                                 # No debe emitir ningún NU1903
 ```
 

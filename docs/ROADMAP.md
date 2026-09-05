@@ -9,11 +9,11 @@
 | 1 | Alta prioridad | 21 | 19 | T1-05 (reclasificada Bajo) y T1-13 (reabierta) |
 | 2 | Mejoras sustanciales | 26 | 26 | — |
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
-| 4 | Futuro / Opcional | 10 | 6 | 4, sin estimar |
-| **Total** | | **88** | **79** | **6 + 3 en suspenso o anuladas** |
+| 4 | Futuro / Opcional | 11 | 7 | 3 abiertas + T4-06 en suspenso |
+| **Total** | | **89** | **80** | **5 + 4 en suspenso o anuladas** |
 
 **Estado (2026-09-04).** Cerrados los Tiers 0, 2 y 3; del Tier 1 quedan T1-05 y T1-13, reabierta. Las dos suites
-en verde —**168/168** backend sobre PostgreSQL real y **167/167** frontend—, con `npm run lint`,
+en verde —**171/171** backend sobre PostgreSQL real y **167/167** frontend—, con `npm run lint`,
 `tsc -b` y `npm run build` limpios. `npm audit` da **0 vulnerabilidades**, comprobado el
 2026-09-02; es una afirmación que caduca, así que lleva fecha.
 
@@ -70,9 +70,6 @@ servicio público queda en suspenso, no resuelto, y **vuelve en el momento en qu
   y `formatDate` fija `es-DO` en vez de la configuración del usuario. · Esfuerzo alto
 - **T4-04 · Añadir pruebas end-to-end** — QA. Playwright sobre registro, login, OAuth, CRUD e
   importación/exportación. · Esfuerzo alto
-- **T4-06 · Observabilidad: logging estructurado y métricas** — DevOps. Hoy solo hay `ILogger` con
-  la configuración por defecto: sin correlación de peticiones, sin exportación y sin alertas. De
-  este punto solo se resolvió la sonda de salud, separada como T4-10. · Esfuerzo medio
 
 ---
 
@@ -91,6 +88,19 @@ servicio público queda en suspenso, no resuelto, y **vuelve en el momento en qu
 - **Qué haría falta:** vistas `/privacidad` y `/aviso-legal` accesibles sin iniciar sesión y
   enlazadas desde el registro y el layout, con responsable y contacto, categorías de datos, base
   legal, finalidad, retención, destinatarios, transferencias internacionales y derechos.
+
+### T4-06 — Métricas, exportación y alertas · EN SUSPENSO
+
+- **Área:** DevOps · **Esfuerzo:** medio
+- **Reducida el 2026-09-04.** De esta tarea salieron ya dos trozos: la sonda de salud (T4-10) y la
+  correlación con registro estructurado (T4-11). Lo que queda es la parte que **no tiene destino
+  hoy**: sin servicio desplegado no hay dónde exportar métricas ni a quién alertar, y montar un
+  Prometheus en local para mirarlo uno mismo es infraestructura sin lector.
+- **Decisión del propietario del 2026-09-04:** no se añaden dependencias de OpenTelemetry mientras
+  el uso sea local. **Se reactiva en el momento en que se vuelva a desplegar**, igual que T0-05.
+- **Mientras tanto no hay ceguera total:** ASP.NET Core, EF Core y el runtime ya publican sus
+  medidores, y `dotnet-counters monitor -n TrackerMultimedia` los lee en vivo sin tocar el código.
+  Es suficiente para mirar algo puntualmente; no lo es para vigilar sin estar delante.
 
 ### T1-12 — Montar integración continua · ANULADA
 
@@ -114,6 +124,9 @@ El hallazgo de la auditoría era erróneo.
 
 Resumen de las 80 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
 [HISTORY.md](HISTORY.md), por sesión; el efecto visible, en [CHANGELOG.md](CHANGELOG.md).
+
+**T1-13 sigue apareciendo en la tabla de Tier 1 aunque esté reabierta.** Su fila se conserva, marcada,
+porque borrarla escondería justo lo que hay que recordar: que se dio por cerrada sin comprobarlo.
 
 ### Tier 0 — Crítico
 
@@ -219,3 +232,4 @@ Resumen de las 80 tareas cerradas y verificadas. El detalle de cómo se resolvi�
 | T4-08 | Exportación completa de datos personales | 2026-09-04 · `GET /api/auth/account/export`. De paso, los formatos personalizados quedan por fin exportables |
 | T4-09 | Un identificador mal formado de MangaDex tumbaba la búsqueda entera | 2026-09-02 · Hallazgo nuevo aparecido al escribir los tests de T4-05. `Guid.Parse` lanzaba fuera del filtro del `catch` |
 | T4-10 | La sonda de salud no comprobaba nada | 2026-09-04 · Separada de T4-06. Dos sondas: `/health` de vida, `/health/ready` con base de datos |
+| T4-11 | Correlación de peticiones y registro estructurado | 2026-09-04 · Separada de T4-06. Un solo identificador entre respuesta y log —antes eran dos distintos—, salida JSON fuera de desarrollo y los fallos parciales de búsqueda dejan de ser silenciosos |

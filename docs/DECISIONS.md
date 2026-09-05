@@ -117,6 +117,44 @@ aviso a alguien sin cuenta— va la dirección parcialmente enmascarada (`Infras
 El motivo: el log tiene su propia conservación, y una dirección completa ahí sobrevive al borrado
 de la cuenta.
 
+## Operación y diagnóstico
+
+**Un solo identificador de petición, calculado en un solo sitio.** `RequestCorrelation.GetCorrelationId`
+es el único punto que decide cuál es, y existe porque antes había dos: la respuesta de error llevaba
+`Activity.Current?.Id` y el log escribía `HttpContext.TraceIdentifier`. Valores y formatos distintos,
+así que el código que el usuario leía en pantalla no aparecía en ninguna parte del registro. La
+correlación que T2-05 quiso montar nunca llegó a funcionar, y **ninguna prueba lo notaba** porque
+todas miraban el cuerpo de la respuesta, no el log.
+
+**Se usa `TraceId`, no `Activity.Current.Id`.** `Id` incluye el identificador del *span* actual, que
+cambia al entrar en cualquier actividad hija —una llamada HTTP saliente, por ejemplo—, así que el
+valor dependía de en qué punto de la petición se leyera. `TraceId` es estable durante toda la
+petición. Además son 32 caracteres hexadecimales limpios, que alguien puede transcribir de una
+pantalla; `0HNOATN8Q8LHV:00000001` no lo es.
+
+**El `traceId` del 500 se escribe explícitamente, sin confiarlo a `CustomizeProblemDetails`.** Por
+ese camino se responde con `Results.Problem`, que compone el cuerpo por su cuenta. Justo la
+respuesta para la que se inventó el identificador podía ser la única que llegara sin él.
+
+**JSON en el log fuera de desarrollo, salida legible dentro.** Las llamadas a `ILogger` del proyecto
+ya usaban plantillas con parámetros con nombre; lo que se perdía era al escribir, porque el
+formateador por defecto aplana todo a texto. En desarrollo se lee a ojo mientras se trabaja y el
+texto plano gana; fuera, una línea JSON por evento se filtra con `jq` sin una expresión regular por
+cada formato de mensaje. `IncludeScopes` va activo en ambos: es lo que hace que **todas** las líneas
+de una petición lleven su `TraceId`, no solo la del error.
+
+**Un fallo parcial que no se registra es un fallo invisible.** La búsqueda federada tolera que un
+proveedor se caiga, y eso está bien; lo que estaba mal es que no dejara rastro. Una respuesta 200 con
+resultados incompletos es indistinguible de una completa, así que MangaDex podía llevar semanas
+caído sin que nadie lo supiera. Cada fallo se registra por separado y con su proveedor: agregarlos en
+una sola línea impediría ver que siempre falla el mismo.
+
+**Sin métricas, exportación ni alertas mientras el uso sea local.** Decisión del propietario del
+2026-09-04 (T4-06, en suspenso). No se añaden dependencias de OpenTelemetry para alimentar a un
+consumidor que no existe. Los medidores que ASP.NET Core, EF Core y el runtime ya publican se leen
+con `dotnet-counters` sin tocar el código, que cubre el «mirar algo puntualmente» pero no el
+«vigilar sin estar delante».
+
 ## Frontend
 
 **Organización por features, no por tipo de archivo.** Cada dominio (`auth`, `media-items`,

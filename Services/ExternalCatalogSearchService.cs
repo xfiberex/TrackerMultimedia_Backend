@@ -4,7 +4,18 @@ using TrackerMultimedia.Contracts.Search;
 
 namespace TrackerMultimedia.Services;
 
-public class ExternalCatalogSearchService(IEnumerable<IExternalCatalogProvider> providers)
+/// <summary>
+/// Abanico sobre los proveedores de catálogo: el fallo de uno no tumba al resto.
+///
+/// Esa tolerancia tenía un precio que no se estaba pagando. Mientras **algún**
+/// proveedor respondiera, los errores de los demás se descartaban sin registrarlos en
+/// ningún sitio: MangaDex podía llevar semanas caído, la búsqueda devolver menos
+/// resultados de los debidos, y no quedaba ni una línea en el log. Un fallo parcial y
+/// silencioso es indistinguible de «no hay resultados para esa consulta» (T4-11).
+/// </summary>
+public class ExternalCatalogSearchService(
+    IEnumerable<IExternalCatalogProvider> providers,
+    ILogger<ExternalCatalogSearchService> logger)
 {
     private readonly IReadOnlyCollection<IExternalCatalogProvider> _providers = providers.ToArray();
 
@@ -51,6 +62,19 @@ public class ExternalCatalogSearchService(IEnumerable<IExternalCatalogProvider> 
 
         var results = await Task.WhenAll(activeProviders.Select(provider => SearchProviderSafeAsync(provider, normalizedRequest, cancellationToken)));
 
+        // Cada fallo se registra por separado y con su proveedor: agregarlos en una
+        // sola línea impediría ver que siempre falla el mismo.
+        foreach (var (provider, result) in activeProviders.Zip(results))
+        {
+            if (result.Error is not null)
+            {
+                logger.LogWarning(
+                    result.Error,
+                    "El proveedor {Proveedor} falló al buscar. Los resultados que devuelva esta búsqueda están incompletos.",
+                    provider.Key);
+            }
+        }
+
         var successfulItems = results
             .Where(result => result.Items is not null)
             .SelectMany(result => result.Items!)
@@ -61,6 +85,8 @@ public class ExternalCatalogSearchService(IEnumerable<IExternalCatalogProvider> 
             var firstError = results.FirstOrDefault(result => result.Error is not null).Error;
             if (firstError is not null)
             {
+                // Fallaron todos: el error sube y acaba en el manejador global, que le
+                // pondrá el identificador de correlación. Aquí no se registra otra vez.
                 ExceptionDispatchInfo.Throw(firstError);
             }
         }

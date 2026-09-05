@@ -29,6 +29,28 @@ if (builder.Environment.IsDevelopment())
         .AddEnvironmentVariables();
 }
 
+// ── Registro de actividad ────────────────────────────────────────────────────
+// Las 57 llamadas a `ILogger` del proyecto ya usan plantillas con parámetros con
+// nombre (`{UserId}`, nunca interpolación), así que la estructura existe en el
+// código desde siempre. Lo que faltaba era conservarla al escribir: el formateador
+// por defecto la aplana a una línea de texto y el nombre de cada campo se pierde.
+//
+// En desarrollo se mantiene la salida legible, que es la que se lee a ojo mientras
+// se trabaja. Fuera de desarrollo se emite una línea JSON por evento, filtrable con
+// `jq` sin tener que escribir una expresión regular por cada formato de mensaje.
+//
+// `IncludeScopes` es lo que hace útil el identificador de correlación: el host
+// publica `TraceId` y `SpanId` como ámbito de cada petición, de modo que **todas**
+// las líneas que genera quedan marcadas con él, no solo la del error.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Logging.AddSimpleConsole(options => options.IncludeScopes = true);
+}
+else
+{
+    builder.Logging.AddJsonConsole(options => options.IncludeScopes = true);
+}
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
@@ -145,8 +167,7 @@ builder.Services.AddProblemDetails(options =>
     options.CustomizeProblemDetails = context =>
     {
         context.ProblemDetails.Instance ??= context.HttpContext.Request.Path;
-        context.ProblemDetails.Extensions["traceId"] =
-            System.Diagnostics.Activity.Current?.Id ?? context.HttpContext.TraceIdentifier;
+        context.ProblemDetails.Extensions["traceId"] = context.HttpContext.GetCorrelationId();
     };
 });
 
@@ -310,22 +331,28 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
 {
     var feature = context.Features.Get<IExceptionHandlerFeature>();
     var handlerLogger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+    var correlationId = context.GetCorrelationId();
 
     handlerLogger.LogError(
         feature?.Error,
         "Excepción no controlada en {Method} {Path}. TraceId: {TraceId}",
         context.Request.Method,
         context.Request.Path,
-        context.TraceIdentifier);
+        correlationId);
 
     // El detalle se queda en el log. Al cliente le llega un texto fijo y el
     // identificador: el mensaje de una excepción describe la infraestructura.
     context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+    // El `traceId` va explícito y no confiado a `CustomizeProblemDetails`: por este
+    // camino se responde con `Results.Problem`, que escribe el cuerpo por su cuenta.
+    // Sin esto, el 500 —justo la respuesta para la que se inventó el identificador—
+    // podía ser la única que llegara sin él.
     await Results.Problem(
         title: "Se produjo un error inesperado.",
         detail: "Vuelve a intentarlo. Si el problema persiste, indica el identificador de esta respuesta.",
         statusCode: StatusCodes.Status500InternalServerError,
-        instance: context.Request.Path).ExecuteAsync(context);
+        instance: context.Request.Path,
+        extensions: new Dictionary<string, object?> { ["traceId"] = correlationId }).ExecuteAsync(context);
 }));
 
 // Convierte en ProblemDetails las respuestas de error que salen sin cuerpo,
