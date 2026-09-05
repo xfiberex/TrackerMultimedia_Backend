@@ -170,6 +170,27 @@ detectar en el cliente los cambios de contrato del backend, en lugar de fallar m
 un producto de un solo idioma. Añadir un segundo exige extraer todos los textos y corregir
 `formatDate`, que fija la configuración regional `es-DO` en vez de la del usuario (T4-03).
 
+**No hay framework de CSS, y no hace falta añadirlo.** Un solo `index.css` con 239 clases escritas
+a mano y una capa de tokens propia. La paleta no es arbitraria: `#64748b`, `#94a3b8`, `#cbd5e1`,
+`#e2e8f0`, `#f1f5f9`, `#0f172a` son la escala `slate` de Tailwind transcrita. El estilo es *soft UI*
+con superficies esmeriladas —neutros fríos, `rgba(255,255,255,0.92)`, sombras multicapa suaves,
+degradado de fondo, Inter—. Revisado el 2026-09-04: migrar a Tailwind o a una librería de
+componentes son semanas de trabajo para llegar al mismo aspecto y tirar por el camino la
+accesibilidad ya pagada (T1-16 a T1-22). Lo que sí falta es **completar** la capa de tokens: los que
+hay son todos de color y sombra, así que espaciados, radios y tipografía siguen escritos a mano en
+cada clase, y eso explica que el archivo tenga casi 3.000 líneas.
+
+**El contraste del texto se comprueba con una prueba, no con la vista.** Los colores de texto se
+eligen contra el **peor** fondo de su tema —el arranque del degradado de página, no el blanco de las
+tarjetas—, y hay siete pruebas que leen los tokens del CSS y fallan con el número exacto si alguno
+baja de 4,5:1 (T1-23). Hizo falta porque nada más lo detecta: `eslint-plugin-jsx-a11y` mira el
+marcado y no los colores, `tsc` no ve CSS, y un test de componente pasa igual con texto ilegible
+porque `getByText` encuentra el nodo aunque nadie pueda leerlo. Estuvo mal meses.
+
+**`--accent-*` son tonos de superficie; la tinta es `--accent-ink`.** Usar un color de acento como
+color de texto es el error que dejó la pestaña activa del catálogo en 1,41:1 sobre el panel oscuro,
+indistinguible de las inactivas.
+
 **El modo por defecto es siempre el más cerrado.** Exponer la aplicación a la red es una opción
 que se escribe al lanzarla (`npm run dev:lan`), no un comportamiento que traiga el script.
 Este criterio ha hecho falta tres veces: `vite --host` reapareció dos veces en `dev` y se quitó

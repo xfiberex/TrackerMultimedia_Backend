@@ -6,14 +6,14 @@
 | Tier | Nombre | Tareas | Cerradas | Abiertas |
 |------|--------|--------|----------|----------|
 | 0 | Crítico / Bloqueante | 6 | 5 | T0-05 en suspenso |
-| 1 | Alta prioridad | 21 | 19 | T1-05 (reclasificada Bajo) y T1-13 (reabierta) |
+| 1 | Alta prioridad | 22 | 20 | T1-05 (reclasificada Bajo) y T1-13 (reabierta) |
 | 2 | Mejoras sustanciales | 26 | 26 | — |
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
 | 4 | Futuro / Opcional | 11 | 7 | 3 abiertas + T4-06 en suspenso |
-| **Total** | | **89** | **80** | **5 + 4 en suspenso o anuladas** |
+| **Total** | | **90** | **81** | **5 + 4 en suspenso o anuladas** |
 
 **Estado (2026-09-04).** Cerrados los Tiers 0, 2 y 3; del Tier 1 quedan T1-05 y T1-13, reabierta. Las dos suites
-en verde —**171/171** backend sobre PostgreSQL real y **167/167** frontend—, con `npm run lint`,
+en verde —**171/171** backend sobre PostgreSQL real y **174/174** frontend—, con `npm run lint`,
 `tsc -b` y `npm run build` limpios. `npm audit` da **0 vulnerabilidades**, comprobado el
 2026-09-02; es una afirmación que caduca, así que lleva fecha.
 
@@ -122,7 +122,7 @@ El hallazgo de la auditoría era erróneo.
 
 ## Cerradas
 
-Resumen de las 80 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
+Resumen de las 81 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
 [HISTORY.md](HISTORY.md), por sesión; el efecto visible, en [CHANGELOG.md](CHANGELOG.md).
 
 **T1-13 sigue apareciendo en la tabla de Tier 1 aunque esté reabierta.** Su fila se conserva, marcada,
@@ -162,6 +162,7 @@ porque borrarla escondería justo lo que hay que recordar: que se dio por cerrad
 | T1-20 | Sacar del repositorio binarios y artefactos | 2026-08-27 · De 378 a 151 archivos versionados, 0 binarios. Siguen en el historial |
 | T1-21 | Purgar tokens de refresco y estados OAuth caducados | 2026-08-27 · Sesiones caducadas a los 7 días, estados OAuth al día siguiente |
 | T1-22 | Nombre accesible al enlace externo de los resultados | 2026-08-27 · Hallazgo nuevo, no de la auditoría |
+| T1-23 | Contraste de texto por debajo de WCAG AA | 2026-09-04 · Hallazgo nuevo. El texto secundario daba 1,96:1 y la pestaña activa del catálogo en oscuro, 1,41:1. Corregido en los tokens y fijado con 7 pruebas que leen el CSS |
 
 ### Tier 2 — Mejoras sustanciales
 

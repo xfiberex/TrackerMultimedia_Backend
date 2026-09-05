@@ -20,7 +20,7 @@
 | `dotnet format whitespace --verify-no-changes` | Comprobar el estilo del `.editorconfig` | — |
 | `npm run dev` (en `Frontend/`) | Interfaz en `http://localhost:5173`, **solo en este equipo** | `.env` copiado de `.env.example` |
 | `npm run dev:lan` | Lo mismo, accesible desde el móvil u otro equipo de la red | — |
-| `npm run test` | Suite del frontend, 167 pruebas | — |
+| `npm run test` | Suite del frontend, 174 pruebas | — |
 | `npm run lint` | ESLint. **`npm run build` no lo ejecuta** | — |
 | `npm run build` | Build de producción a `dist/`. Incluye `tsc -b` | — |
 | `npx prettier --check .` | Estilo del frontend | — |
@@ -145,7 +145,7 @@ En `Frontend/`:
 
 ```bash
 npm run lint                                   # Debe salir sin ningún error
-npm run test -- --run                          # 167 pruebas
+npm run test -- --run                          # 174 pruebas
 npm run build                                  # Incluye tsc -b; falla si hay error de tipos
 ```
 

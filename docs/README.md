@@ -44,6 +44,6 @@ en el [`README.md`](../README.md) del backend y en el del frontend, cada uno con
 | **Stack frontend** | React 19.2, TypeScript ~6.0, Vite 8, React Router 7, TanStack Query 5, Axios, Zod 4, CSS propio |
 | **Base de datos** | PostgreSQL 17 **instalado en la máquina**, puerto **5433**. Servicio Windows `postgresql-x64-17`. |
 | **Despliegue** | **Ninguno.** Render, Neon y Netlify deshabilitados el 2026-08-27. Los blueprints se conservan como receta para volver. |
-| **Pruebas** | Backend **171/171** (xUnit + `WebApplicationFactory` sobre **PostgreSQL real**, base desechable por clase). Frontend **167/167** (Vitest + Testing Library). |
+| **Pruebas** | Backend **171/171** (xUnit + `WebApplicationFactory` sobre **PostgreSQL real**, base desechable por clase). Frontend **174/174** (Vitest + Testing Library). |
 | **CI** | **No la habrá** (decisión del 2026-08-27). La red de seguridad es la rutina local de [WORKFLOW.md](WORKFLOW.md). |
 | **Roadmap** | **79 de 88 tareas cerradas.** Cerrados los Tiers 0, 2 y 3; del Tier 1 solo queda T1-05. |
