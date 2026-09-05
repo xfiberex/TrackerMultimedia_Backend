@@ -10,12 +10,12 @@
 | 2 | Mejoras sustanciales | 26 | 26 | — |
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
 | 4 | Futuro / Opcional | 11 | 7 | 3 abiertas + T4-06 en suspenso |
-| 5 | Sistema de diseño | 6 | 4 | 2, ninguna bloqueante |
-| **Total** | | **96** | **85** | **7 + 4 en suspenso o anuladas** |
+| 5 | Sistema de diseño | 7 | 5 | 2, ninguna bloqueante |
+| **Total** | | **97** | **86** | **7 + 4 en suspenso o anuladas** |
 
 **Estado (2026-09-05).** Cerrados los Tiers 0, 2 y 3; del Tier 1 quedan T1-05 y T1-13, reabierta. El
 **Tier 5 se abre el 2026-09-05** y no viene de la auditoría: sale de revisar el lenguaje visual. Las dos suites
-en verde —**171/171** backend sobre PostgreSQL real y **179/179** frontend—, con `npm run lint`,
+en verde —**171/171** backend sobre PostgreSQL real y **180/180** frontend—, con `npm run lint`,
 `tsc -b` y `npm run build` limpios. `npm audit` da **0 vulnerabilidades**, comprobado el
 2026-09-02; es una afirmación que caduca, así que lleva fecha.
 
@@ -76,8 +76,13 @@ servicio público queda en suspenso, no resuelto, y **vuelve en el momento en qu
 ### Tier 5 — Sistema de diseño
 
 *Abierto el 2026-09-05.* No sale de la auditoría del 2026-08-27 sino de revisar el lenguaje visual
-con la interfaz ya construida, y por eso no comparte numeración con los otros tiers. **Ninguna de
-las cuatro es un defecto funcional**: la aplicación se usa igual sin ellas.
+con la interfaz ya construida, y por eso no comparte numeración con los otros tiers.
+
+**Se abrió como un tier de preferencias y no lo era.** Al mirar la interfaz en el navegador, cuatro
+de las seis tareas con que nació resultaron ser defectos medibles —texto entre 1,1:1 y 2,77:1, es
+decir, ilegible— y no cuestiones de gusto. La quinta, T5-04, sí era una decisión, y se resolvió
+dejando el token como estaba; lo que sí destapó al mirarlo es T5-07. Quedan esa y T5-03, que es el
+trabajo de fondo del tier.
 
 El punto de partida es que **el proyecto ya tiene un sistema de diseño**, no CSS suelto: una capa de
 33 tokens con nombres semánticos y una paleta que es la escala `slate` de Tailwind transcrita a
@@ -87,7 +92,7 @@ consultar la base de datos de la skill `ui-ux-pro-max`— coinciden en la misma 
 Migrar a Tailwind o a una librería de componentes serían semanas para llegar al mismo aspecto,
 tirando por el camino la accesibilidad ya pagada en T1-16 a T1-23.
 
-**T5-01 y T5-02 se cerraron el 2026-09-05**, el mismo día que se abrió el tier. Ver la tabla de cerradas.
+**T5-01, T5-02, T5-04, T5-05 y T5-06 se cerraron el 2026-09-05**, el mismo día que se abrió el tier. Ver la tabla de cerradas.
 
 **T5-03 · Completar la capa de tokens: espaciado, radios y tipografía** — UI/UX · Esfuerzo alto
 : Los 33 tokens son **todos de color y sombra**. Espaciados, radios y tamaños de texto están
@@ -100,11 +105,16 @@ tirando por el camino la accesibilidad ya pagada en T1-16 a T1-23.
 : *Criterio:* existe la escala y al menos una vista está migrada entera a ella, como plantilla del
   resto.
 
-**T5-04 · Decidir qué hacer con `--surface-strong: #ffffff`** — UI/UX · Esfuerzo bajo
-: La ficha de *Glassmorphism* lista «fondos blancos puros» como anti-patrón del estilo: el efecto de
-  cristal necesita algo detrás que se transparente, y sobre blanco puro no hay nada que enseñar.
-: **Es una decisión, no un defecto**, y puede cerrarse resolviendo que se queda como está. Lo que no
-  vale es que nadie lo haya mirado.
+**T5-07 · El desenfoque de los cuatro emergentes no tiene nada que enseñar** — UI/UX · Esfuerzo bajo
+: Salió al mirar T5-04. `.action-menu__popover`, `.toast`, `.side-panel__content` y
+  `.color-picker-popover` aplican `backdrop-filter: blur(12px)` sobre un fondo al **0,97–0,98 de
+  alfa**: pasa el 2 % de lo que hay detrás. Este sí es el anti-patrón que T5-04 fue a buscar, solo
+  que en otra dirección — y se paga con una capa de composición y un repintado por scroll a cambio
+  de nada visible.
+: **Es un cambio visible**, no una corrección: o baja el alfa hasta que el cristal se note, o cae el
+  `backdrop-filter` y son emergentes opacos. Las dos son defendibles; decidir a ojo, en el navegador.
+: *Criterio:* las cuatro reglas coinciden en el mismo criterio, y el alfa sale de un token en vez de
+  ir a mano cuatro veces.
 
 ---
 
@@ -278,3 +288,4 @@ porque borrarla escondería justo lo que hay que recordar: que se dio por cerrad
 | T5-02 | Números tabulares en los progresos | 2026-09-05 · `font-variant-numeric` no aparecía ni una vez. Progreso, año y puntuación se comparan en columna y con Inter proporcional bailaban de fila en fila |
 | T5-06 | El enlace «Saltar al contenido» era ilegible en oscuro | 2026-09-05 · Pedía `--surface`, `--border` y `--accent`, tres variables que el proyecto nunca definió: caían en su respaldo y el fondo se quedaba blanco fijo mientras el texto sí seguía al tema. **1,48:1** en la propia ayuda de accesibilidad de T1-18 |
 | T5-05 | La pantalla de acceso no seguía al tema oscuro | 2026-09-05 · Estaba escrita entera en claro con solo dos reglas oscuras; lo legible se salvaba por orden de aparición. Marca, título, enlaces del pie y mensaje de error en tinta fija: entre **1,1:1** y **2,77:1**. Tokenizada y verificada en el navegador |
+| T5-04 | Decidir qué hacer con `--surface-strong: #ffffff` | 2026-09-05 · **Se queda como está.** El anti-patrón habla del cristal y este token no lo es: sus 4 usuarios son superficies opacas a propósito y ninguno lleva `backdrop-filter`. Además no se vería, porque `--surface-primary` ya compone a **#fdfdfe** sobre el degradado. Queda una prueba que fija la premisa, y T5-07 recoge lo que sí apareció |
