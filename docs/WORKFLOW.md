@@ -20,7 +20,7 @@
 | `dotnet format whitespace --verify-no-changes` | Comprobar el estilo del `.editorconfig` | — |
 | `npm run dev` (en `Frontend/`) | Interfaz en `http://localhost:5173`, **solo en este equipo** | `.env` copiado de `.env.example` |
 | `npm run dev:lan` | Lo mismo, accesible desde el móvil u otro equipo de la red | — |
-| `npm run test` | Suite del frontend, 189 pruebas | — |
+| `npm run test` | Suite del frontend, 200 pruebas | — |
 | `npm run test:e2e` | Suite end-to-end, 13 pruebas con Playwright | **PostgreSQL y el backend en marcha**; ver abajo |
 | `npm run test:e2e:ui` | Lo mismo, en el modo interactivo de Playwright | Lo mismo |
 | `npm run lint` | ESLint. **`npm run build` no lo ejecuta** | — |
@@ -241,7 +241,7 @@ alrededor de un minuto.
 En la raíz del repositorio de backend:
 
 ```bash
-dotnet test TrackerMultimedia_Backend.slnx     # 180 pruebas. Debe decir "Con error: 0"
+dotnet test TrackerMultimedia_Backend.slnx     # 182 pruebas. Debe decir "Con error: 0"
 dotnet restore                                 # No debe emitir ningún NU1903
 ```
 
@@ -249,7 +249,7 @@ En `Frontend/`:
 
 ```bash
 npm run lint                                   # Debe salir sin ningún error
-npm run test -- --run                          # 199 pruebas
+npm run test -- --run                          # 200 pruebas
 npm run build                                  # Incluye tsc -b; falla si hay error de tipos
 ```
 

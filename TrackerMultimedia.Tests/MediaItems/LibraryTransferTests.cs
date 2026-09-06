@@ -218,7 +218,9 @@ public class LibraryTransferTests(AppFactory factory) : IClassFixture<AppFactory
         var exceso = MediaItemsService.MaxImportItems + 1;
         var elementos = string.Join(",", Enumerable.Range(0, exceso).Select(i =>
             $"{{\"title\":\"Elemento {i}\",\"contentKind\":\"Series\",\"status\":\"Planned\"}}"));
-        var json = $"{{\"categories\":[],\"items\":[{elementos}]}}";
+        // El "schemaVersion" no es adorno: sin él, esta prueba dejó de comprobar el tope
+        // en cuanto T2-29 empezó a rechazar los archivos que no son exportaciones.
+        var json = $"{{\"schemaVersion\":1,\"categories\":[],\"items\":[{elementos}]}}";
 
         using var multipart = new MultipartFormDataContent();
         using var fileContent = new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes(json));
@@ -231,6 +233,53 @@ public class LibraryTransferTests(AppFactory factory) : IClassFixture<AppFactory
         var cuerpo = await response.Content.ReadAsStringAsync();
         Assert.Contains(exceso.ToString(), cuerpo, StringComparison.Ordinal);
         Assert.Contains(MediaItemsService.MaxImportItems.ToString(), cuerpo, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ImportJson_RejectsAFileThatIsNotAnExport()
+    {
+        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
+
+        // T2-29. Un JSON cualquiera es JSON válido: se deserializa sin protestar y deja el
+        // sobre vacío. Hasta el 2026-09-06 eso terminaba en «importación completada sin
+        // cambios», con tono de éxito, y quien se equivocara de archivo podía concluir que
+        // su copia de seguridad estaba vacía.
+        var json = "{\"esto\":\"no es una exportación\"}";
+
+        using var multipart = new MultipartFormDataContent();
+        using var fileContent = new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes(json));
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        multipart.Add(fileContent, "file", "cualquier-cosa.json");
+
+        var response = await client.PostAsync("/api/media-items/import?format=Json", multipart);
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+        var cuerpo = await response.Content.ReadAsStringAsync();
+        Assert.Contains("no es una exportación de TrackerMultimedia", cuerpo, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ImportJson_AcceptsAnExportWithNothingInside()
+    {
+        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
+
+        // La otra mitad de T2-29, y la razón de que el arreglo no sea «rechazar lo que no
+        // crea nada»: una biblioteca vacía se exporta igual, y volver a importarla tiene
+        // que seguir siendo un éxito sin cambios. Si esta prueba se pone en rojo, el aviso
+        // nuevo se ha llevado por delante un caso legítimo.
+        var json = "{\"schemaVersion\":1,\"exportedAtUtc\":\"2026-09-06T00:00:00Z\"," +
+            "\"categories\":[],\"items\":[]}";
+
+        var resultado = await ImportLibraryAsync(
+            client,
+            LibraryTransferFormat.Json,
+            System.Text.Encoding.UTF8.GetBytes(json),
+            "biblioteca-vacia.json");
+
+        Assert.Equal(0, resultado.ItemsProcessed);
+        Assert.Equal(0, resultado.ItemsCreated);
+        Assert.Equal(0, resultado.ItemsUpdated);
+        Assert.Equal(0, resultado.CategoriesCreated);
     }
 
     private static async Task<LibraryImportResponse> ImportLibraryAsync(

@@ -5,6 +5,14 @@
 
 ## EF Core y migraciones
 
+**Un valor por defecto en el modelo borra la diferencia entre «no lo trae» y «trae esto».** El
+sobre de importación declaraba `public int SchemaVersion { get; set; } = LibraryTransferSchemaVersion;`.
+Un JSON ajeno no trae ese campo, así que `JsonSerializer` lo dejaba con el valor por defecto —el
+correcto—, la comprobación de compatibilidad lo daba por bueno y el archivo se importaba como una
+exportación vacía. La comprobación existía y estaba bien escrita; lo que fallaba es que **nunca
+podía ser falsa**. Un campo que sirva para reconocer un formato tiene que ser nulable, porque su
+ausencia es información. Cerrado en T2-29.
+
 **Una migración sin su `.Designer.cs` no existe para EF Core.** EF identifica las migraciones por
 el atributo `[Migration("...")]`, que el generador escribe en el `.Designer.cs`, **no** por el
 nombre del `.cs`. `AddUserFormatIdToMediaItems` estaba escrita a mano sin Designer: compilaba, se
@@ -43,6 +51,19 @@ búsqueda de la biblioteca devolvía 500 en la suite y no podía tener ni una pr
 general: **un proveedor de test distinto del de producción no prueba nada específico del proveedor.**
 
 ## Tests
+
+**Una prueba que solo manda la mitad del cuerpo comprueba la mitad del problema.** La de
+`extractApiError` que verificaba la lectura de `errors` mandaba un objeto **solo** con `errors`, que
+no es la forma que llega nunca. Pasaba en verde con el defecto dentro. La prueba que vale manda el
+cuerpo real —`title` **y** `errors` a la vez—, porque el defecto estaba precisamente en cuál de los
+dos gana. Al escribir la prueba de una respuesta, cópiala de una respuesta de verdad; abreviarla es
+elegir qué no comprobar.
+
+**Un archivo de prueba también puede apoyarse en el defecto que hay que arreglar.** La prueba del
+tope de importación mandaba un JSON sin `schemaVersion`, es decir, un archivo que no era una
+exportación: funcionaba porque el valor por defecto se lo ponía solo. Al arreglar T2-29 dejó de
+comprobar el tope y empezó a comprobar el rechazo, sin cambiar una línea. Cuando se corrige un
+defecto, hay que mirar qué pruebas vivían de él.
 
 **Una regla que escanea archivos hay que falsificarla, y por el caso real.** La prueba que vigila
 que no quede texto incrustado en el JSX nació buscando `>texto<` **línea a línea**. Pasaba en verde,
@@ -95,6 +116,14 @@ el test en ejecución. Desactivar el paralelismo de xUnit no lo arreglaba: la co
 dentro del host. Desapareció al pasar la suite a PostgreSQL con una base por clase, T2-28.)*
 
 ## React y accesibilidad
+
+**Un `ValidationProblemDetails` trae siempre un `title` genérico, y en inglés.** ASP.NET responde
+`{"title":"One or more validation errors occurred.", "errors":{...}}`, con el mensaje escrito a mano
+dentro de `errors`. `extractApiError` miraba `title` antes que `errors`, así que **todos** los
+mensajes de validación del backend llegaban al usuario convertidos en esa frase, y ninguno de los
+textos cuidados del servidor se había visto nunca. Al leer un ProblemDetails, lo específico va
+primero: `errors`, luego `detail`, y `title` solo como último recurso. Se descubrió al cerrar T2-29,
+cuyo aviso nuevo habría muerto ahí sin que ninguna prueba lo notara.
 
 **Una constante de módulo traducida se queda en el idioma de arranque.** Un mapa como
 `contentKindLabels: Record<K, string>` que guarde `i18n.t(...)` se evalúa **una vez, al importar**.

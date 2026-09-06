@@ -6,9 +6,69 @@
 
 ## Pendiente de tu decisión
 
-- **197 cuentas de test en la base de desarrollo** (`@test.com` y `@example.com`), junto a 2
-  reales. Borrarlas es un borrado sobre datos reales, así que no se hace sin visto bueno.
-  *Anotado el 2026-09-02.*
+*Nada, a fecha del 2026-09-06.*
+
+~~**197 cuentas de test en la base de desarrollo** (`@test.com` y `@example.com`), junto a 2
+reales.~~ · **Ya no aplica.** Medido el 2026-09-06 sobre `trackerMultimedia` en `localhost:5433`:
+la base tiene **12 cuentas en total**, no 199. Diez son `@e2e.test` de la última ejecución de
+Playwright —se limpian solas en la siguiente—, una es `prueba.t508@test.com`, creada a propósito
+para revisar las pantallas autenticadas, y **una sola es real**: `ricky@user.local`. Las 197 y las
+«2 reales» venían del 2026-09-02 y dejaron de ser ciertas cuando la base se recreó desde cero;
+la nota siguió cuatro días pidiendo permiso para borrar algo que ya no existía.
+
+Es el mismo tipo de error que la trampa de «deshabilitado» y «revocado» que recoge
+[PITFALLS.md](PITFALLS.md): **una cifra medida es una afirmación con fecha de caducidad**, y una
+pendiente de decisión que nadie vuelve a medir acaba pidiendo permiso sobre un mundo que ya no
+está. Si alguna vuelve a aparecer aquí, se remide antes de actuar.
+
+---
+
+## 2026-09-06 (tarde) — T2-29, y el aviso que no habría llegado a nadie
+
+Media hora de trabajo prevista para la última tarea abierta del roadmap. La mitad se fue en algo
+que no estaba en la ficha.
+
+### Lo que decía la ficha
+
+Un JSON que no es una exportación se importaba como «Importación JSON completada sin cambios», con
+tono de éxito. **La causa no era que faltara una comprobación**: la comprobación de versión estaba
+escrita, era correcta y no podía fallar nunca, porque el modelo declaraba
+`public int SchemaVersion { get; set; } = LibraryTransferSchemaVersion;`. Un archivo que no trae el
+campo se deserializa con la versión correcta ya puesta. La propiedad nulable es lo único que separa
+«no lo trae» de «trae un 1», y con esa diferencia el resto sale solo.
+
+Se cerró con dos pruebas y no con una, porque el arreglo fácil aquí es rechazar todo lo que no crea
+nada, y eso se lleva por delante un caso legítimo: una biblioteca vacía se exporta igual, y volver a
+importarla tiene que seguir siendo un éxito sin cambios. La segunda prueba es la que avisa si el
+aviso nuevo se pasa de frenada.
+
+### Lo que no decía
+
+El mensaje nuevo **no se veía en pantalla**. Un `ValidationProblem` de ASP.NET viaja con
+`title: "One or more validation errors occurred."` junto al mensaje de verdad, que va dentro de
+`errors`; `extractApiError` leía `title` primero. Es decir: **ningún mensaje de validación escrito
+en el backend se había visto nunca** —ni el del tamaño máximo de archivo, ni el de una categoría sin
+nombre, ni el de un progreso negativo—. Todos salían como esa frase genérica en inglés, y encima
+desde T4-03 en una interfaz que ya podía estar en español.
+
+Lo llamativo es que había una prueba de eso, y estaba en verde: mandaba un cuerpo **solo** con
+`errors`, que no es la forma que llega jamás. La prueba nueva manda el cuerpo real, con los dos
+campos, y falla con el orden anterior. Se comprobó volcando a un archivo la respuesta de verdad del
+servidor en vez de darla por supuesta.
+
+### Un error propio, de los baratos
+
+Las E2E fallaron 10 de 13 a la primera. La causa no era el cambio: arranqué el backend sin
+`RateLimiting__Auth__PermitLimit=500`, que es **exactamente lo que WORKFLOW.md manda hacer y explica
+por qué**. Cada prueba registra una cuenta y todas salen de la misma dirección, así que el cupo de
+10 por minuto se agota a mitad de camino y el síntoma —«no se pudo crear la cuenta»— no se parece en
+nada a la causa. La documentación estaba bien; no leerla costó una vuelta entera.
+
+### Estado al cerrar
+
+**El roadmap se queda sin tareas abiertas.** Quedan T0-05 y T4-06, en suspenso por decisión y no por
+olvido: la primera vuelve en cuanto alguien que no sea el propietario tenga cuenta, la segunda en
+cuanto se vuelva a desplegar. Suites: **182** backend, **200** frontend y **13** end-to-end.
 
 ---
 

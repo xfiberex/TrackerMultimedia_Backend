@@ -7,26 +7,27 @@
 |------|--------|--------|----------|----------|
 | 0 | Crítico / Bloqueante | 6 | 5 | T0-05 en suspenso |
 | 1 | Alta prioridad | 22 | 22 | — |
-| 2 | Mejoras sustanciales | 27 | 26 | T2-29, hallazgo nuevo |
+| 2 | Mejoras sustanciales | 27 | 27 | — |
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
 | 4 | Futuro / Opcional | 11 | 10 | T4-06 en suspenso |
 | 5 | Sistema de diseño | 10 | 10 | — |
-| **Total** | | **99** | **96** | **1 + 2 en suspenso** |
+| **Total** | | **99** | **97** | **0 + 2 en suspenso** |
 
 Las tres anuladas —T1-12, T2-16 y T2-25— quedan fuera del recuento: ver *En suspenso y anuladas*.
 **Los totales de esta tabla estuvieron mal hasta el 2026-09-05**, y de dos maneras: el total decía 98
 cuando la suma de la columna da 96, y la sección de cerradas hablaba de 85 cuando eran 88. Corregido
 al cerrar T1-13; conviene volver a sumar la columna cada vez que se toque una fila.
 
-**Estado (2026-09-06).** Cerrados los Tiers 0, 1, 3, 4 —salvo T4-06, en suspenso por decisión del
-propietario— y 5. **Queda una sola tarea abierta, T2-29**, un hallazgo menor de la sesión anterior.
-T4-03 se cerró el 2026-09-06 con la interfaz en español e inglés.
+**Estado (2026-09-06).** **No queda ninguna tarea abierta.** Cerrados los seis tiers, salvo las
+dos suspendidas por decisión del propietario —T0-05 y T4-06—, que no están resueltas sino
+esperando a que el proyecto cambie: ver su ficha para saber qué las reactiva. El 2026-09-06 se
+cerraron T4-03 —la interfaz en español e inglés—, T5-10 y T2-29.
 
-**Hay tres suites**: **180/180** backend sobre PostgreSQL real, **199/199** frontend y **13/13**
+**Hay tres suites**: **182/182** backend sobre PostgreSQL real, **200/200** frontend y **13/13**
 end-to-end con Playwright (T4-04), estas últimas contra la aplicación entera y con requisitos
 propios —ver [WORKFLOW.md](WORKFLOW.md)—. Con `npm run lint`, `tsc -b` y `npm run build` limpios.
-`npm audit` da **0 vulnerabilidades**, comprobado el 2026-09-02; es una afirmación que caduca, así
-que lleva fecha.
+`npm audit` da **0 vulnerabilidades** y `dotnet restore` no emite ningún `NU1903`, comprobado el
+2026-09-06; es una afirmación que caduca, así que lleva fecha.
 
 Las siete pruebas nuevas del frontend son las de T4-03 y T5-10, y ninguna comprueba comportamiento:
 vigilan que no vuelva a incrustarse texto ni a quedarse un campo sin vestir. Las dos nacen de
@@ -77,23 +78,12 @@ Comprobado el 2026-09-05 sobre la configuración real, porque «local» y «loca
 
 ## Abiertas
 
-### T2-29 — Un JSON que no es una exportación se importa «sin cambios»
+**Ninguna, a fecha del 2026-09-06.** La última fue T2-29, cerrada ese día; su ficha está en la
+tabla de cerradas del Tier 2. Lo que queda sin hacer está en *En suspenso y anuladas*, y son
+decisiones tomadas, no trabajo olvidado.
 
-- **Área:** UI/UX · **Severidad:** Bajo · **Esfuerzo:** bajo
-- **Hallazgo del 2026-09-05**, encontrado al escribir las pruebas E2E de T4-04.
-- **Qué pasa:** al importar un archivo JSON cualquiera —uno que no salió de aquí— la
-  aplicación responde **«Importación JSON completada sin cambios»**, con el tono de éxito.
-  No se rompe nada y no entra basura en la biblioteca, pero tampoco se dice que el archivo
-  no era una exportación de TrackerMultimedia.
-- **Por qué importa:** quien se equivoque de archivo puede concluir que su copia de
-  seguridad estaba vacía. Es el mismo espíritu de T2-19, «no descartar en silencio un
-  formato inválido», aplicado un nivel más arriba: aquí el formato es válido —es JSON— pero
-  el contenido no es el que se espera.
-- **Qué hacer:** distinguir «una exportación con cero elementos» de «esto no es una
-  exportación». La primera merece el mensaje actual; la segunda, un aviso.
-- **Criterio:** importar un JSON ajeno avisa de que no es una exportación válida.
-- **Ya hay prueba:** `e2e/transferencia.spec.ts` fija el comportamiento de hoy y dice en un
-  comentario que es el que hay que cambiar. Al arreglarlo, esa prueba se actualiza.
+Lo que sigue es la historia del Tier 5, que se abrió y se cerró entero, y se conserva aquí porque
+explica de dónde salió.
 
 ### Tier 5 — Sistema de diseño
 
@@ -244,6 +234,7 @@ que hay que recordar.
 | T2-26 | Unificar el idioma de los mensajes de error del backend | 2026-09-02 |
 | T2-27 | Impedir que el login muestre texto arbitrario de la URL | 2026-08-27 · Hallazgo nuevo: un enlace preparado mostraba cualquier mensaje sobre el sitio auténtico |
 | T2-28 | Aislar la conexión SQLite compartida en la suite | 2026-09-02 · Desapareció al pasar la suite a PostgreSQL |
+| T2-29 | Avisar de que un JSON ajeno no es una exportación | 2026-09-06 · La causa era un valor por defecto; el aviso además no llegaba a verse |
 
 ### Tier 3 — Pulido y mantenimiento
 

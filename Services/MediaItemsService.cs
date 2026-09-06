@@ -722,6 +722,19 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         if (envelope is null)
             return ServiceResult<LibraryTransferEnvelope>.Fail("file", "El archivo JSON no contiene datos para importar.");
 
+        // T2-29: un JSON cualquiera es JSON válido, así que se deserializa sin protestar
+        // y deja el sobre vacío. Sin esta comprobación acababa en «importación completada
+        // sin cambios», con tono de éxito, y quien se equivocara de archivo podía concluir
+        // que su copia de seguridad estaba vacía. La ausencia de versión es lo que separa
+        // «esto no es una exportación» de «esta exportación no tenía nada dentro».
+        if (envelope.SchemaVersion is null)
+        {
+            return ServiceResult<LibraryTransferEnvelope>.Fail(
+                "file",
+                "El archivo no es una exportación de TrackerMultimedia: no indica ninguna " +
+                "versión de formato. Exporta tu biblioteca desde la aplicación y usa ese archivo.");
+        }
+
         if (envelope.SchemaVersion != LibraryTransferSchemaVersion)
         {
             return ServiceResult<LibraryTransferEnvelope>.Fail(
@@ -1495,7 +1508,13 @@ public class MediaItemsService(ApplicationDbContext dbContext)
 
     private sealed class LibraryTransferEnvelope
     {
-        public int SchemaVersion { get; set; } = LibraryTransferSchemaVersion;
+        /// <summary>
+        /// Sin valor por defecto a propósito. Cuando lo tenía, un JSON ajeno —que no
+        /// trae este campo— se deserializaba con la versión correcta ya puesta, pasaba
+        /// la comprobación de compatibilidad y se importaba como una exportación vacía.
+        /// Que sea nulable es lo que permite distinguir «no lo trae» de «trae un 1».
+        /// </summary>
+        public int? SchemaVersion { get; set; }
         public DateTime ExportedAtUtc { get; set; }
         public List<LibraryTransferCategoryRecord> Categories { get; set; } = [];
         public List<LibraryTransferItemRecord> Items { get; set; } = [];
