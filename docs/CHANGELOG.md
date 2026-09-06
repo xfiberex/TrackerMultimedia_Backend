@@ -24,6 +24,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 - Los botones de «Continuar con Google» y «Continuar con GitHub» se pueden ocultar desde la configuración del frontend, para entrar con correo y contraseña. Sirve sobre todo al abrir la aplicación desde el móvil: Google solo sabe volver a `localhost` o a un dominio público, así que desde otro dispositivo ese camino termina en un error. Ocultarlos es solo una máscara de la interfaz —quien decide qué proveedores se aceptan sigue siendo el servidor—.
 
+### Cambiado
+
+- **El fondo ya no se mueve.** La neblina seguía al cursor —moverlo arremolinaba el humo por detrás de lo que estabas leyendo— y además derivaba sola sin parar. Ahora está quieta. Con ella se va un repintado continuo de la pantalla completa que ocurría siempre, aunque no estuvieras haciendo nada: menos batería en el portátil y menos ventilador (T5-13).
+
 ### Corregido
 
 - **La flecha de los desplegables ya no va pegada al borde.** Los doce desplegables de la aplicación —los filtros de la biblioteca, el editor de registros, Descubrir y el alta rápida desde la búsqueda— llevaban su flecha en el filo derecho, mientras el texto respetaba su margen al otro lado. Ahora es la misma flecha que ya usaban los menús de acciones, y guarda el mismo aire que el texto (T5-11).

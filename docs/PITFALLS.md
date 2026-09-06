@@ -130,12 +130,26 @@ borde y sorda al relleno, así que un `select` con el texto separado del borde t
 filo, y no hay forma de corregirlo sin sustituirla: `appearance: none` más un `background-image`. Lo
 que trae eso consigo está en la trampa siguiente.
 
-**Sustituir la flecha nativa hace obligatorio ponerla en todos los temas.** Con `appearance: none`
-puesto, si el `background-image` no aparece **no hay flecha ninguna**. Y desaparece con un descuido
-de una línea, porque `background` en forma corta reinicia `background-image`: la regla del tema
-oscuro usa esa forma corta, así que la flecha hay que reponerla ahí. El fallo no rompe nada, no se
-ve en tema claro —que es donde se trabaja— y deja unos desplegables sin ningún indicio de que se
-despliegan. Lo vigila `src/config/select-arrow.test.ts`.
+**`background` en forma corta reinicia las cuatro propiedades del fondo, no solo la imagen.** Se
+lleva por delante `background-image`, `background-repeat`, `background-size` y `background-position`.
+Es la trampa que hizo falta aprender dos veces el mismo día:
+
+1. **Primero, sin imagen no hay flecha.** Con `appearance: none` puesto, la flecha del `select` es un
+   `background-image`, así que la regla de tema oscuro —que pintaba el fondo con la forma corta— la
+   borraba y dejaba unos desplegables sin ningún indicio de que se despliegan.
+2. **Después, con imagen pero sin las otras tres, es peor.** Se repuso solo `background-image` y las
+   otras tres se quedaron en sus valores por defecto: `repeat`, `auto`, `0% 0%`. El resultado no fue
+   un campo sin flecha sino **un campo empapelado de flechas gigantes**, y así estuvo hasta que
+   alguien miró la pantalla en oscuro.
+
+La solución no es reponer con cuidado, es no romper: **el fondo de un campo se pinta con
+`background-color`**, que no reinicia nada. `src/config/select-arrow.test.ts` recorre las reglas que
+alcanzan a `.select` imitando la cascada y comprueba las cuatro en los dos temas.
+
+**Y una prueba que vigila una sola propiedad de un conjunto no vigila el conjunto.** La primera
+versión de ese test comprobaba que quedara `background-image`, porque ese había sido el fallo. Pasó
+en verde con el campo empapelado delante. Cuando un descuido puede romper cuatro cosas a la vez, la
+prueba tiene que mirar las cuatro; comprobar la que ya conoces es comprobar el pasado.
 
 **Un `ValidationProblemDetails` trae siempre un `title` genérico, y en inglés.** ASP.NET responde
 `{"title":"One or more validation errors occurred.", "errors":{...}}`, con el mensaje escrito a mano
@@ -205,6 +219,19 @@ nada falle a la vista—. Van dos medidas: un `<!-- prettier-ignore -->` suelto 
 reconoce la directiva si el comentario no lleva nada más) y un test que recalcula el hash.
 
 ## Herramientas y entorno
+
+**Quitar un bucle de animación traslada al código lo que el bucle hacía gratis.** Mientras
+`AmbientBackground` repintaba en cada fotograma, cambiar de tema o de tamaño se resolvía solo: el
+fotograma siguiente ya traía el estado nuevo. Al pintar una sola vez, cada cosa que cambie lo que
+hay que pintar tiene que pedir el repintado a mano. Olvidarse no rompe nada a la vista: deja el
+fondo del tema anterior debajo de una interfaz que ya cambió, o el lienzo en blanco tras
+redimensionar. `e2e/fondo.spec.ts` lo vigila, y se falsificó dejando el observador de tema vacío.
+
+**Una animación en `requestAnimationFrame` no la para `prefers-reduced-motion`.** Esa consulta es
+de CSS y no alcanza a un bucle de JavaScript, así que mientras el fondo animado existió, quien
+pidiera menos movimiento lo tenía igual —y el repintado seguía costando lo mismo—. Aquí dejó de
+aplicar porque la animación se quitó entera; si vuelve alguna, tiene que consultar
+`window.matchMedia('(prefers-reduced-motion: reduce)')` por su cuenta.
 
 **En PowerShell, `Start-Process` no se lleva la variable de entorno que acabas de poner.** La suite
 end-to-end necesita arrancar el backend con `RateLimiting__Auth__PermitLimit=500`; lanzándolo con

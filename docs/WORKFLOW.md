@@ -20,8 +20,8 @@
 | `dotnet format whitespace --verify-no-changes` | Comprobar el estilo del `.editorconfig` | — |
 | `npm run dev` (en `Frontend/`) | Interfaz en `http://localhost:5173`, **solo en este equipo** | `.env` copiado de `.env.example` |
 | `npm run dev:lan` | Lo mismo, accesible desde el móvil u otro equipo de la red | — |
-| `npm run test` | Suite del frontend, 204 pruebas | — |
-| `npm run test:e2e` | Suite end-to-end, 14 pruebas con Playwright | **PostgreSQL y el backend en marcha**; ver abajo |
+| `npm run test` | Suite del frontend, 205 pruebas | — |
+| `npm run test:e2e` | Suite end-to-end, 15 pruebas con Playwright | **PostgreSQL y el backend en marcha**; ver abajo |
 | `npm run test:e2e:ui` | Lo mismo, en el modo interactivo de Playwright | Lo mismo |
 | `npm run lint` | ESLint. **`npm run build` no lo ejecuta** | — |
 | `npm run build` | Build de producción a `dist/`. Incluye `tsc -b` | — |
@@ -257,7 +257,7 @@ En `Frontend/`:
 
 ```bash
 npm run lint                                   # Debe salir sin ningún error
-npm run test -- --run                          # 204 pruebas
+npm run test -- --run                          # 205 pruebas
 npm run build                                  # Incluye tsc -b; falla si hay error de tipos
 ```
 

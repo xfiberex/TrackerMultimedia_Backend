@@ -104,11 +104,46 @@ no se lleva el `$env:` que acabas de definir, así que el backend arrancó con e
 confirmó midiendo —doce registros seguidos, doce 429— en vez de volver a suponerlo. WORKFLOW.md solo
 traía la forma de bash, que en PowerShell es un error de sintaxis; ahora trae las dos y el aviso.
 
+**Y la flecha hubo que arreglarla dos veces.** La primera versión repuso en tema oscuro el
+`background-image` que la regla de fondo borraba, y se dio por terminada. Lo que se vio en pantalla
+al mirar en oscuro fueron **los campos empapelados de flechas gigantes**: `background` en forma
+corta no reinicia solo la imagen, sino también `background-repeat`, `background-size` y
+`background-position`. Reponer una de las cuatro deja las otras tres en sus valores por defecto.
+
+Lo importante no es el descuido sino que **la prueba lo dio por bueno**: comprobaba que quedara una
+imagen, porque esa había sido la primera equivocación. Una prueba escrita contra el fallo que ya
+conoces comprueba el pasado. Ahora mira las cuatro propiedades en los dos temas, y el arreglo es de
+raíz: los fondos de campo se pintan con `background-color`, que no reinicia nada.
+
+**T5-13 — el fondo dejó de seguir al cursor**, a petición del propietario. `AmbientBackground` es un
+shader WebGL cuya neblina se desplazaba con la posición del puntero: mover el ratón arremolinaba el
+humo por detrás del contenido que estás leyendo. Con el `drift` se va también un `pointermove`
+global que disparaba en cada píxel de movimiento. La deriva lenta por tiempo se queda.
+
+**Y después, la deriva por tiempo también.** Sin ninguna de las dos animaciones el bucle sobra, así
+que el fondo pasa a pintarse **una sola vez**: fuera el `requestAnimationFrame` que repintaba la
+pantalla entera sesenta veces por segundo, para siempre, con la ventana quieta. Medido: **0
+fotogramas en 1,5 segundos de reposo**.
+
+Eso traslada al código una obligación que el bucle cumplía gratis —repintar al cambiar de tamaño y
+al cambiar de tema—, y es justo lo que falla en silencio: olvidarlo deja el fondo del tema anterior
+debajo de una interfaz que ya cambió. `e2e/fondo.spec.ts` comprueba las tres cosas que no hacen
+ruido: que el shader siga compilando —si no, se cae al degradado de reserva sin decir nada—, que en
+reposo no se programe ni un fotograma, y que el fondo siga al tema. Se falsificó vaciando el
+observador de tema.
+
+Medirlo costó tres intentos, y los dos primeros fallaron **por el instrumento, no por el código**:
+`readPixels` devuelve negro porque el búfer de WebGL se limpia al componer, y una captura del lienzo
+—que ocupa la ventana entera— incluye toda la interfaz que tiene encima, así que comparaba cualquier
+cosa menos el fondo. Lo que sí mide es contar las llamadas a `requestAnimationFrame` y recortar una
+esquina libre; y la prueba comprueba antes que esa esquina siga sin nada pintado encima, porque si
+la interfaz llega hasta allí seguiría en verde hablando de otra cosa.
+
 ### Estado al cerrar
 
 **El roadmap se queda sin tareas abiertas.** Quedan T0-05 y T4-06, en suspenso por decisión y no por
 olvido: la primera vuelve en cuanto alguien que no sea el propietario tenga cuenta, la segunda en
-cuanto se vuelva a desplegar. Suites: **182** backend, **204** frontend y **14** end-to-end.
+cuanto se vuelva a desplegar. Suites: **182** backend, **205** frontend y **15** end-to-end.
 
 **Y la traducción al inglés queda revisada**: el propietario la dio por buena ese mismo día. Era lo
 único que T4-03 dejaba pendiente de una persona, porque el tipado garantiza que no falte ninguna
