@@ -20,8 +20,8 @@
 | `dotnet format whitespace --verify-no-changes` | Comprobar el estilo del `.editorconfig` | — |
 | `npm run dev` (en `Frontend/`) | Interfaz en `http://localhost:5173`, **solo en este equipo** | `.env` copiado de `.env.example` |
 | `npm run dev:lan` | Lo mismo, accesible desde el móvil u otro equipo de la red | — |
-| `npm run test` | Suite del frontend, 200 pruebas | — |
-| `npm run test:e2e` | Suite end-to-end, 13 pruebas con Playwright | **PostgreSQL y el backend en marcha**; ver abajo |
+| `npm run test` | Suite del frontend, 204 pruebas | — |
+| `npm run test:e2e` | Suite end-to-end, 14 pruebas con Playwright | **PostgreSQL y el backend en marcha**; ver abajo |
 | `npm run test:e2e:ui` | Lo mismo, en el modo interactivo de Playwright | Lo mismo |
 | `npm run lint` | ESLint. **`npm run build` no lo ejecuta** | — |
 | `npm run build` | Build de producción a `dist/`. Incluye `tsc -b` | — |
@@ -116,7 +116,15 @@ Start-Service postgresql-x64-17
 #    prueba y todas llegan desde la misma dirección, así que con el cupo normal de 10
 #    por minuto se agota a mitad de camino y los fallos salen como errores confusos.
 cd TrackerMultimedia_Backend
+
+# En bash:
 RateLimiting__Auth__PermitLimit=500 dotnet run
+
+# En PowerShell, la misma línea es un error de sintaxis; y **tiene que ser el mismo
+# proceso** el que reciba la variable y arranque el backend. Lanzarlo aparte con
+# `Start-Process` no se la lleva, el backend arranca con el cupo normal y las pruebas
+# fallan a media suite como si el cambio hubiera roto algo:
+$env:RateLimiting__Auth__PermitLimit = "500"; dotnet run
 
 # 3. Las pruebas (en el repositorio de frontend)
 npm run test:e2e
@@ -249,7 +257,7 @@ En `Frontend/`:
 
 ```bash
 npm run lint                                   # Debe salir sin ningún error
-npm run test -- --run                          # 200 pruebas
+npm run test -- --run                          # 204 pruebas
 npm run build                                  # Incluye tsc -b; falla si hay error de tipos
 ```
 

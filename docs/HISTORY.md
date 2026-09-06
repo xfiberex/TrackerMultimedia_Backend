@@ -64,11 +64,56 @@ por qué**. Cada prueba registra una cuenta y todas salen de la misma dirección
 10 por minuto se agota a mitad de camino y el síntoma —«no se pudo crear la cuenta»— no se parece en
 nada a la causa. La documentación estaba bien; no leerla costó una vuelta entera.
 
+### Dos defectos más de presentación, y por qué siguen apareciendo
+
+Con el roadmap ya sin tareas abiertas, el propietario señaló otras dos cosas mirando la pantalla.
+Ninguna rompía nada; las dos son de la misma familia que T5-09 y T5-10.
+
+**T5-11 — la flecha de los `select`, pegada al borde.** Los doce desplegables de la aplicación
+tenían la flecha en el filo derecho mientras su texto respetaba el margen del otro lado. La causa es
+del navegador: **la flecha nativa no la mueve `padding-right`**. No hay arreglo que no pase por
+sustituirla, así que ahora es el mismo `ChevronDownIcon` de los menús de acciones, puesto con el
+margen del texto.
+
+Eso abre una trampa nueva, y de ahí sale la prueba: quitada la nativa, **si la imagen no aparece no
+hay flecha ninguna**, y desaparece con un descuido de una línea, porque `background` en forma corta
+reinicia `background-image`. La regla del tema oscuro usa esa forma corta. `select-arrow.test.ts`
+recorre las reglas que alcanzan a `.select` en el orden del archivo, imitando la cascada, y
+comprueba que en los dos temas quede una imagen puesta. Se falsificó borrando la del tema oscuro.
+
+**T5-12 — el desplegable de color, cortado.** Al abrir los colores de una categoría nueva, el
+diálogo sacaba barra y recortaba la fila del color personalizado. **La altura no era el problema**:
+el desplegable flotaba con `position: absolute` dentro de un contenedor que se desplaza, y un hijo
+absoluto no ensancha la caja de su contenedor pero sí cuenta como desbordamiento. Medido en el
+navegador antes de tocar nada: el diálogo terminaba en 720 y el desplegable en 725. Puesto en el
+flujo, el diálogo pasa de 396 a 527 píxeles en una ventana de 720, sin barra y sin recorte.
+
+La prueba de esto es **end-to-end, y no podía ser otra cosa**: jsdom no maqueta, así que ningún test
+de vitest puede medir un recorte. Es la primera vez que el proyecto usa Playwright para vigilar
+disposición y no comportamiento.
+
+**Lo que dice que estos dos aparezcan ahora.** El Tier 5 se dio por terminado dos veces y ha vuelto
+a crecer las dos. No es que se cerrara mal: es que **la presentación no la ve ninguna prueba de
+comportamiento**, y el único instrumento que la detecta es alguien abriendo la pantalla. Los cinco
+defectos de esta clase encontrados hasta hoy han entrado por ahí, y cada uno ha salido con una
+prueba que sí puede verlo la próxima vez.
+
+**Un error propio, el mismo de por la mañana y peor.** Las E2E volvieron a fallar diez de catorce
+por el cupo de peticiones, esta vez **habiendo puesto la variable**: en PowerShell, `Start-Process`
+no se lleva el `$env:` que acabas de definir, así que el backend arrancó con el cupo normal. Se
+confirmó midiendo —doce registros seguidos, doce 429— en vez de volver a suponerlo. WORKFLOW.md solo
+traía la forma de bash, que en PowerShell es un error de sintaxis; ahora trae las dos y el aviso.
+
 ### Estado al cerrar
 
 **El roadmap se queda sin tareas abiertas.** Quedan T0-05 y T4-06, en suspenso por decisión y no por
 olvido: la primera vuelve en cuanto alguien que no sea el propietario tenga cuenta, la segunda en
-cuanto se vuelva a desplegar. Suites: **182** backend, **200** frontend y **13** end-to-end.
+cuanto se vuelva a desplegar. Suites: **182** backend, **204** frontend y **14** end-to-end.
+
+**Y la traducción al inglés queda revisada**: el propietario la dio por buena ese mismo día. Era lo
+único que T4-03 dejaba pendiente de una persona, porque el tipado garantiza que no falte ninguna
+clave y las pruebas que no se pierda ningún dato interpolado, pero **ninguna de las dos puede
+comprobar que una traducción sea buena**.
 
 ---
 
@@ -111,7 +156,9 @@ a quien no lee español y todavía no ha entrado, que es justamente quien lo nec
 - **Cuatro contadores concordaban a medias.** «1 resultado listos para importar» y «1 categorías
   activas» venían de plantillas que cambiaban el sustantivo y se olvidaban del adjetivo. Una
   prueba de `DiscoverView` daba por bueno el texto incorrecto, así que hubo que corregirla; queda
-  anotado en la propia prueba por qué cambió.
+  anotado en la propia prueba por qué cambió. **Cambiar un texto que nadie pidió cambiar es una
+  decisión ajena**, así que se consultó: el propietario lo confirmó el 2026-09-06. No hay que
+  volver a la redacción anterior.
 - **`formatDate` tuvo que cambiar otra vez.** Lo dejamos ayer en «la configuración regional del
   navegador», que era lo correcto **mientras los textos seguían en español**. Con idioma de
   interfaz elegible, esa opción produce una pantalla en inglés con las fechas en «05 sept 2026».

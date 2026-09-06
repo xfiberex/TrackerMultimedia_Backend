@@ -10,8 +10,8 @@
 | 2 | Mejoras sustanciales | 27 | 27 | — |
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
 | 4 | Futuro / Opcional | 11 | 10 | T4-06 en suspenso |
-| 5 | Sistema de diseño | 10 | 10 | — |
-| **Total** | | **99** | **97** | **0 + 2 en suspenso** |
+| 5 | Sistema de diseño | 12 | 12 | — |
+| **Total** | | **101** | **99** | **0 + 2 en suspenso** |
 
 Las tres anuladas —T1-12, T2-16 y T2-25— quedan fuera del recuento: ver *En suspenso y anuladas*.
 **Los totales de esta tabla estuvieron mal hasta el 2026-09-05**, y de dos maneras: el total decía 98
@@ -21,18 +21,19 @@ al cerrar T1-13; conviene volver a sumar la columna cada vez que se toque una fi
 **Estado (2026-09-06).** **No queda ninguna tarea abierta.** Cerrados los seis tiers, salvo las
 dos suspendidas por decisión del propietario —T0-05 y T4-06—, que no están resueltas sino
 esperando a que el proyecto cambie: ver su ficha para saber qué las reactiva. El 2026-09-06 se
-cerraron T4-03 —la interfaz en español e inglés—, T5-10 y T2-29.
+cerraron T4-03 —la interfaz en español e inglés—, T5-10, T2-29, T5-11 y T5-12.
 
-**Hay tres suites**: **182/182** backend sobre PostgreSQL real, **200/200** frontend y **13/13**
+**Hay tres suites**: **182/182** backend sobre PostgreSQL real, **204/204** frontend y **14/14**
 end-to-end con Playwright (T4-04), estas últimas contra la aplicación entera y con requisitos
 propios —ver [WORKFLOW.md](WORKFLOW.md)—. Con `npm run lint`, `tsc -b` y `npm run build` limpios.
 `npm audit` da **0 vulnerabilidades** y `dotnet restore` no emite ningún `NU1903`, comprobado el
 2026-09-06; es una afirmación que caduca, así que lleva fecha.
 
-Las siete pruebas nuevas del frontend son las de T4-03 y T5-10, y ninguna comprueba comportamiento:
-vigilan que no vuelva a incrustarse texto ni a quedarse un campo sin vestir. Las dos nacen de
-defectos que **ninguna prueba de comportamiento podía ver** porque la aplicación funcionaba
-perfectamente con ellos dentro.
+Doce de las pruebas del frontend no comprueban comportamiento sino presentación —T4-03, T5-10,
+T5-11— y una de las end-to-end tampoco —T5-12—. Todas nacen de defectos que **ninguna prueba de
+comportamiento podía ver**, porque la aplicación funcionaba perfectamente con ellos dentro. Cinco de
+los seis los vio el propietario mirando la pantalla, que sigue siendo el único instrumento que
+detecta esta clase de fallo.
 
 ## El proyecto es de uso local, servido por LAN
 
@@ -105,9 +106,14 @@ consultar la base de datos de la skill `ui-ux-pro-max`— coinciden en la misma 
 Migrar a Tailwind o a una librería de componentes serían semanas para llegar al mismo aspecto,
 tirando por el camino la accesibilidad ya pagada en T1-16 a T1-23.
 
-**Las diez tareas del tier están cerradas**: nueve el 2026-09-05 —el mismo día que se abrió— y
-T5-10 el 2026-09-06, abierta cuando el propietario vio en pantalla que el campo de «Borrar la
-cuenta» seguía sin vestir después de T5-09. Ver la tabla de cerradas.
+**Las doce tareas del tier están cerradas**: nueve el 2026-09-05 —el mismo día que se abrió— y
+T5-10, T5-11 y T5-12 el 2026-09-06, las tres abiertas porque el propietario las vio en pantalla.
+Ver la tabla de cerradas.
+
+Que el tier siga creciendo después de darse por terminado no es señal de que se cerrara mal: es la
+forma que tiene este defecto de aparecer. **La presentación no la ve ninguna prueba de
+comportamiento**, así que cada uno de estos hallazgos ha entrado por el mismo sitio —alguien
+abriendo la pantalla— y ha salido con una prueba nueva que sí puede verlo la próxima vez.
 
 ---
 
@@ -292,4 +298,6 @@ que hay que recordar.
 | T5-08 | Migrar el resto de las vistas a la escala | 2026-09-05 · **296 medidas migradas**: espaciados a mano de 39 a 1, radios de 9 a 0, tamaños de texto de 19 a 0. 182 encajaron exactas y ninguna se movió más de 2px. La escala ganó cuatro peldaños que le faltaban —`--space-7`, `--space-14`, `--type-4xl` y `--leading-none`—: sin ellos el titular de portada encogía 8px y el contenedor principal 8px, que es rediseñar en vez de migrar. **La prueba se invirtió**: en vez de una lista de prefijos migrados, vigila el archivo entero con dos excepciones documentadas. Revisado en el navegador en los dos temas y en móvil |
 | T5-09 | La clase `.field` se usa en el marcado y no existe en el CSS | 2026-09-05 · Hallazgo de T5-08, y **anterior a la migración**: la etiqueta y el campo de «Borrar la cuenta» salían pegados. Era su único uso en todo el frontend, así que se cambió por `control`, el grupo de campo que ya usan los otros cinco formularios de esa pantalla, en vez de definir una clase con un solo usuario |
 | T5-10 | Un campo de formulario sin la clase del sistema de diseño | 2026-09-06 · El campo de «Borrar la cuenta» era el único `<input>` del frontend sin `className="input"`, así que el navegador pintaba su control nativo en medio de una pantalla que usa el del sistema; y el botón de debajo quedaba pegado al campo por faltar el contenedor que da el ritmo vertical. **Segundo y tercer defecto del mismo bloque tras T5-09**, los tres invisibles para las pruebas de comportamiento y los tres vistos por el propietario a simple vista. `form-controls.test.ts` revisa desde ahora los 61 campos del frontend |
+| T5-11 | La flecha de los `select` pegada al borde derecho | 2026-09-06 · La flecha nativa se dibuja en el filo y **no la mueve `padding-right`**, así que los doce `select` de la aplicación —biblioteca, editor de registros, descubrir y alta rápida— la tenían pegada mientras su texto respetaba el margen del otro lado. Se sustituye por el mismo `ChevronDownIcon` que usan los menús de acciones, colocado con el margen del texto. `select-arrow.test.ts` vigila el efecto secundario del arreglo: quitada la nativa, borrar la imagen del tema oscuro deja los desplegables **sin ningún indicador** |
+| T5-12 | El desplegable de color se cortaba dentro del diálogo | 2026-09-06 · Flotaba con `position: absolute` dentro de `.side-panel__content`, que se desplaza: un hijo absoluto no ensancha la caja de su contenedor pero sí cuenta como desbordamiento, de modo que el diálogo sacaba barra y recortaba la fila del color personalizado **con sitio de sobra en pantalla** —medido: el diálogo terminaba en 720 y el desplegable en 725—. Puesto en el flujo, el diálogo pasa de 396 a 527px sin barra. Lo comprueba una prueba end-to-end, la única que puede: jsdom no maqueta |
 | T5-03 | La capa de tokens no medía nada, solo pintaba | 2026-09-05 · Los 33 tokens eran todos de color y sombra, así que cada clase inventaba sus medidas: **39 espaciados, 9 radios y 19 tamaños de texto**, seis de ellos indistinguibles entre sí por menos de un píxel. Escala de espaciado en rejilla de 4px, radios, `--type-*` y alturas de línea, más `--control-min-height` para que el objetivo táctil de 44px tenga nombre propio. La pantalla de acceso queda migrada entera como plantilla, con una prueba que falla si vuelve a escribirse una medida a mano |

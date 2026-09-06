@@ -117,6 +117,26 @@ dentro del host. Desapareció al pasar la suite a PostgreSQL con una base por cl
 
 ## React y accesibilidad
 
+**Un hijo `position: absolute` desborda su contenedor con `overflow: auto`, aunque no lo ensanche.**
+El desplegable de color flotaba dentro del diálogo de «Nueva categoría». Al abrirse, el diálogo
+sacaba barra de desplazamiento y recortaba la última fila **con espacio de sobra en la pantalla**:
+un elemento posicionado en absoluto no cuenta para la altura de la caja de su contenedor, pero sí
+cuenta como desbordamiento desplazable. Cualquier ajuste de altura habría sido un parche, porque la
+altura no era el problema. La regla: **un menú flotante dentro de algo que se desplaza acaba
+cortado**; o va en el flujo, o se saca del contenedor.
+
+**La flecha nativa de un `<select>` no la mueve `padding-right`.** El navegador la dibuja pegada al
+borde y sorda al relleno, así que un `select` con el texto separado del borde tiene la flecha en el
+filo, y no hay forma de corregirlo sin sustituirla: `appearance: none` más un `background-image`. Lo
+que trae eso consigo está en la trampa siguiente.
+
+**Sustituir la flecha nativa hace obligatorio ponerla en todos los temas.** Con `appearance: none`
+puesto, si el `background-image` no aparece **no hay flecha ninguna**. Y desaparece con un descuido
+de una línea, porque `background` en forma corta reinicia `background-image`: la regla del tema
+oscuro usa esa forma corta, así que la flecha hay que reponerla ahí. El fallo no rompe nada, no se
+ve en tema claro —que es donde se trabaja— y deja unos desplegables sin ningún indicio de que se
+despliegan. Lo vigila `src/config/select-arrow.test.ts`.
+
 **Un `ValidationProblemDetails` trae siempre un `title` genérico, y en inglés.** ASP.NET responde
 `{"title":"One or more validation errors occurred.", "errors":{...}}`, con el mensaje escrito a mano
 dentro de `errors`. `extractApiError` miraba `title` antes que `errors`, así que **todos** los
@@ -185,6 +205,14 @@ nada falle a la vista—. Van dos medidas: un `<!-- prettier-ignore -->` suelto 
 reconoce la directiva si el comentario no lleva nada más) y un test que recalcula el hash.
 
 ## Herramientas y entorno
+
+**En PowerShell, `Start-Process` no se lleva la variable de entorno que acabas de poner.** La suite
+end-to-end necesita arrancar el backend con `RateLimiting__Auth__PermitLimit=500`; lanzándolo con
+`Start-Process` desde una sesión donde se había puesto `$env:...`, el backend arrancó con el cupo
+normal de 10 por minuto. El síntoma —diez pruebas de trece fallando en el registro, con «no se pudo
+crear la cuenta»— no se parece nada a la causa y se confunde con un fallo del cambio que estabas
+probando. **La variable y el `dotnet run` tienen que ir en el mismo proceso**, y comprobarlo cuesta
+una petición: doce registros seguidos, y si alguno devuelve 429, el cupo no se subió.
 
 **Un escáner de código fuente se denuncia a sí mismo si no ignora los comentarios.** El comentario
 que explica la regla suele citar textualmente lo que la regla busca. Blanquear los comentarios
