@@ -20,7 +20,9 @@
 | `dotnet format whitespace --verify-no-changes` | Comprobar el estilo del `.editorconfig` | — |
 | `npm run dev` (en `Frontend/`) | Interfaz en `http://localhost:5173`, **solo en este equipo** | `.env` copiado de `.env.example` |
 | `npm run dev:lan` | Lo mismo, accesible desde el móvil u otro equipo de la red | — |
-| `npm run test` | Suite del frontend, 188 pruebas | — |
+| `npm run test` | Suite del frontend, 189 pruebas | — |
+| `npm run test:e2e` | Suite end-to-end, 13 pruebas con Playwright | **PostgreSQL y el backend en marcha**; ver abajo |
+| `npm run test:e2e:ui` | Lo mismo, en el modo interactivo de Playwright | Lo mismo |
 | `npm run lint` | ESLint. **`npm run build` no lo ejecuta** | — |
 | `npm run build` | Build de producción a `dist/`. Incluye `tsc -b` | — |
 | `npx prettier --check .` | Estilo del frontend | — |
@@ -70,10 +72,10 @@ De paso se eliminaron dos restos que solo existían en esta máquina: `Security:
 por eliminada y ningún código lee desde entonces, y una carpeta `artifacts/` de mayo con tres copias
 en claro de los mismos secretos. Ambas estaban ignoradas por git, así que nunca llegaron a un commit.
 
-> ⚠️ **La credencial de Neon estuvo en claro en esta máquina y sigue sin revocarse.** Sacarla del
-> repositorio no la invalida: mientras el rol `neondb_owner` siga activo, quien tenga esa cadena
-> entra. T1-13 la dio por revocada y no lo estaba. Revocarla en el panel de Neon es lo único que
-> cierra el asunto.
+> ✅ **La credencial de Neon estuvo en claro en esta máquina y ya está revocada.** El 2026-09-05 se
+> eliminó la base entera y se revocó y borró todo lo desplegado (T1-13). Sacarla del repositorio no
+> la invalidaba: entre el 2026-08-27 y esa fecha, la documentación la daba por revocada mientras el
+> rol `neondb_owner` seguía abierto. La lección de fondo está en [PITFALLS.md](PITFALLS.md).
 
 **La suite de tests no lee `appsettings.Local.json`.** Solo mira `TRACKERMULTIMEDIA_TEST_POSTGRES`
 y los user-secrets. Sin ninguno de los dos no arranca, con un mensaje que lo explica.
@@ -96,6 +98,43 @@ solo se reutilizan el servidor y las credenciales.
 Para cobertura, ver la sección *Cobertura* del README del backend. **Mira la cobertura de ramas,
 no la de líneas:** la primera medición dio 82,8 % de líneas y 48,4 % de ramas, y lo que enseñó no
 fue el porcentaje sino qué estaba a cero.
+
+## Pruebas end-to-end (T4-04)
+
+Hablan con **la aplicación entera**: navegador real, Vite, backend y PostgreSQL. No
+sustituyen a las otras dos suites; cubren lo que ninguna ve, que es que las piezas encajen.
+
+**Playwright levanta el servidor de Vite, pero no el backend ni la base**, a propósito: un
+fallo suyo saldría como un timeout críptico en vez de como el error que de verdad ocurrió.
+Los comprueba al arrancar y, si faltan, lo dice con lo que hay que hacer.
+
+```bash
+# 1. PostgreSQL, si su servicio está en Manual (PowerShell como administrador)
+Start-Service postgresql-x64-17
+
+# 2. El backend, con el cupo de peticiones subido: la suite registra una cuenta por
+#    prueba y todas llegan desde la misma dirección, así que con el cupo normal de 10
+#    por minuto se agota a mitad de camino y los fallos salen como errores confusos.
+cd TrackerMultimedia_Backend
+RateLimiting__Auth__PermitLimit=500 dotnet run
+
+# 3. Las pruebas (en el repositorio de frontend)
+npm run test:e2e
+```
+
+**Cada prueba estrena su cuenta**, con el sufijo `@e2e.test`. El registro exige confirmar
+el correo (T2-10) y el correo va a un buzón de Mailtrap que no se puede leer desde ahí, así
+que `e2e/db.ts` confirma la cuenta en la base directamente. **Es lo único para lo que se
+toca la base**: lo que las pruebas afirman se afirma contra la interfaz o contra la API, y
+una aserción que mirase la base dejaría de ser end-to-end.
+
+La limpieza borra **solo** las cuentas con ese sufijo, y se hace **al empezar y no al
+terminar**, para poder mirar el estado que dejó un fallo.
+
+**Lo que no cubren, y por qué:** completar un flujo de Google o GitHub exigiría
+autenticarse de verdad contra el proveedor, con una cuenta real y su segundo factor. Se
+cubren los dos extremos que sí son nuestros —que la petición lleve el `state` y el reto de
+PKCE, y que una vuelta con `state` inválido acabe en el login con aviso—.
 
 ## Leer el log
 
@@ -128,6 +167,71 @@ dotnet-counters monitor -n TrackerMultimedia --counters Microsoft.AspNetCore.Hos
 
 ---
 
+## Textos de la interfaz (T4-03)
+
+La interfaz está en **español e inglés**. Ningún texto visible se escribe en un componente: todos
+viven en `src/shared/i18n/es.ts` y `src/shared/i18n/en.ts`, y se pintan con `t('seccion.clave')`.
+
+### Añadir un texto
+
+1. Añade la clave en `es.ts`, dentro de la sección que le corresponda.
+2. Añade **la misma clave** en `en.ts`. Si se te olvida, `tsc -b` falla: `en.ts` está tipado a
+   partir de `es.ts` y no admite que falte ni que sobre ninguna.
+3. Úsala con `t('seccion.clave')`. El editor autocompleta y una clave mal escrita no compila.
+
+**Si el texto lleva un dato dentro**, va con `{{marcador}}` en los dos idiomas:
+
+```ts
+// es.ts
+borradoPideCorreo: 'Escribe {{correo}} para continuar',
+// en el componente
+t('perfil.borradoPideCorreo', { correo: user.email })
+```
+
+Los valores interpolados tienen que ser `string`; el tipado rechaza un `number` o un
+`string | null`, que es como se descubrió que una de esas frases podía llegar a decir
+«Escribe null para continuar».
+
+**Si el texto lleva una cuenta**, usa las dos formas de plural y deja que i18next elija:
+
+```ts
+registros_one: '{{count}} registro',
+registros_other: '{{count}} registros',
+// en el componente
+t('biblioteca.registros', { count: total })
+```
+
+**Si el texto lleva marcado dentro** —una palabra en negrita, un enlace—, se usa `<Trans>` en vez
+de partir la frase en trozos. Partirla ata el orden de las palabras al español.
+
+### Añadir un idioma
+
+1. Añádelo a `IDIOMAS` y a `NOMBRE_DE_IDIOMA` en `src/shared/i18n/idiomas.ts`.
+2. Crea su archivo de textos copiando el tipo de `en.ts` (`typeof es`).
+3. Regístralo en `resources`, en `src/shared/i18n/index.ts`.
+
+`LanguageToggle` es un interruptor de dos posiciones porque hay dos idiomas; con un tercero hay que
+cambiarlo por un desplegable.
+
+### Lo que vigilan las pruebas
+
+`src/config/i18n.test.ts` comprueba tres cosas que el compilador **no** puede ver:
+
+- que las interpolaciones sobrevivan a la traducción —una frase inglesa que pierda su `{{correo}}`
+  compila igual y llega al usuario sin el dato—;
+- que toda clave con plural tenga sus dos formas en los dos idiomas;
+- que no quede texto incrustado en ningún componente. Esta última encontró seis textos que la
+  propia migración se había dejado, así que no es teórica.
+
+Hay dos excepciones declaradas, y cada una explica por qué: `TrackerMultimedia`, que es una marca,
+y `#336699`, que es un ejemplo de color. Añadir una tercera exige poder explicarla igual.
+
+**No pasa por el diccionario, a propósito:** el mensaje de error de `src/config/env.ts`. Se pinta
+cuando las variables de entorno no son válidas, es decir, antes de que i18n exista, y habla con
+quien configura el proyecto, no con quien lo usa.
+
+---
+
 ## Verificación local antes de cada commit
 
 No hay CI y no la va a haber, así que **esta rutina es la única red de seguridad del proyecto**.
@@ -137,7 +241,7 @@ alrededor de un minuto.
 En la raíz del repositorio de backend:
 
 ```bash
-dotnet test TrackerMultimedia_Backend.slnx     # 171 pruebas. Debe decir "Con error: 0"
+dotnet test TrackerMultimedia_Backend.slnx     # 180 pruebas. Debe decir "Con error: 0"
 dotnet restore                                 # No debe emitir ningún NU1903
 ```
 
@@ -145,7 +249,7 @@ En `Frontend/`:
 
 ```bash
 npm run lint                                   # Debe salir sin ningún error
-npm run test -- --run                          # 188 pruebas
+npm run test -- --run                          # 199 pruebas
 npm run build                                  # Incluye tsc -b; falla si hay error de tipos
 ```
 

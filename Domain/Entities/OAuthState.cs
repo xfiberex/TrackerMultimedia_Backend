@@ -21,6 +21,15 @@ public class OAuthState
     /// </summary>
     public string? ReturnPath { get; set; }
 
+    /// <summary>
+    /// Verificador PKCE (RFC 7636) de este flujo, si el proveedor lo usa (T4-02).
+    ///
+    /// Se guarda aquí y no en el navegador a propósito: el hash viaja al proveedor en la
+    /// autorización y el verificador nunca sale del servidor, así que quien intercepte el
+    /// código no puede canjearlo. Null cuando el proveedor no tiene PKCE activado.
+    /// </summary>
+    public string? CodeVerifier { get; set; }
+
     /// <summary>Momento en que expira este estado (UTC).</summary>
     public DateTime ExpiresAtUtc { get; set; }
 

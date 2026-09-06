@@ -118,12 +118,13 @@ src/
 │   ├── media-items/          #   Biblioteca: la vista más grande de la aplicación
 │   ├── categories/ · catalog/#   Gestión de categorías y de formatos
 │   └── search/               #   Descubrimiento en catálogos externos
-├── layouts/AppLayout.tsx     # Cabecera, navegación y conmutador de tema
+├── layouts/AppLayout.tsx     # Cabecera, navegación y los dos conmutadores: tema e idioma
 └── shared/
     ├── api/axios.ts          # Interceptores: adjunta el token y renueva la sesión ante un 401
     ├── api/tokenStore.ts     # Access token en memoria de módulo, fuera del árbol de React
     ├── components/           # SidePanelDialog, ConfirmDialog, ToastProvider, EmptyState, Loader
-    └── hooks/ · utils/       # useModalDialog, useDarkMode…
+    ├── i18n/                 # es.ts y en.ts, tipado a partir del español; arranca al importarse
+    └── hooks/ · utils/       # useModalDialog, useDarkMode, useIdioma…
 ```
 
 ---
@@ -140,11 +141,15 @@ escapado de las consultas y la organización por features. Todo ello con pruebas
    severidad original el día que la aplicación sea accesible para alguien más.
 2. **Nada ejecuta las suites salvo la disciplina de ejecutarlas.** Consecuencia asumida de
    descartar la CI. Las suites llegaron a estar en rojo mucho tiempo sin que nadie lo notara.
-3. **`X-Forwarded-For` se acepta de cualquier origen** (T1-05). Inofensivo en local; grave detrás
-   de un proxy. Es de lo primero que hay que resolver antes de volver a publicar.
-4. **El esquema que tenía Neon no se verificó y ya no es verificable.** Si conservaba la columna
-   `UserFormatId` sin la fila correspondiente en `__EFMigrationsHistory`, un despliegue nuevo
-   fallará al intentar crearla y habrá que insertar esa fila a mano.
+3. **`X-Forwarded-For` se acepta de cualquier origen** (T1-05). Grave detrás de un proxy. Desde que
+   la aplicación se sirve por LAN con `dev:lan` el escenario deja de ser «solo tú en esta máquina»
+   y pasa a ser «cualquiera con acceso a tu red»: sigue siendo severidad Baja, pero ya no es
+   teórico. Es de lo primero que hay que resolver antes de volver a publicar.
+4. **El esquema que tenía Neon ya no es verificable: la base se eliminó el 2026-09-05** (T1-13).
+   Deja de ser un riesgo latente y pasa a ser un dato de partida: **cualquier despliegue futuro
+   construye el esquema desde cero**, con las migraciones actuales, que sí están verificadas desde
+   vacío (T0-06). La duda de si conservaba `UserFormatId` sin su fila en `__EFMigrationsHistory`
+   muere con la base; no hay nada que arreglar a mano porque no hay nada que migrar.
 5. **Los binarios siguen en el historial de git.** Salieron del índice (T1-20), así que dejan de
    crecer, pero los commits anteriores los conservan: el clon sigue pesando lo mismo. Limpiarlo
    exige reescribir el historial con `git filter-repo`, que no se ha hecho.

@@ -12,6 +12,235 @@
 
 ---
 
+## 2026-09-06 — La interfaz aprende inglés, y dos cosas que solo se ven mirando
+
+Sesión de una sola tarea grande, **T4-03**, la última de trabajo que quedaba en el roadmap: sacar
+los textos de los componentes y dejar la aplicación en español e inglés. Se migraron 27 archivos y
+463 textos, verificando la suite después de cada bloque. Entremedias, el propietario
+señaló dos defectos visuales que ninguna prueba podía ver, y de ellos salió T5-10.
+
+### Lo que decidió la forma de la migración
+
+**El diccionario está tipado a partir del español.** `en.ts` se declara como `typeof es`, así que
+una clave que falte en inglés no compila, y `t('cabecera.salirr')` tampoco. Sin esa red, una clave
+mal escrita no falla en ninguna parte —i18next devuelve la propia clave— y aparece en pantalla el
+día que alguien abra esa vista. En una migración de este tamaño esa diferencia es la que separa
+«terminado» de «terminado hasta que alguien mire».
+
+**Las etiquetas guardan la clave y no el texto.** Los mapas del tipo `contentKindLabels` son
+constantes de módulo: si guardaran el resultado de `i18n.t`, se evaluaría **una sola vez, al
+importar**, y el idioma quedaría congelado en el de arranque. El interruptor habría traducido toda
+la pantalla menos esas etiquetas, y el fallo se vería solo al cambiar de idioma. La misma trampa
+afecta a los mensajes de Zod, resuelta con `{ error: () => i18n.t(...) }`, que Zod evalúa en cada
+`parse`.
+
+**Lo que no se traduce.** `Anime`, `Manga`, `Donghua`, `Manhwa` y `Manhua` son los nombres de sus
+medios en cualquier idioma; `Jikan`, `AniList` y `MangaDex` son servicios. Meterlos en el
+diccionario habría creado pares idénticos en `es` y `en` que alguien acabaría «traduciendo». Y el
+mensaje de error de `env.ts` se queda fuera a propósito: se pinta antes de que i18n exista.
+
+**El interruptor va también en las pantallas de acceso.** Ponerlo solo en la cabecera dejaba fuera
+a quien no lee español y todavía no ha entrado, que es justamente quien lo necesita.
+
+### Lo que la migración destapó
+
+- **`vitest` recogía las pruebas de Playwright.** Sus archivos acaban en `.spec.ts`, que forma
+  parte del patrón por defecto de vitest. Pasó inadvertido al cerrar T4-04 porque cada suite se
+  comprobó con su propio comando y **nunca las dos a la vez**: `npm test` daba cuatro archivos en
+  rojo que no tenían nada roto.
+- **Cuatro contadores concordaban a medias.** «1 resultado listos para importar» y «1 categorías
+  activas» venían de plantillas que cambiaban el sustantivo y se olvidaban del adjetivo. Una
+  prueba de `DiscoverView` daba por bueno el texto incorrecto, así que hubo que corregirla; queda
+  anotado en la propia prueba por qué cambió.
+- **`formatDate` tuvo que cambiar otra vez.** Lo dejamos ayer en «la configuración regional del
+  navegador», que era lo correcto **mientras los textos seguían en español**. Con idioma de
+  interfaz elegible, esa opción produce una pantalla en inglés con las fechas en «05 sept 2026».
+  Ahora sigue al idioma elegido.
+
+### Los dos defectos que vio el propietario
+
+Ninguno de los dos rompía nada: el campo funcionaba, el botón se pulsaba, las 192 pruebas estaban
+en verde. Los dos estaban en **el mismo bloque de «Borrar la cuenta»** donde T5-09 ya había
+corregido un tercero el día anterior.
+
+1. El `<input>` no llevaba `className="input"`, así que el navegador pintaba su campo nativo en
+   medio de una pantalla que usa el del sistema de diseño. Era el único campo así en todo el
+   frontend.
+2. El botón quedaba pegado al campo: las otras cuatro tarjetas de esa pantalla separan sus
+   elementos con el `gap` de `.auth-form`, y esta no es un formulario —no se envía, abre un
+   diálogo—, así que se había quedado sin contenedor.
+
+De ahí T5-10 y su prueba, que revisa los **61 campos** del frontend. La lección no es que faltara
+una clase, sino **qué clase de defecto es**: presentación pura, invisible para las pruebas de
+comportamiento porque la aplicación funciona igual de bien con él dentro, y evidente en cuanto
+alguien abre la pantalla. Tres seguidos en el mismo bloque no son mala suerte; son la marca de un
+trozo de código escrito sin las clases del sistema y nunca mirado después.
+
+### Errores propios, apuntados para no repetirlos
+
+- **La regla que vigila el texto incrustado nació rota, y la falsificación lo demostró.** Buscaba
+  `>texto<` línea a línea, pero el JSX con formato pone el texto en su propio renglón, sin `>` ni
+  `<` al lado: solo encontraba las etiquetas de una línea. Al arreglarla, encontró de inmediato
+  **seis textos que mi propia migración se había dejado** en el catálogo. Una regla que no se
+  falsifica no vigila nada; esta lo demuestra dos veces.
+- **La primera versión de esa regla también se denunciaba a sí misma**, porque el comentario que
+  la explica en `ProfileView` menciona `<input>` en prosa. Los comentarios se blanquean antes de
+  buscar.
+- **`\b` y `\\` no sobreviven a un heredoc.** Dos expresiones regulares se escribieron con un
+  carácter de retroceso literal (`0x08`) en vez de un límite de palabra, y por eso no coincidían
+  nunca. Los scripts de migración pasaron a escribirse en archivo, no en heredoc.
+
+---
+
+## 2026-09-05 — Neon eliminado, y el proyecto se asienta en LAN
+
+El propietario **eliminó la base de datos de Neon y revocó y borró todo lo desplegado**, que era lo
+que quedaba de T1-13. Con eso se cierra el único hallazgo de severidad Alto que seguía vivo sin
+depender de un despliegue futuro. Verificado en disco antes de darlo por bueno: `neon` no aparece
+ni una vez en los tres `appsettings*.json`.
+
+La tarea deja una trampa apuntada en [PITFALLS.md](PITFALLS.md), porque el fallo no fue técnico
+sino de registro: durante nueve días la documentación afirmó que las credenciales estaban
+revocadas porque alguien tuvo la intención de revocarlas. Apagar un servicio y anular la
+credencial que lo abre son dos acciones.
+
+La forma de uso pasa a ser **`npm run dev:lan`**, y eso obligó a comprobar qué cambia respecto a
+usarlo solo en el portátil, porque «local» y «local por LAN» no son lo mismo. Cuatro
+comprobaciones sobre la configuración real, todas anotadas en el ROADMAP:
+
+- La cookie del token de refresco **funciona sobre `http://`** en la red local: `Secure` se calcula
+  como `!IsDevelopment()`. No hay que tocar nada, y **conviene no tocarlo**.
+- **CORS no interviene.** El navegador remoto habla solo con el origen de Vite, que reenvía `/api`;
+  no hay petición de origen cruzado que autorizar.
+- **Google y GitHub no sirven desde otro dispositivo** —sus `RedirectUri` apuntan a `localhost`—,
+  que es justo para lo que se añadió en su día el interruptor que oculta los botones.
+- **El límite de peticiones pasa a ser compartido entre todos los dispositivos.** Vite no manda
+  `X-Forwarded-For` salvo con `xfwd`, que no está activado, así que todo llega desde `localhost` y
+  las políticas `search` y `auth` particionan por esa misma IP. Los diez intentos de login por
+  minuto son para toda la casa, no para cada uno.
+
+De paso se corrigieron tres cosas que el ROADMAP afirmaba mal y que se detectaron al repasarlo: el
+total decía 98 tareas cuando la columna suma 96, la sección de cerradas decía 85 cuando eran 88, y
+la ubicación de T1-05 seguía apuntando a `Program.cs:53-54` — el archivo se movió al añadir el
+registro estructurado de T4-11 y la referencia se quedó atrás.
+
+**Y esa última comprobación acabó cerrando T1-05 el mismo día.** La intención era dejarla para
+antes de publicar, pero al ver que servir por LAN amplía el escenario —de «solo tú en esta máquina»
+a «cualquiera que esté en tu red»— dejó de tener sentido aplazarla. La confianza en los proxies
+pasa a ser explícita: nueva sección `ForwardedHeaders` con `KnownProxies` y `KnownNetworks`, ambas
+**vacías por defecto**, y con las dos vacías `UseForwardedHeaders` ni se registra, de modo que
+`RemoteIpAddress` es siempre la dirección real del socket. Con proxies declarados se validan las IP
+y los CIDR, y un valor mal escrito para el arranque diciendo cuál es.
+
+Lo que más costó decidir fue **cómo probarlo sin que el test se probara a sí mismo**. `AppFactory`
+deja las tres políticas del rate limiter sin límite —si no, la suite se agota sola, porque
+`TestServer` no asigna `RemoteIpAddress`—, así que el test vuelve a registrar una política "auth"
+con la misma forma que la de producción y un cupo pequeño. Con eso, 20 logins con la cabecera
+rotando tienen que acabar en un 429.
+
+**El test se falsificó antes de darlo por bueno**, que es lo que pedía la trampa de «un test que
+solo puede pasar no comprueba nada»: restaurando las dos guardas a `true` —el comportamiento
+anterior, confiar en cualquiera— el test falla, y con el arreglo pasa. La suite queda en 175.
+
+---
+
+## 2026-09-05 — Las pruebas end-to-end, y lo que encontraron por el camino
+
+**T4-04.** Trece pruebas con Playwright sobre acceso, biblioteca, OAuth y transferencia.
+Lo interesante no son las pruebas sino lo que costó montarlas, porque cada obstáculo era un
+hecho del proyecto que no estaba escrito en ninguna parte.
+
+**El rate limiter agota la suite.** Cada prueba registra una cuenta y entra, y todas llegan
+desde la misma dirección: con el cupo de 10 por minuto, a mitad de camino empiezan los 429
+y salen como «No se pudo crear la cuenta», que no se parece en nada a la causa. La salida
+fue **sacar los cupos a configuración** con los mismos valores por defecto de siempre. No es
+solo para las pruebas: servido por LAN, todos los dispositivos comparten esa misma
+partición, así que el interruptor hacía falta igualmente.
+
+**Cuatro tropiezos que costaron rato y quedan apuntados:**
+
+- `globalSetup` fallaba con un **`AggregateError:` vacío**, sin una sola línea útil. Los
+  errores de red y los de `pg` son agregados, y Playwright los imprime así. Ahora se
+  despliegan antes de relanzarlos, que es lo que permitió ver el resto.
+- El lector de la cadena de conexión recorría la carpeta de user-secrets **quedándose con
+  el primero que encajara**. En este equipo hay tres, y una es de otro proyecto: apuntaba a
+  un PostgreSQL en el 5434 que ni está arrancado. Ahora el identificador sale del `.csproj`.
+- `__dirname` no existe en ESM, y el paquete lo es. Es el mismo aviso que Vite da sobre su
+  propia configuración, en otro archivo.
+- **Un fixture que la prueba no nombra no se ejecuta.** El que crea la cuenta y entra no
+  corría en las pruebas que solo recibían `{ page }`, así que empezaban en `about:blank`. El
+  síntoma —«el primer localizador no encuentra nada»— tampoco se parece a la causa.
+
+**Y un hallazgo del producto, T2-29:** importar un JSON que no es una exportación responde
+«Importación JSON completada sin cambios», con tono de éxito. No entra basura y nada se
+rompe, pero quien se equivoque de archivo puede concluir que su copia estaba vacía. La
+prueba fija el comportamiento de hoy y dice en un comentario que es el que hay que cambiar.
+
+**De OAuth se cubre lo que es nuestro y no más.** Completar el flujo exigiría autenticarse
+de verdad contra Google, con una cuenta real y su segundo factor: la prueba dependería de un
+tercero y de unas credenciales guardadas en algún sitio. Se comprueban los dos extremos —que
+la petición lleve `state` y el reto de PKCE, y que una vuelta con `state` inválido acabe en
+el login con aviso—, que son los que puede romper un cambio nuestro.
+
+**También se cerró T5-09**, el `className="field"` que no existía en el CSS. Se cambió por
+`control`, que es el grupo de campo que ya usaban los otros cinco formularios de esa
+pantalla; definir una clase nueva con un solo usuario habría sido peor.
+
+---
+
+## 2026-09-05 — PKCE, la escala completa, y cuatro fallos en mis propias herramientas
+
+**T4-02 (PKCE).** El verificador se guarda con el `state` y solo su hash viaja al proveedor, así que
+un código interceptado no se canjea. La prueba que vale es la del **vector del apéndice B del RFC
+7636**: comprobar el hash contra un valor que publica la norma es lo que separa «implementado» de
+«implementado bien», porque un Base64 con relleno o sin URL-safe pasaría cualquier prueba escrita
+contra mi propia implementación. En GitHub queda desactivado con un interruptor: su OAuth App no
+documenta soporte de PKCE y **no pude verificarlo**, y preferí un interruptor a una suposición.
+
+**T4-03, la mitad barata.** `formatDate` deja de fijar `es-DO`. La primera prueba que escribí no
+valía: comparaba el texto formateado, y **este equipo está configurado precisamente en `es-DO`**, de
+modo que pasaba con el defecto puesto. Se cambió a espiar el argumento con el que se construye
+`Intl.DateTimeFormat`, que sí distingue. Es la misma lección de siempre, en un sitio nuevo: una
+prueba que no puede fallar no comprueba nada.
+
+**T5-08, la migración de la escala.** 296 medidas: espaciados a mano de 39 a 1, radios de 9 a 0,
+tamaños de texto de 19 a 0. 182 encajaron exactas y ninguna se movió más de 2px. Se hizo con un
+script que informa de cada cambio y su desplazamiento **antes** de aplicarlo, que es lo que permitió
+ver los casos que había que decidir a mano en vez de dejarlos pasar.
+
+Cuatro de esos casos no eran migrables tal cual, y todos apuntaban a lo mismo: **a la escala le
+faltaban peldaños**. `--space-7` (28px) y `--space-14` (56px) son múltiplos exactos de 4 que la
+escala se había saltado; sin ellos el contenedor principal encogía 8px. `--type-4xl` y
+`--leading-none` son el peldaño de display: sin ellos el titular de portada encogía 8px y su
+interlineado se soltaba. Encoger habría sido rediseñar, no migrar.
+
+**Cuatro fallos, dos en mi script y dos en la prueba del proyecto:**
+
+- El script mandaba `border-radius: 99px` a `--radius-xl` por distancia numérica: una cápsula dejaba
+  de serlo. Un radio grande es una píldora, no un radio que quedó lejos.
+- El prefijo `media` casaba con `@media`, arrastrando al lote reglas sin migrar.
+- **En `theme-scale.test.ts`**, `[^}]*` en el cuerpo se traga la llave de apertura de una regla
+  anidada, así que el «selector» de una regla dentro de `@media` acababa siendo la propia consulta de
+  medios y sus reglas internas quedaban fuera de la vigilancia.
+- **La misma prueba daba `margin: 0` por medida a mano.** No se había visto porque la pantalla de
+  acceso, la única vista migrada hasta entonces, no tenía ni un cero.
+
+**La prueba cambia de forma, y es lo que más valor deja.** Terminar con una lista de los 43 prefijos
+del archivo habría sido una forma peor de decir «todos». Invertida —vigila el archivo entero, con
+dos excepciones documentadas y su motivo— cualquier clase nueva queda vigilada desde el momento en
+que se escribe, sin que nadie tenga que acordarse de apuntarla.
+
+**Revisado en el navegador**, que es lo que pedía la ficha: biblioteca, catálogo, categorías con su
+selector de color, perfil, en tema claro y oscuro y a 390px de ancho. Ahí apareció **T5-09**, que no
+tiene nada que ver con la migración: `ProfileView` usa `className="field"` y esa clase **no existe
+en el CSS**, ni antes ni después, así que la etiqueta y su campo salen pegados en la misma línea.
+
+*Para poder mirarlo hizo falta una cuenta: `prueba.t508@test.com`, confirmada a mano en la base
+porque el correo va a un buzón de Mailtrap que no se puede leer desde aquí. Está en la base de
+desarrollo junto a las 197 de test ya anotadas arriba.*
+
+---
+
 ## 2026-09-04 — Reorganización de la documentación
 
 Los cuatro documentos comunes (`ROADMAP`, `CHANGELOG`, `CONTEXT` y este registro) vivían sueltos

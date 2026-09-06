@@ -73,19 +73,27 @@ public class OAuthController(
             ? opts.Google.StateTtlMinutes
             : opts.GitHub.StateTtlMinutes;
 
+        // PKCE (T4-02). El verificador se guarda junto al state y **nunca sale del
+        // servidor**; al proveedor solo viaja su hash. Así, quien intercepte el código
+        // en el navegador no puede canjearlo. Null si el proveedor no lo tiene activado.
+        var usePkce = normalizedProvider == "google" ? opts.Google.UsePkce : opts.GitHub.UsePkce;
+        var codeVerifier = usePkce ? Pkce.GenerateVerifier() : null;
+        var codeChallenge = codeVerifier is null ? null : Pkce.CreateChallenge(codeVerifier);
+
         dbContext.OAuthStates.Add(new OAuthState
         {
             StateValue = stateValue,
             Provider = normalizedProvider,
             ReturnPath = returnPath,
+            CodeVerifier = codeVerifier,
             ExpiresAtUtc = DateTime.UtcNow.AddMinutes(ttl),
         });
         await dbContext.SaveChangesAsync(cancellationToken);
 
         var authUrl = normalizedProvider switch
         {
-            "google" => googleAuth!.BuildAuthorizationUrl(stateValue),
-            "github" => githubAuth!.BuildAuthorizationUrl(stateValue),
+            "google" => googleAuth!.BuildAuthorizationUrl(stateValue, codeChallenge),
+            "github" => githubAuth!.BuildAuthorizationUrl(stateValue, codeChallenge),
             _ => throw new InvalidOperationException(),
         };
 
@@ -143,8 +151,8 @@ public class OAuthController(
         {
             profile = normalizedProvider switch
             {
-                "google" => await googleAuth!.ExchangeCodeAsync(code, cancellationToken),
-                "github" => await githubAuth!.ExchangeCodeAsync(code, cancellationToken),
+                "google" => await googleAuth!.ExchangeCodeAsync(code, storedState.CodeVerifier, cancellationToken),
+                "github" => await githubAuth!.ExchangeCodeAsync(code, storedState.CodeVerifier, cancellationToken),
                 _ => throw new InvalidOperationException("Proveedor no soportado."),
             };
         }

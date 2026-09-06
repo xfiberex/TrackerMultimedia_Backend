@@ -5,12 +5,18 @@ namespace TrackerMultimedia.Services;
 /// </summary>
 public interface IGoogleAuthService
 {
-    /// <summary>Construye la URL de autorización de Google con el state anti-CSRF.</summary>
-    string BuildAuthorizationUrl(string state);
+    /// <summary>
+    /// Construye la URL de autorización de Google con el state anti-CSRF y, si el
+    /// proveedor tiene PKCE activado, el <c>code_challenge</c> (T4-02).
+    /// </summary>
+    string BuildAuthorizationUrl(string state, string? codeChallenge = null);
 
     /// <summary>
     /// Intercambia el código de autorización por tokens de Google y
     /// devuelve el perfil del usuario verificado.
     /// </summary>
-    Task<ExternalUserProfile> ExchangeCodeAsync(string code, CancellationToken cancellationToken = default);
+    Task<ExternalUserProfile> ExchangeCodeAsync(
+        string code,
+        string? codeVerifier = null,
+        CancellationToken cancellationToken = default);
 }

@@ -34,6 +34,22 @@ public sealed class OAuthProviderOptions
 
     /// <summary>Tiempo de vida del parámetro state anti-CSRF (minutos).</summary>
     public int StateTtlMinutes { get; init; } = 10;
+
+    /// <summary>
+    /// Añade PKCE (RFC 7636) al flujo de este proveedor: se manda un
+    /// <c>code_challenge</c> en la autorización y el <c>code_verifier</c> que lo genera
+    /// en el canje del código (T4-02).
+    ///
+    /// Con un cliente confidencial —y este lo es, manda <c>client_secret</c> al canjear—
+    /// PKCE no es obligatorio; es defensa en profundidad frente a que alguien intercepte
+    /// el código en el tramo del navegador, porque sin el verificador el código no sirve.
+    ///
+    /// **Por proveedor y no global porque no todos lo admiten.** Google sí. En GitHub
+    /// viene desactivado por defecto: su flujo de OAuth App no documenta soporte de PKCE
+    /// y lo esperable es que ignore los parámetros, pero «lo esperable» no es una
+    /// comprobación. Si confirmas que lo admite, se activa aquí sin tocar código.
+    /// </summary>
+    public bool UsePkce { get; init; }
 }
 
 /// <summary>

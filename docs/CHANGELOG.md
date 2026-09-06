@@ -16,6 +16,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Añadido
 
+- **La aplicación habla español e inglés.** El interruptor está en la cabecera, junto al del tema, y también en las pantallas de acceso: quien no lee español tiene que poder cambiar de idioma **antes** de entrar, no después. El cambio es inmediato, no recarga la página y no pierde lo que tengas a medio escribir. La elección se recuerda en el navegador; la primera vez se parte del idioma que ya tenga configurado. Las fechas siguen al idioma elegido, así que una pantalla en inglés no muestra «05 sept 2026» (T4-03).
+
 - **Ya te puedes descargar todos tus datos.** Desde el perfil, un botón entrega un archivo con todo lo que se guarda de ti: los datos de tu cuenta, las cuentas de Google o GitHub que tengas vinculadas, tus sesiones abiertas, tus formatos y tu biblioteca completa con sus categorías. No incluye contraseñas ni claves de sesión. La descarga de la biblioteca sigue estando donde estaba y sirve para otra cosa: es la que se puede volver a importar (T4-08).
 - **Ya se puede borrar la cuenta.** Desde el perfil, escribiendo la contraseña —o tu propia dirección de correo, si entraste con Google o GitHub y no tienes ninguna— y confirmando después en un aviso. Se borra todo: biblioteca, categorías, formatos y sesiones. No hay forma de recuperarlo (T1-14).
 - **El proyecto tiene licencia: MIT.** Hasta ahora estaba publicado en GitHub sin ninguna, lo que significa «todos los derechos reservados» y que nadie podía usarlo ni contribuir legalmente (T1-15).
@@ -24,6 +26,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Corregido
 
+- **«1 resultado listos para importar» ya concuerda.** El singular estaba resuelto a medias en varios contadores —se cambiaba el sustantivo pero no el adjetivo—, y aparecía en Descubrir, en Biblioteca, en los filtros y en Categorías. Ahora la concordancia la decide la capa de idiomas, que también sabe hacerla en inglés (T4-03).
+- **El campo para confirmar el borrado de la cuenta se veía distinto a todos los demás.** Era el único campo de la aplicación sin el estilo del sistema de diseño, así que el navegador pintaba el suyo propio; y el botón de debajo quedaba pegado al campo. Es el mismo bloque donde T5-09 ya había corregido otro problema de presentación (T5-10).
 - **El atajo «Saltar al contenido» no se leía en modo oscuro.** Es el enlace que aparece al pulsar el tabulador para ir directo al contenido sin recorrer la cabecera. Salía en gris claro sobre blanco: 1,48 veces de contraste. Quien lo usa es justamente quien navega con el teclado (T5-06).
 - **La pantalla de inicio de sesión era casi ilegible en modo oscuro.** El nombre de la aplicación, el título «Iniciar sesión», los tres enlaces del pie y el mensaje de error salían en azul marino casi negro sobre una tarjeta azul marino, y el botón de acceso no se distinguía del fondo de la tarjeta. La pantalla estaba escrita entera con los colores del tema claro: lo que sí se veía era por casualidad, no por diseño (T5-05).
 - **El botón de borrar no se leía en modo oscuro.** Su texto estaba en el mismo tono rojo que usa la etiqueta «Abandonado», pensado para fondo claro, sobre el fondo oscuro del propio botón: **2,47 veces** de contraste, cuando el mínimo accesible es 4,5. Era, de todos los controles, el que menos convenía que costara leer (T5-01).
@@ -62,8 +66,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - `npm run dev` vuelve a servir la aplicación **solo en este equipo**. El script llevaba `vite --host`, que la dejaba accesible a cualquiera conectado al mismo router en cada arranque, sin pedirlo y sin avisar.
 - Nuevos scripts `npm run dev:lan` y `npm run preview:lan` para abrir la aplicación desde el móvil u otro ordenador de la misma red. Es lo mismo que antes hacía `dev` sin decirlo, pero ahora se ve en la orden que se escribe.
 
+- **Los espaciados de toda la interfaz se han igualado.** Márgenes, separaciones, redondeos y tamaños de letra estaban escritos uno a uno por toda la hoja de estilos: había 39 espaciados distintos, 9 redondeos y 19 tamaños de texto, varios de ellos separados por menos de un píxel, es decir, imposibles de distinguir. Ahora salen todos de una escala común. **Lo que se nota es poco y a propósito:** ningún elemento se mueve más de 2 píxeles, y dos de cada tres no se mueven nada. Lo que gana es que a partir de ahora una pantalla nueva se parece a las demás sin que nadie tenga que acordarse de con qué medidas (T5-08).
+- Las fechas se muestran con el formato del dispositivo de quien mira, en vez de estar fijadas a la configuración de República Dominicana (T4-03).
+
 ### Seguridad
 
+- **Entrar con Google es más difícil de interceptar.** Al iniciar el proceso, el servidor se guarda un secreto de un solo uso y solo manda su huella; al terminar, tiene que enseñar el secreto. Así, si alguien lograra hacerse con el código que devuelve Google a medio camino, no le serviría de nada. Con GitHub queda desactivado a la espera de confirmar que su sistema lo admite (T4-02).
+- **El freno a los intentos de acceso ya no se puede esquivar.** El servidor limita a 10 los intentos de entrar por minuto, para que nadie pueda ir probando contraseñas. Ese freno se apoya en saber de qué dispositivo viene cada intento, y hasta ahora el propio atacante podía decirle al servidor que cada intento venía de un sitio distinto: el contador se reiniciaba en cada vuelta y no llegaba a saltar nunca. Ahora esa información solo se acepta de servidores intermedios declarados de antemano, y en el uso local y por LAN no se acepta de nadie (T1-05).
 - **La sesión guardada deja de ser accesible desde la propia página.** El identificador de larga vida que mantiene la sesión entre recargas pasa a una cookie que el navegador guarda y envía él solo, y que el código de la página no puede leer. Antes vivía en un almacén que cualquier script de la página podía consultar: bastaba una inyección para llevarse la sesión y seguir usándola durante días desde otro sitio. **Efecto al actualizar: se cierran todas las sesiones abiertas y hay que volver a entrar una vez** (T4-01).
 - **Entrar con Google o GitHub ya no deja ningún dato de sesión en la barra de direcciones.** Antes la dirección de vuelta llevaba las credenciales colgando, y de ahí pasaban al historial del navegador y a cualquier sitio donde se pegara ese enlace. Ahora solo lleva a qué pantalla volver. Se nota en que entrar tarda una fracción de segundo más (T4-01).
 - La política de seguridad del navegador deja de permitir conexiones a tres servicios externos con los que la aplicación nunca habla —los consulta el servidor— y a un dominio de despliegue fijado a mano. Añadidas además las cabeceras que impiden que la aplicación se incruste en otra página (T2-14).
@@ -91,6 +100,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 - Una contraseña desmesuradamente larga en el inicio de sesión se rechaza al llegar, sin llegar a compararse. Antes el servidor gastaba tiempo de CPU cifrándola solo para acabar diciendo que no (T3-20).
 
 ### Interno
+
+- **La interfaz pasa por una capa de idiomas** (`i18next` + `react-i18next`), con el diccionario tipado a partir del español: una clave que falte en inglés, o mal escrita en un `t(...)`, no compila. Siete pruebas nuevas vigilan lo que el compilador no ve: que las interpolaciones sobrevivan a la traducción, que los plurales tengan sus dos formas en los dos idiomas y que no vuelva a incrustarse texto en un componente. Esa última regla encontró seis textos que la propia migración se había dejado en el catálogo (T4-03).
+- **Hay una regla que revisa los 61 campos de formulario del frontend** y falla si alguno se queda sin la clase del sistema de diseño. Es la que habría evitado T5-09 y T5-10, dos defectos de presentación en el mismo bloque que ninguna prueba de comportamiento podía ver (T5-10).
+- La configuración de Vite usaba `__dirname`, que no existe en un módulo ESM: Vite lo emulaba y avisaba en cada arranque de que iba a dejar de hacerlo. Sustituido por `import.meta.dirname`.
+- **`vitest` recogía por error las pruebas de Playwright.** Sus archivos acaban en `.spec.ts`, que es parte del patrón por defecto, así que `npm test` daba cuatro archivos en rojo que no tenían nada roto. Pasó inadvertido en T4-04 porque cada suite se comprobó con su propio comando y nunca las dos a la vez.
+- **Hay una tercera suite de pruebas: 13 pruebas end-to-end con Playwright** (T4-04). A diferencia de las otras dos, hablan con la aplicación entera —navegador, servidor de Vite, backend y PostgreSQL— y cubren registro, acceso, el ciclo completo de un registro de la biblioteca, el inicio de los flujos de Google y GitHub y la exportación con su reimportación. Necesitan PostgreSQL y el backend en marcha; ver `docs/WORKFLOW.md`.
+- **Los cupos del limitador de peticiones se configuran**, con los mismos valores de siempre por defecto (T4-04). Hacía falta para las pruebas end-to-end, que agotaban el de autenticación a mitad de ejecución, y sirve igual en casa: servida por LAN, la aplicación hace que todos los dispositivos compartan el mismo cupo de accesos.
 
 - **La comprobación de salud del servidor por fin comprueba algo.** Antes respondía «todo bien» siempre, incluso con la base de datos caída, que es justo la avería que deja la aplicación inservible. Ahora hay dos: una dice si el proceso está en pie y otra si además la base de datos responde (T4-10).
 - La especificación de la API queda publicada en el repositorio, así que se puede consultar sin arrancar nada. Al servirla desde la aplicación en marcha hace falta activarla a propósito fuera de desarrollo (T4-07).
@@ -128,9 +144,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 Si algún día la aplicación vuelve a publicarse:
 
-- Sin política de privacidad ni borrado de cuenta. **Deja de ser un problema legal mientras el uso sea personal y local**, pero vuelve a serlo el día que esté accesible para otras personas (T0-05, T1-14).
-- El backend acepta la cabecera `X-Forwarded-For` de cualquier origen, lo que permite saltarse el límite de intentos de acceso. Inofensivo en local, donde no hay proxy; grave detrás de uno (T1-05).
-- No se comprobó el esquema de la base de datos de producción antes de deshabilitarla. Si conserva la columna que faltaba sin que conste la migración que la crea, un despliegue nuevo fallará al intentar añadirla (T0-06).
+- Sin política de privacidad. **Deja de ser un problema legal mientras el uso sea personal y local**, pero vuelve a serlo el día que esté accesible para otras personas (T0-05). El borrado de cuenta, que aparecía aquí, **ya está hecho** (T1-14).
+- **Al desplegar detrás de un proxy hay que declararlo.** El arreglo de T1-05 hace que la cabecera `X-Forwarded-For` se ignore mientras no haya proxies en `ForwardedHeaders:KnownProxies` o `KnownNetworks`. Es lo correcto en local y por LAN, pero si se publica detrás de un proxy sin declararlo, el límite de intentos contará a todo el mundo como si fuera el mismo dispositivo.
+- El esquema de la base de datos de producción no llegó a comprobarse y ya no es comprobable: la base se eliminó el 2026-09-05. Un despliegue nuevo construye el esquema desde cero con las migraciones actuales, que sí están verificadas desde vacío (T0-06).
 
 ---
 

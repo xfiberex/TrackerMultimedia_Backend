@@ -44,6 +44,14 @@ general: **un proveedor de test distinto del de producción no prueba nada espec
 
 ## Tests
 
+**Una regla que escanea archivos hay que falsificarla, y por el caso real.** La prueba que vigila
+que no quede texto incrustado en el JSX nació buscando `>texto<` **línea a línea**. Pasaba en verde,
+y parecía correcta porque encontraba las etiquetas cortas de una sola línea. Pero el JSX con formato
+pone el texto en su propio renglón, sin `>` ni `<` al lado: el caso mayoritario no lo veía. Se
+descubrió al romper el código a propósito —quitar un `t(...)` de la cabecera— y comprobar que la
+prueba **seguía en verde**. Corregida, encontró de inmediato seis textos sin migrar. Falsificar con
+un caso cualquiera no basta: hay que falsificar con la forma que tiene el defecto de verdad.
+
 **`WebApplicationFactory` llega tarde a lo que se lee al componer los servicios.** `Program.cs`
 guarda el secreto JWT en una variable local durante el arranque, momento en el que el factory
 todavía no ha inyectado su configuración. Lo mismo, y peor, con la cadena de conexión: en
@@ -87,6 +95,18 @@ el test en ejecución. Desactivar el paralelismo de xUnit no lo arreglaba: la co
 dentro del host. Desapareció al pasar la suite a PostgreSQL con una base por clase, T2-28.)*
 
 ## React y accesibilidad
+
+**Una constante de módulo traducida se queda en el idioma de arranque.** Un mapa como
+`contentKindLabels: Record<K, string>` que guarde `i18n.t(...)` se evalúa **una vez, al importar**.
+El interruptor de idioma cambia entonces toda la pantalla menos esas etiquetas, y el fallo solo se
+ve al cambiar de idioma, no al abrir la vista. La regla: **una constante de módulo guarda la clave,
+no el texto**, y traduce quien pinta. Lo mismo con los mensajes de los esquemas de Zod, que se
+declaran `{ error: () => i18n.t(clave) }` para que Zod los evalúe en cada `parse`.
+
+**El idioma de las pruebas se fija a mano, no se hereda.** En jsdom `navigator.language` es
+`en-US`, así que una capa de i18n que arranque siguiendo al navegador renderiza **toda la suite en
+inglés** y las pruebas que localizan por texto en español dejan de encontrar nada. El síntoma —«no
+se encuentra el elemento»— no se parece en nada a la causa.
 
 **`autoFocus` se aplica antes que los efectos, y rompe la devolución del foco.** React lo procesa
 durante el commit, así que cuando el efecto de un diálogo lee `document.activeElement` para
@@ -136,6 +156,16 @@ nada falle a la vista—. Van dos medidas: un `<!-- prettier-ignore -->` suelto 
 reconoce la directiva si el comentario no lleva nada más) y un test que recalcula el hash.
 
 ## Herramientas y entorno
+
+**Un escáner de código fuente se denuncia a sí mismo si no ignora los comentarios.** El comentario
+que explica la regla suele citar textualmente lo que la regla busca. Blanquear los comentarios
+antes de escanear —conservando los saltos de línea, para que los números de línea sigan siendo los
+del archivo— es parte del escáner, no un extra.
+
+**`\b` y `\\` no sobreviven a un heredoc de bash ni a una cadena de Python sin `r`.** Dos
+expresiones regulares acabaron con un carácter de retroceso literal (`0x08`) donde debía haber un
+límite de palabra: coincidían con nada y las pruebas pasaban por el motivo equivocado. Los scripts
+de migración se escriben **en un archivo** y se ejecutan, no se pegan en un heredoc.
 
 **`--legacy-peer-deps` no es «instalar ignorando un aviso»: rehace el árbol entero.** Al añadir
 `eslint-plugin-jsx-a11y`, la instalación con ese flag **dejó fuera `@testing-library/dom`** —una
@@ -220,3 +250,17 @@ contenido pedía `--surface`, `--border` y `--accent`; los nombres de este proye
 así que su fondo se quedaba blanco fijo — pero `--text-primary` sí existía y sí seguía al tema, de
 modo que en oscuro el texto se aclaraba sobre un fondo que no: 1,48:1 (T5-06). Lo detecta ahora una
 prueba que compara las variables usadas con las definidas.
+
+## Seguridad y credenciales
+
+**«Deshabilitado» y «revocado» son dos afirmaciones distintas, y ninguna se comprueba sola.** El
+2026-08-27 se dieron por rotadas todas las credenciales al apagar Render, Neon y Netlify. La de
+Neon **no lo estaba**: apagar un servicio no invalida la credencial que lo abre. El fallo se hizo
+visible nueve días después, al recuperar el proyecto en otro equipo — `appsettings.Local.json`
+traía la cadena de Neon y **funcionaba**, así que el 2026-09-04 se crearon y borraron bases de
+datos remotas con ella por error (T1-13). Lo que cerró la tarea en su día fue la *intención* de
+revocar, no la comprobación de que estuviera revocada.
+
+Dos consecuencias prácticas. **Sacar un secreto del disco no lo invalida**: son pasos
+independientes y hay que hacer los dos. Y **una credencial revocada se verifica intentando usarla**:
+tiene que fallar por autenticación. Un timeout no prueba nada — puede ser la red.

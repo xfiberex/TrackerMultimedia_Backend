@@ -26,7 +26,7 @@ public sealed class GitHubAuthService(
 
     private static readonly IReadOnlyList<string> BaseScopes = ["read:user", "user:email"];
 
-    public string BuildAuthorizationUrl(string state)
+    public string BuildAuthorizationUrl(string state, string? codeChallenge = null)
     {
         var scopes = BaseScopes.Concat(_opts.ExtraScopes).Distinct();
         var query = new Dictionary<string, string>
@@ -37,16 +37,25 @@ public sealed class GitHubAuthService(
             ["state"] = state,
         };
 
+        // PKCE (T4-02), solo si `OAuth:GitHub:UsePkce` lo activa. Viene desactivado:
+        // el flujo de OAuth App de GitHub no documenta soporte de PKCE.
+        if (!string.IsNullOrEmpty(codeChallenge))
+        {
+            query["code_challenge"] = codeChallenge;
+            query["code_challenge_method"] = "S256";
+        }
+
         return "https://github.com/login/oauth/authorize?" +
                string.Join("&", query.Select(kv => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(kv.Value)}"));
     }
 
     public async Task<ExternalUserProfile> ExchangeCodeAsync(
         string code,
+        string? codeVerifier = null,
         CancellationToken cancellationToken = default)
     {
         // 1. Intercambiar código por access token
-        var accessToken = await ExchangeCodeForAccessTokenAsync(code, cancellationToken);
+        var accessToken = await ExchangeCodeForAccessTokenAsync(code, codeVerifier, cancellationToken);
 
         // 2. Obtener perfil básico del usuario
         using var userRequest = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
@@ -88,7 +97,10 @@ public sealed class GitHubAuthService(
 
     // -------------------------------------------------------------------------
 
-    private async Task<string> ExchangeCodeForAccessTokenAsync(string code, CancellationToken ct)
+    private async Task<string> ExchangeCodeForAccessTokenAsync(
+        string code,
+        string? codeVerifier,
+        CancellationToken ct)
     {
         var body = new Dictionary<string, string>
         {
@@ -97,6 +109,11 @@ public sealed class GitHubAuthService(
             ["redirect_uri"] = _opts.RedirectUri,
             ["code"] = code,
         };
+
+        if (!string.IsNullOrEmpty(codeVerifier))
+        {
+            body["code_verifier"] = codeVerifier;
+        }
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://github.com/login/oauth/access_token")
         {

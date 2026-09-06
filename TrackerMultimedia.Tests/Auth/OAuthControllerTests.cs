@@ -438,7 +438,17 @@ public class OAuthControllerTests
         public ExternalUserProfile Profile { get; set; } =
             new("google-user", "google@test.com", "Google User", null);
 
-        public string BuildAuthorizationUrl(string state) => $"https://google.test/auth?state={state}";
+        /// <summary>Último `code_challenge` recibido, para las pruebas de PKCE (T4-02).</summary>
+        public string? LastCodeChallenge { get; private set; }
+
+        /// <summary>Último `code_verifier` recibido al canjear, para las pruebas de PKCE.</summary>
+        public string? LastCodeVerifier { get; private set; }
+
+        public string BuildAuthorizationUrl(string state, string? codeChallenge = null)
+        {
+            LastCodeChallenge = codeChallenge;
+            return $"https://google.test/auth?state={state}";
+        }
 
         /// <summary>Si se rellena, el intercambio falla con este mensaje.</summary>
         public string? FailureMessage { get; set; }
@@ -456,8 +466,12 @@ public class OAuthControllerTests
         /// </summary>
         public Exception? FailureException { get; set; }
 
-        public Task<ExternalUserProfile> ExchangeCodeAsync(string code, CancellationToken cancellationToken = default)
+        public Task<ExternalUserProfile> ExchangeCodeAsync(
+            string code,
+            string? codeVerifier = null,
+            CancellationToken cancellationToken = default)
         {
+            LastCodeVerifier = codeVerifier;
             if (FailureException is not null)
                 throw FailureException;
 

@@ -166,9 +166,46 @@ obliga a saltar entre cuatro sitios para tocar una sola funcionalidad.
 detectar en el cliente los cambios de contrato del backend, en lugar de fallar más tarde con un
 `undefined` en mitad del renderizado.
 
-**Toda la aplicación está en español, sin capa de internacionalización.** Decisión consciente para
-un producto de un solo idioma. Añadir un segundo exige extraer todos los textos y corregir
-`formatDate`, que fija la configuración regional `es-DO` en vez de la del usuario (T4-03).
+~~**Toda la aplicación está en español, sin capa de internacionalización.**~~ · **SUPERADA el
+2026-09-05.** Decisión del propietario: el proyecto tendrá **dos idiomas, español e inglés**. Eso
+retira el argumento que sostenía la decisión anterior —«un producto de un solo idioma»— y con él la
+razón por la que T4-03 vivía en el Tier 4 como opcional.
+
+La capa de textos se implementó el **2026-09-06** y cerró T4-03. Lo que se decidió al hacerla:
+
+**i18next y `react-i18next`, no una solución propia.** Con dos idiomas y ~480 textos, un contexto
+de React con un diccionario habría bastado para lo fácil. Lo que no se resuelve en veinte líneas es
+el plural —«1 categoría» frente a «3 categorías», con reglas distintas en cada idioma— ni la
+interpolación con formato. `Intl.PluralRules` ya está en el navegador, pero envolverlo bien es
+reescribir la biblioteca.
+
+**El diccionario está tipado, y el español es el original.** `en.ts` se declara como
+`typeof es`, de modo que una clave que exista en español y falte en inglés **no compila**; y las
+claves de `t(...)` se autocompletan y se validan. En una migración de 27 archivos esa red no es un
+lujo: sin ella, una clave mal escrita no falla en ninguna parte —i18next devuelve la propia clave—
+y aparece en pantalla como `cabecera.salirr` el día que alguien abra esa vista.
+
+**El español es también el idioma de reserva y el de las pruebas.** Las 199 pruebas unitarias y las
+13 end-to-end localizan los elementos por su texto en español. `src/test/setup.ts` fija el idioma a
+mano en vez de heredarlo del entorno: en jsdom `navigator.language` es `en-US`, así que sin esa
+línea la suite entera se renderizaba en inglés y dejaba de encontrar nada.
+
+**Las etiquetas guardan la clave, no el texto.** Los mapas del tipo `contentKindLabels` son
+constantes de módulo: si guardaran el resultado de `i18n.t`, se evaluaría al importar y el idioma
+quedaría **congelado en el de arranque**, con lo que el interruptor traduciría la pantalla menos
+esas etiquetas. Guardan la clave y traduce quien pinta. Por la misma razón los mensajes de Zod se
+declaran como `{ error: () => i18n.t(...) }`, que se evalúa en cada `parse`.
+
+**Los nombres propios se quedan fuera del diccionario.** `Anime`, `Manga`, `Donghua`, `Manhwa` y
+`Manhua` son los nombres de sus medios en cualquier idioma, y `Jikan`, `AniList` y `MangaDex` son
+servicios. Meterlos habría creado pares idénticos en `es` y `en` que alguien acabaría «traduciendo».
+
+**El interruptor está también en las pantallas de acceso.** Solo en la cabecera dejaba fuera a quien
+no lee español y todavía no ha entrado, que es justamente quien más lo necesita.
+
+**Queda un texto sin traducir a propósito:** el error de configuración de `src/config/env.ts`. Se
+pinta cuando las variables de entorno no son válidas, es decir, **antes de que exista i18n**, y va
+dirigido a quien configura el proyecto, no a quien lo usa.
 
 **No hay framework de CSS, y no hace falta añadirlo.** Un solo `index.css` con 239 clases escritas
 a mano y una capa de tokens propia. La paleta no es arbitraria: `#64748b`, `#94a3b8`, `#cbd5e1`,
@@ -248,7 +285,8 @@ Revisado y decidido **no** hacerlo. No volver a proponerlo sin un hecho nuevo.
 
 | Decisión | Motivo |
 |---|---|
-| **El proyecto no se despliega: uso local a través de Vite** | Decidido por el propietario el 2026-08-27. Render, Neon y Netlify deshabilitados y credenciales revocadas. Los blueprints y el `Dockerfile` **se conservan** como receta para volver: borrarlos no ganaría nada. Lo que **no** hay que hacer es dar por resueltos los hallazgos de producción —T1-05 sigue en el código tal cual— ni por cerrado lo legal: T0-05 está en suspenso, no hecha. |
+| **El proyecto no se despliega: uso local por LAN con `dev:lan`** | Decidido por el propietario el 2026-08-27 y **completado el 2026-09-05**: Render, Neon y Netlify deshabilitados, la base de Neon eliminada y lo desplegado revocado y borrado (T1-13). *La versión anterior de esta fila decía «credenciales revocadas» desde el 2026-08-27, y era falso hasta el 2026-09-05: ver la trampa de [PITFALLS.md](PITFALLS.md).* Los blueprints y el `Dockerfile` **se conservan** como receta para volver: borrarlos no ganaría nada. Lo que **no** hay que hacer es dar por resueltos los hallazgos de producción —T1-05 sigue en el código tal cual— ni por cerrado lo legal: T0-05 está en suspenso, no hecha, y sigue estándolo mientras las cuentas sean todas tuyas. |
+| **Servir por LAN no exige tocar cookies ni CORS** | Comprobado el 2026-09-05 al fijar `dev:lan` como forma de uso. La cookie del token de refresco no lleva `Secure` en desarrollo (`RefreshTokenCookie.cs:49`), así que sobrevive a `http://` sobre la red local; y el navegador del otro dispositivo solo habla con el origen de Vite, que reenvía `/api` al backend, de modo que no hay petición de origen cruzado y `Cors:AllowedOrigins` no se ejerce. **No relajar `Secure` ni ampliar el allowlist «para que funcione la LAN»**: ya funciona, y ambos cambios costarían protección real el día que haya despliegue. Lo que sí queda cojo por LAN es OAuth —los `RedirectUri` apuntan a `localhost`—, y para eso ya existe el interruptor que oculta los botones. |
 | **No unificar los dos repositorios en un monorepo** | Decidido el 2026-08-27 al resolver T0-03. La carpeta que los contiene en local **no** es un repositorio y no debe volver a comportarse como si lo fuera: nada que deba sobrevivir puede quedarse en su raíz. Es la razón por la que esta documentación se movió dentro del repositorio de backend el 2026-09-04. |
 | **No montar integración continua (T1-12)** | Decidido el 2026-08-27: un solo desarrollador, sin pull requests ni revisores. **La contrapartida hay que asumirla:** la CI existía para detectar que las suites se ponen en rojo, y eso ya había pasado —18 pruebas fallando sin que nadie lo notara—. La única red que queda es la rutina de [WORKFLOW.md](WORKFLOW.md). No volver a proponer CI salvo que entre otra persona al proyecto. |
 | ~~**La base de desarrollo va en Docker**~~ · **REVERTIDA el 2026-08-27** | Vuelta a la instalación nativa de PostgreSQL 17 en el 5433, que es como arrancó el proyecto. Contenedor, volumen y `docker-compose.yml` eliminados. **Lo que sí se conserva es la práctica que Docker introdujo:** recrear la base desde cero antes de dar por buena una migración. Eso destapó T0-06, un fallo crítico invisible durante meses, y no depende de Docker sino de que alguien construya el esquema desde cero alguna vez. |

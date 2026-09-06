@@ -22,7 +22,7 @@ public sealed class GoogleAuthService(
 
     private static readonly IReadOnlyList<string> BaseScopes = ["openid", "email", "profile"];
 
-    public string BuildAuthorizationUrl(string state)
+    public string BuildAuthorizationUrl(string state, string? codeChallenge = null)
     {
         var scopes = BaseScopes.Concat(_opts.ExtraScopes).Distinct();
         var query = new Dictionary<string, string>
@@ -35,16 +35,24 @@ public sealed class GoogleAuthService(
             ["access_type"] = "online",
         };
 
+        // PKCE (T4-02). Solo S256: `plain` manda el verificador en claro y no protege.
+        if (!string.IsNullOrEmpty(codeChallenge))
+        {
+            query["code_challenge"] = codeChallenge;
+            query["code_challenge_method"] = "S256";
+        }
+
         return "https://accounts.google.com/o/oauth2/v2/auth?" +
                string.Join("&", query.Select(kv => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(kv.Value)}"));
     }
 
     public async Task<ExternalUserProfile> ExchangeCodeAsync(
         string code,
+        string? codeVerifier = null,
         CancellationToken cancellationToken = default)
     {
         // 1. Intercambiar código por tokens
-        var tokenResponse = await ExchangeCodeForTokensAsync(code, cancellationToken);
+        var tokenResponse = await ExchangeCodeForTokensAsync(code, codeVerifier, cancellationToken);
         // TryGetProperty y no GetProperty: si Google responde 200 sin el campo, lo que
         // salía era KeyNotFoundException, que nadie capturaba y acababa en un 500.
         if (!tokenResponse.TryGetProperty("access_token", out var accessTokenProp))
@@ -85,7 +93,10 @@ public sealed class GoogleAuthService(
 
     // -------------------------------------------------------------------------
 
-    private async Task<JsonElement> ExchangeCodeForTokensAsync(string code, CancellationToken ct)
+    private async Task<JsonElement> ExchangeCodeForTokensAsync(
+        string code,
+        string? codeVerifier,
+        CancellationToken ct)
     {
         var body = new Dictionary<string, string>
         {
@@ -95,6 +106,12 @@ public sealed class GoogleAuthService(
             ["grant_type"] = "authorization_code",
             ["code"] = code,
         };
+
+        // El verificador cierra el flujo PKCE: sin él, un código robado no se canjea.
+        if (!string.IsNullOrEmpty(codeVerifier))
+        {
+            body["code_verifier"] = codeVerifier;
+        }
 
         var response = await httpClient.PostAsync(
             "https://oauth2.googleapis.com/token",

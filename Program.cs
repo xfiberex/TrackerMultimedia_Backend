@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -75,15 +76,62 @@ builder.Services.AddCors(options =>
               .AllowCredentials()
               .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")));
 
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
+// T1-05 — `X-Forwarded-*` solo se acepta de proxies declarados.
+//
+// Lo que había aquí era `KnownIPNetworks.Clear()` + `KnownProxies.Clear()`, que hace que
+// ASP.NET Core acepte `X-Forwarded-For` de **cualquier origen**. Como el rate limiter
+// particiona por `RemoteIpAddress` *después* de `UseForwardedHeaders`, rotar la cabecera
+// en cada intento saltaba por completo el límite de 10 peticiones/minuto que frena la
+// fuerza bruta contra login y registro.
+//
+// La confianza pasa a ser explícita. Sin `ForwardedHeaders:KnownProxies` ni
+// `ForwardedHeaders:KnownNetworks` configurados —el caso local y por LAN, donde no hay
+// ningún proxy inverso— el middleware **no se registra**, así que `RemoteIpAddress` es
+// siempre la dirección real del socket y la cabecera es texto que nadie lee.
+var forwardedHeaders = builder.Configuration
+    .GetSection(ForwardedHeadersSettings.SectionName)
+    .Get<ForwardedHeadersSettings>() ?? new ForwardedHeadersSettings();
+
+if (forwardedHeaders.IsEnabled)
 {
-    options.ForwardedHeaders =
-        ForwardedHeaders.XForwardedFor |
-        ForwardedHeaders.XForwardedProto |
-        ForwardedHeaders.XForwardedHost;
-    options.KnownIPNetworks.Clear();
-    options.KnownProxies.Clear();
-});
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders =
+            ForwardedHeaders.XForwardedFor |
+            ForwardedHeaders.XForwardedProto |
+            ForwardedHeaders.XForwardedHost;
+
+        // Los valores por defecto de ASP.NET Core son el bucle local. Se limpian para que
+        // la lista sea exactamente lo declarado en configuración, ni más ni menos.
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+        options.ForwardLimit = forwardedHeaders.ForwardLimit;
+
+        foreach (var proxy in forwardedHeaders.KnownProxies)
+        {
+            if (!IPAddress.TryParse(proxy, out var address))
+            {
+                throw new InvalidOperationException(
+                    $"'{ForwardedHeadersSettings.SectionName}:KnownProxies' contiene un valor que no es " +
+                    $"una dirección IP: '{proxy}'.");
+            }
+
+            options.KnownProxies.Add(address);
+        }
+
+        foreach (var network in forwardedHeaders.KnownNetworks)
+        {
+            if (!System.Net.IPNetwork.TryParse(network, out var parsed))
+            {
+                throw new InvalidOperationException(
+                    $"'{ForwardedHeadersSettings.SectionName}:KnownNetworks' contiene un valor que no es " +
+                    $"una red en notación CIDR: '{network}'. Ejemplo válido: '10.0.0.0/8'.");
+            }
+
+            options.KnownIPNetworks.Add(parsed);
+        }
+    });
+}
 
 var dataProtectionBuilder = builder.Services
     .AddDataProtection()
@@ -95,33 +143,37 @@ if (!string.IsNullOrWhiteSpace(dataProtectionKeysDirectory))
     dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysDirectory));
 }
 
+// Los cupos salen de configuración desde T4-04, con los mismos valores de siempre por
+// defecto. Ver `RateLimitingOptions` para por qué y para el coste de subirlos.
+var rateLimiting = builder.Configuration
+    .GetSection(RateLimitingOptions.SectionName)
+    .Get<RateLimitingOptions>() ?? new RateLimitingOptions();
+
+static FixedWindowRateLimiterOptions VentanaFija(RateLimitPolicyOptions policy) => new()
+{
+    Window = TimeSpan.FromSeconds(policy.WindowSeconds),
+    PermitLimit = policy.PermitLimit,
+    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+    QueueLimit = 0
+};
+
 builder.Services.AddRateLimiter(options =>
 {
-    // Búsqueda externa: 30 req/min por IP
+    // Búsqueda externa, por IP. Además de proteger, ahorra llamadas a los catálogos.
     options.AddPolicy("search", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                Window = TimeSpan.FromMinutes(1),
-                PermitLimit = 30,
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
-            }));
+            factory: _ => VentanaFija(rateLimiting.Search)));
 
-    // Endpoints de auth (login, register, refresh): 10 req/min por IP — freno de fuerza bruta
+    // Endpoints de auth (login, register, refresh), por IP — freno de fuerza bruta.
     options.AddPolicy("auth", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                Window = TimeSpan.FromMinutes(1),
-                PermitLimit = 10,
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
-            }));
+            factory: _ => VentanaFija(rateLimiting.Auth)));
 
-    // Endpoints autenticados: 200 req/min por usuario — evita abuso de cuentas comprometidas
+    // Endpoints autenticados, por usuario — evita el abuso de una cuenta comprometida.
+    // Al particionar por identificador y no por dirección, este no sufre el reparto entre
+    // dispositivos que sí afecta a los otros dos cuando se sirve por LAN.
     options.AddPolicy("user", httpContext =>
     {
         var userId = httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
@@ -130,13 +182,7 @@ builder.Services.AddRateLimiter(options =>
 
         return RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: userId,
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                Window = TimeSpan.FromMinutes(1),
-                PermitLimit = 200,
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-                QueueLimit = 0
-            });
+            factory: _ => VentanaFija(rateLimiting.User));
     });
 
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -374,7 +420,23 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseForwardedHeaders();
+// Solo se procesan los `X-Forwarded-*` si hay proxies declarados (T1-05). Sin ellos la
+// cabecera no se mira, que es lo que impide falsear la IP para esquivar el rate limiter.
+if (forwardedHeaders.IsEnabled)
+{
+    app.UseForwardedHeaders();
+    app.Logger.LogInformation(
+        "Cabeceras X-Forwarded-* aceptadas de {ProxyCount} proxy(s) y {NetworkCount} red(es) declaradas.",
+        forwardedHeaders.KnownProxies.Length,
+        forwardedHeaders.KnownNetworks.Length);
+}
+else
+{
+    app.Logger.LogInformation(
+        "Cabeceras X-Forwarded-* ignoradas: no hay proxies declarados en '{Section}'. " +
+        "Es lo correcto sin un proxy inverso delante; al desplegar detrás de uno hay que declararlo.",
+        ForwardedHeadersSettings.SectionName);
+}
 
 var httpsPort = app.Configuration["HTTPS_PORTS"] ?? app.Configuration["ASPNETCORE_HTTPS_PORT"];
 if (app.Environment.IsDevelopment() || !string.IsNullOrWhiteSpace(httpsPort))

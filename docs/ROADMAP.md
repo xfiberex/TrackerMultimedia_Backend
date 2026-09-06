@@ -6,72 +6,94 @@
 | Tier | Nombre | Tareas | Cerradas | Abiertas |
 |------|--------|--------|----------|----------|
 | 0 | Crítico / Bloqueante | 6 | 5 | T0-05 en suspenso |
-| 1 | Alta prioridad | 22 | 20 | T1-05 (reclasificada Bajo) y T1-13 (reabierta) |
-| 2 | Mejoras sustanciales | 26 | 26 | — |
+| 1 | Alta prioridad | 22 | 22 | — |
+| 2 | Mejoras sustanciales | 27 | 26 | T2-29, hallazgo nuevo |
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
-| 4 | Futuro / Opcional | 11 | 7 | 3 abiertas + T4-06 en suspenso |
-| 5 | Sistema de diseño | 8 | 7 | 1, la migración del resto |
-| **Total** | | **98** | **88** | **6 + 4 en suspenso o anuladas** |
+| 4 | Futuro / Opcional | 11 | 10 | T4-06 en suspenso |
+| 5 | Sistema de diseño | 10 | 10 | — |
+| **Total** | | **99** | **96** | **1 + 2 en suspenso** |
 
-**Estado (2026-09-05).** Cerrados los Tiers 0, 2 y 3; del Tier 1 quedan T1-05 y T1-13, reabierta. El
-**Tier 5 se abre el 2026-09-05** y no viene de la auditoría: sale de revisar el lenguaje visual. Las dos suites
-en verde —**171/171** backend sobre PostgreSQL real y **188/188** frontend—, con `npm run lint`,
-`tsc -b` y `npm run build` limpios. `npm audit` da **0 vulnerabilidades**, comprobado el
-2026-09-02; es una afirmación que caduca, así que lleva fecha.
+Las tres anuladas —T1-12, T2-16 y T2-25— quedan fuera del recuento: ver *En suspenso y anuladas*.
+**Los totales de esta tabla estuvieron mal hasta el 2026-09-05**, y de dos maneras: el total decía 98
+cuando la suma de la columna da 96, y la sección de cerradas hablaba de 85 cuando eran 88. Corregido
+al cerrar T1-13; conviene volver a sumar la columna cada vez que se toque una fila.
 
-## El proyecto es de uso local
+**Estado (2026-09-06).** Cerrados los Tiers 0, 1, 3, 4 —salvo T4-06, en suspenso por decisión del
+propietario— y 5. **Queda una sola tarea abierta, T2-29**, un hallazgo menor de la sesión anterior.
+T4-03 se cerró el 2026-09-06 con la interfaz en español e inglés.
 
-Decisión del propietario del 2026-08-27: **Render, Neon y Netlify quedan deshabilitados**. Los
-repositorios siguen en GitHub. La revocación de las credenciales se dio por hecha y **no lo estaba
-en el caso de Neon** (T1-13, reabierta): deshabilitar un servicio y revocar la credencial que lo
-abre son dos acciones, y aquí solo se hizo la primera.
+**Hay tres suites**: **180/180** backend sobre PostgreSQL real, **199/199** frontend y **13/13**
+end-to-end con Playwright (T4-04), estas últimas contra la aplicación entera y con requisitos
+propios —ver [WORKFLOW.md](WORKFLOW.md)—. Con `npm run lint`, `tsc -b` y `npm run build` limpios.
+`npm audit` da **0 vulnerabilidades**, comprobado el 2026-09-02; es una afirmación que caduca, así
+que lleva fecha.
+
+Las siete pruebas nuevas del frontend son las de T4-03 y T5-10, y ninguna comprueba comportamiento:
+vigilan que no vuelva a incrustarse texto ni a quedarse un campo sin vestir. Las dos nacen de
+defectos que **ninguna prueba de comportamiento podía ver** porque la aplicación funcionaba
+perfectamente con ellos dentro.
+
+## El proyecto es de uso local, servido por LAN
+
+Decisión del propietario del 2026-08-27, **completada el 2026-09-05**: Render, Neon y Netlify
+quedan deshabilitados, y desde el 2026-09-05 **la base de Neon está eliminada y lo desplegado,
+revocado y borrado**. Los repositorios siguen en GitHub. Durante nueve días la documentación
+afirmó que las credenciales estaban revocadas sin que lo estuvieran (T1-13): deshabilitar un
+servicio y revocar la credencial que lo abre son dos acciones, y hasta esa fecha solo se había
+hecho la primera.
+
+**La forma de uso es `npm run dev:lan`**: el servidor de Vite escucha en la red local y otros
+dispositivos de la casa entran por la IP del equipo. Sigue siendo uso personal —las cuentas son
+tuyas—, así que T0-05 continúa en suspenso; ver su ficha para dónde está exactamente esa frontera.
 
 Esto no cierra hallazgos por sí solo: **cambia cuáles están activos**. Lo que dependía de haber un
 servicio público queda en suspenso, no resuelto, y **vuelve en el momento en que se vuelva a desplegar**.
+
+### Lo que cambia al servir por LAN, y lo que no
+
+Comprobado el 2026-09-05 sobre la configuración real, porque «local» y «local por LAN» no son lo mismo:
+
+- **La cookie del token de refresco sigue funcionando.** `Secure` se calcula como
+  `_options.Secure ?? !environment.IsDevelopment()` en `Infrastructure/Http/RefreshTokenCookie.cs:49`,
+  así que en desarrollo va sin `Secure` y sobrevive a `http://` sobre la red local.
+- **CORS no interviene.** El navegador del otro dispositivo habla solo con el origen de Vite, y es
+  Vite quien reenvía `/api` a `localhost:5218` con `changeOrigin`. La petición nunca es de origen
+  cruzado, de modo que `Cors:AllowedOrigins` —que solo lista `localhost`— no se ejerce.
+- **Google y GitHub no funcionan desde otro dispositivo**, y no es un fallo nuevo: sus `RedirectUri`
+  apuntan a `localhost`. Por eso existe la opción de ocultar los botones desde el `.env` del frontend.
+  Entrar con correo y contraseña es el camino previsto en LAN.
+- **El límite de peticiones pasa a ser compartido.** Vite **no** añade `X-Forwarded-For` —su proxy
+  solo lo hace con `xfwd`, que no está activado—, así que todas las peticiones llegan al backend
+  desde `localhost`. Las políticas `search` (30/min) y `auth` (10/min) particionan por
+  `RemoteIpAddress`, luego **los diez intentos de login por minuto se reparten entre todos los
+  dispositivos de la red**, no uno por dispositivo. Con dos o tres personas en casa usándolo a la
+  vez es un 429 esperando a pasar. La política `user` (200/min) no sufre esto: particiona por
+  identificador de usuario.
+- **T1-05 subía de exposición al pasar a LAN** —el escenario dejaba de ser «solo tú en esta máquina»
+  para ser «cualquiera que esté en tu red»— y **por eso se implementó ese mismo día**, en vez de
+  dejarlo para el despliegue. Ver la fila de cerradas del Tier 1.
 
 ---
 
 ## Abiertas
 
-### T1-05 — Dejar de confiar en cualquier proxy para `X-Forwarded-For`
+### T2-29 — Un JSON que no es una exportación se importa «sin cambios»
 
-- **Área:** Seguridad · **Severidad:** Alto → **Bajo** mientras el uso sea local · **Esfuerzo:** medio
-- **Ubicación:** `Program.cs:53-54`
-- **Reclasificada el 2026-08-27:** el escenario de ataque era Internet a través del proxy de
-  Render, que ya no existe. **El defecto sigue en el código sin cambios**, así que vuelve a ser
-  Alto en cuanto haya despliegue: es de los primeros que hay que resolver antes de volver a publicar.
-- **Qué hacer:** `KnownIPNetworks.Clear()` y `KnownProxies.Clear()` hacen que ASP.NET Core acepte
-  `X-Forwarded-For` de cualquier origen. Como el rate limiter particiona por `RemoteIpAddress`
-  **después** de `UseForwardedHeaders`, rotar la cabecera salta por completo el límite de 10
-  peticiones/minuto que protege login y registro contra fuerza bruta. Restringir a las redes del
-  proxy o, si se mantiene el `Clear()`, documentar el riesgo y añadir una partición secundaria por
-  email en los endpoints de autenticación.
-- **Criterio:** enviar 50 peticiones a `/api/auth/login` con una `X-Forwarded-For` distinta cada
-  vez acaba devolviendo 429.
-
-### T1-13 — Revocar de verdad la credencial de Neon · REABIERTA el 2026-09-04
-
-- **Área:** Seguridad · **Severidad:** Alto · **Esfuerzo:** bajo (son cinco minutos en un panel)
-- **Por qué vuelve:** la fila de cerradas decía «todas rotadas y Neon deshabilitado». No lo estaba.
-  Al recuperar el proyecto en este equipo, `appsettings.Local.json` traía la cadena de conexión de
-  Neon **y funcionaba**: el 2026-09-04 se crearon y borraron bases de datos remotas con ella por
-  error. Sacar la credencial del disco —ya hecho— no la invalida.
-- **Qué hacer:** revocar o rotar el rol `neondb_owner` en el panel de Neon, o eliminar el proyecto
-  entero si ya no se usa. Después, actualizar la fila de T1-13 en la tabla de cerradas, que hoy
-  afirma algo que no era cierto.
-- **Criterio:** intentar conectar con la cadena antigua falla por autenticación.
-- **Lección, más allá de esta credencial:** «rotada» y «el servicio está deshabilitado» son
-  afirmaciones distintas, y ninguna de las dos se comprueba sola. Lo que cerró la tarea en su día
-  fue la intención de revocarla, no la verificación de que lo estuviera.
-
-### Tier 4 — Futuro / Opcional
-
-- **T4-02 · Añadir PKCE a los flujos OAuth** — Seguridad. Con cliente confidencial no es
-  obligatorio, pero es defensa en profundidad frente a la interceptación del código. · Esfuerzo medio
-- **T4-03 · Internacionalizar la interfaz** — UI/UX. Todos los textos están incrustados en español
-  y `formatDate` fija `es-DO` en vez de la configuración del usuario. · Esfuerzo alto
-- **T4-04 · Añadir pruebas end-to-end** — QA. Playwright sobre registro, login, OAuth, CRUD e
-  importación/exportación. · Esfuerzo alto
+- **Área:** UI/UX · **Severidad:** Bajo · **Esfuerzo:** bajo
+- **Hallazgo del 2026-09-05**, encontrado al escribir las pruebas E2E de T4-04.
+- **Qué pasa:** al importar un archivo JSON cualquiera —uno que no salió de aquí— la
+  aplicación responde **«Importación JSON completada sin cambios»**, con el tono de éxito.
+  No se rompe nada y no entra basura en la biblioteca, pero tampoco se dice que el archivo
+  no era una exportación de TrackerMultimedia.
+- **Por qué importa:** quien se equivoque de archivo puede concluir que su copia de
+  seguridad estaba vacía. Es el mismo espíritu de T2-19, «no descartar en silencio un
+  formato inválido», aplicado un nivel más arriba: aquí el formato es válido —es JSON— pero
+  el contenido no es el que se espera.
+- **Qué hacer:** distinguir «una exportación con cero elementos» de «esto no es una
+  exportación». La primera merece el mensaje actual; la segunda, un aviso.
+- **Criterio:** importar un JSON ajeno avisa de que no es una exportación válida.
+- **Ya hay prueba:** `e2e/transferencia.spec.ts` fija el comportamiento de hoy y dice en un
+  comentario que es el que hay que cambiar. Al arreglarlo, esa prueba se actualiza.
 
 ### Tier 5 — Sistema de diseño
 
@@ -93,19 +115,9 @@ consultar la base de datos de la skill `ui-ux-pro-max`— coinciden en la misma 
 Migrar a Tailwind o a una librería de componentes serían semanas para llegar al mismo aspecto,
 tirando por el camino la accesibilidad ya pagada en T1-16 a T1-23.
 
-**Las siete tareas con que nació el tier se cerraron el 2026-09-05**, el mismo día que se abrió.
-Ver la tabla de cerradas. Queda la que salió de la última:
-
-**T5-08 · Migrar el resto de las vistas a la escala** — UI/UX · Esfuerzo alto
-: T5-03 dejó la escala montada y **una** vista sobre ella. Las otras ~238 clases siguen con sus
-  medidas a mano, así que el archivo todavía contiene los 39 espaciados y los 19 tamaños de texto
-  originales: lo que hay es la escala y la plantilla para aplicarla, no el trabajo hecho.
-: *Cómo:* la pantalla de acceso es la referencia, y la prueba que la vigila se amplía a cada vista
-  migrada añadiendo su prefijo. Vista por vista, no de una vez: cada una snapea unos cuantos valores
-  y eso se mira en el navegador.
-: *Criterio:* la prueba cubre todos los prefijos y no queda ninguna medida a mano fuera de las
-  excepciones que se documenten (las que no son medidas de diseño, como los desplazamientos de
-  subrayado o los `1px` de borde).
+**Las diez tareas del tier están cerradas**: nueve el 2026-09-05 —el mismo día que se abrió— y
+T5-10 el 2026-09-06, abierta cuando el propietario vio en pantalla que el campo de «Borrar la
+cuenta» seguía sin vestir después de T5-09. Ver la tabla de cerradas.
 
 ---
 
@@ -158,11 +170,12 @@ El hallazgo de la auditoría era erróneo.
 
 ## Cerradas
 
-Resumen de las 85 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
+Resumen de las 96 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
 [HISTORY.md](HISTORY.md), por sesión; el efecto visible, en [CHANGELOG.md](CHANGELOG.md).
 
-**T1-13 sigue apareciendo en la tabla de Tier 1 aunque esté reabierta.** Su fila se conserva, marcada,
-porque borrarla escondería justo lo que hay que recordar: que se dio por cerrada sin comprobarlo.
+**La fila de T1-13 conserva el rastro de haberse cerrado mal.** Ahora sí está cerrada, pero la fila
+dice también que estuvo nueve días dada por buena sin serlo: borrar esa parte escondería justo lo
+que hay que recordar.
 
 ### Tier 0 — Crítico
 
@@ -182,13 +195,14 @@ porque borrarla escondería justo lo que hay que recordar: que se dio por cerrad
 | T1-02 | Devolver los proveedores vinculados en `/api/auth/me` | 2026-08-27 · `AuthSessionService.GetLinkedProvidersAsync` |
 | T1-03 | No romper el registro cuando falla el envío de correo | 2026-08-27 · Envío aislado en `SendEmailSafelyAsync` |
 | T1-04 | Eliminar la enumeración de cuentas en registro y login | 2026-08-27 · Respuesta única; el aviso va al titular de la dirección |
+| T1-05 | Dejar de confiar en cualquier proxy para `X-Forwarded-For` | 2026-09-05 · La confianza pasa a ser explícita: nueva sección `ForwardedHeaders` con `KnownProxies` y `KnownNetworks`, **vacías por defecto**, y con las dos vacías el middleware ni se registra. Adelantada desde «antes de publicar» porque servir por LAN ampliaba el escenario. 4 pruebas, y la del criterio del ROADMAP se falsificó restaurando el defecto: 20 logins con la cabecera rotando dejaban de dar 429 |
 | T1-06 | Crear el índice de `RefreshTokens.TokenHash` | 2026-08-27 · Índice único |
 | T1-07 | Crear un índice utilizable sobre `MediaItems.UserId` | 2026-08-27 · `IX_MediaItems_UserId_CreatedAtUtc`; el que había era parcial y no servía |
 | T1-08 | Poner en verde la suite del frontend | 2026-08-27 |
 | T1-09 | Simular `matchMedia` en el arranque de los tests | 2026-08-27 |
 | T1-10 | Actualizar los tests de `LibraryView` a la interfaz vigente | 2026-08-27 |
 | T1-11 | Corregir la aserción errónea del test de Jikan | 2026-08-27 |
-| T1-13 | Rotar las credenciales y sacarlas del disco en claro | 2026-08-27 · **Cierre incorrecto: la de Neon seguía activa.** Reabierta el 2026-09-04, ver *Abiertas* |
+| T1-13 | Rotar las credenciales y sacarlas del disco en claro | **2026-09-05** · Base de Neon eliminada y lo desplegado revocado y borrado por el propietario. Verificado en disco: 0 coincidencias de `neon` en los tres `appsettings*.json`. **Se cerró antes por error el 2026-08-27** —la credencial de Neon seguía activa y el 2026-09-04 se crearon y borraron bases remotas con ella sin querer—, y estuvo reabierta del 2026-09-04 al 2026-09-05 |
 | T1-14 | Implementar el borrado de cuenta | 2026-09-02 · `DELETE /api/auth/account` con reautenticación, transacción y borrado de los `OAuthStates` que la cascada no cubría |
 | T1-15 | Declarar una licencia | 2026-09-02 · MIT en los dos repositorios |
 | T1-16 | Gestión de foco en los diálogos modales | 2026-08-27 · Hook compartido; aparecieron tres defectos no previstos por el camino |
@@ -264,6 +278,9 @@ porque borrarla escondería justo lo que hay que recordar: que se dio por cerrad
 | ID | Tarea | Cierre |
 |---|---|---|
 | T4-01 | Migrar el refresh token a una cookie `httpOnly` | 2026-09-04 · Cookie `HttpOnly` + `SameSite=Strict`, cabecera `X-TM-Client` contra CSRF, y el callback OAuth deja de llevar tokens en la URL |
+| T4-02 | Añadir PKCE a los flujos OAuth | 2026-09-05 · `Pkce` con S256, `OAuthState.CodeVerifier` y su migración. El verificador se guarda en el servidor y solo su hash viaja: un código interceptado ya no se canjea. Activado en Google; en GitHub queda el interruptor `UsePkce` en `false` porque su OAuth App no documenta soporte. 5 pruebas, una contra el vector del apéndice B del RFC 7636 |
+| T4-04 | Añadir pruebas end-to-end | 2026-09-05 · **13 pruebas con Playwright** sobre la aplicación entera: acceso, biblioteca, OAuth y transferencia. Destaparon T2-29 y obligaron a hacer configurables los cupos del rate limiter, que la suite agotaba a mitad de camino. De OAuth se cubren los dos extremos —que la petición al proveedor lleve `state` y el reto de PKCE, y que una vuelta con `state` inválido acabe en el login— porque completar el flujo exigiría autenticarse de verdad contra Google |
+| T4-03 | Internacionalizar la interfaz | 2026-09-06 · **Español e inglés**, con i18next y `react-i18next`. El diccionario está tipado a partir del español, así que una clave que falte en inglés o esté mal escrita **no compila**. Se migraron 27 archivos y **463 textos**, y de paso salieron tres cosas: los mapas de etiquetas guardan ahora la clave y no el texto —si guardaran el texto, el idioma quedaría congelado en el de arranque—, los mensajes de Zod se traducen en cada `parse` por la misma razón, y `Anime`, `Manga`, `Jikan` o `AniList` se quedaron fuera del diccionario por ser nombres propios. El interruptor va en la cabecera y también en las pantallas de acceso: quien no lee español tiene que poder cambiarlo antes de entrar |
 | T4-05 | Medir y publicar la cobertura de pruebas | 2026-09-02 · Destapó que AniList y MangaDex no tenían ni una prueba. Veinte tests nuevos; 87,4 % líneas / 56,1 % ramas |
 | T4-07 | Publicar la especificación OpenAPI | 2026-09-04 · `docs/openapi.json` versionado (30 rutas) y, en ejecución, tras `OpenApi__Exposed=true` fuera de desarrollo |
 | T4-08 | Exportación completa de datos personales | 2026-09-04 · `GET /api/auth/account/export`. De paso, los formatos personalizados quedan por fin exportables |
@@ -281,4 +298,7 @@ porque borrarla escondería justo lo que hay que recordar: que se dio por cerrad
 | T5-05 | La pantalla de acceso no seguía al tema oscuro | 2026-09-05 · Estaba escrita entera en claro con solo dos reglas oscuras; lo legible se salvaba por orden de aparición. Marca, título, enlaces del pie y mensaje de error en tinta fija: entre **1,1:1** y **2,77:1**. Tokenizada y verificada en el navegador |
 | T5-04 | Decidir qué hacer con `--surface-strong: #ffffff` | 2026-09-05 · **Se queda como está.** El anti-patrón habla del cristal y este token no lo es: sus 4 usuarios son superficies opacas a propósito y ninguno lleva `backdrop-filter`. Además no se vería, porque `--surface-primary` ya compone a **#fdfdfe** sobre el degradado. Queda una prueba que fija la premisa, y T5-07 recoge lo que sí apareció |
 | T5-07 | Cinco `backdrop-filter` que no difuminaban nada | 2026-09-05 · Los cuatro emergentes tapaban lo difuminado con un fondo al 0,97–0,98 de alfa, y `.auth-card` con un blanco **opaco**: pasaba entre el 3 % y el 0 %. Se quitó el desenfoque en vez de bajar el alfa, porque son las superficies con más texto y aparecen sobre contenido arbitrario: translúcidas, su contraste dejaría de ser una propiedad del CSS. El cristal se queda donde sí se ve y no lleva texto encima |
+| T5-08 | Migrar el resto de las vistas a la escala | 2026-09-05 · **296 medidas migradas**: espaciados a mano de 39 a 1, radios de 9 a 0, tamaños de texto de 19 a 0. 182 encajaron exactas y ninguna se movió más de 2px. La escala ganó cuatro peldaños que le faltaban —`--space-7`, `--space-14`, `--type-4xl` y `--leading-none`—: sin ellos el titular de portada encogía 8px y el contenedor principal 8px, que es rediseñar en vez de migrar. **La prueba se invirtió**: en vez de una lista de prefijos migrados, vigila el archivo entero con dos excepciones documentadas. Revisado en el navegador en los dos temas y en móvil |
+| T5-09 | La clase `.field` se usa en el marcado y no existe en el CSS | 2026-09-05 · Hallazgo de T5-08, y **anterior a la migración**: la etiqueta y el campo de «Borrar la cuenta» salían pegados. Era su único uso en todo el frontend, así que se cambió por `control`, el grupo de campo que ya usan los otros cinco formularios de esa pantalla, en vez de definir una clase con un solo usuario |
+| T5-10 | Un campo de formulario sin la clase del sistema de diseño | 2026-09-06 · El campo de «Borrar la cuenta» era el único `<input>` del frontend sin `className="input"`, así que el navegador pintaba su control nativo en medio de una pantalla que usa el del sistema; y el botón de debajo quedaba pegado al campo por faltar el contenedor que da el ritmo vertical. **Segundo y tercer defecto del mismo bloque tras T5-09**, los tres invisibles para las pruebas de comportamiento y los tres vistos por el propietario a simple vista. `form-controls.test.ts` revisa desde ahora los 61 campos del frontend |
 | T5-03 | La capa de tokens no medía nada, solo pintaba | 2026-09-05 · Los 33 tokens eran todos de color y sombra, así que cada clase inventaba sus medidas: **39 espaciados, 9 radios y 19 tamaños de texto**, seis de ellos indistinguibles entre sí por menos de un píxel. Escala de espaciado en rejilla de 4px, radios, `--type-*` y alturas de línea, más `--control-min-height` para que el objetivo táctil de 44px tenga nombre propio. La pantalla de acceso queda migrada entera como plantilla, con una prueba que falla si vuelve a escribirse una medida a mano |
