@@ -23,7 +23,7 @@ está. Si alguna vuelve a aparecer aquí, se remide antes de actuar.
 
 ---
 
-## 2026-09-07 — Se abre el Tier 6 por T6-01
+## 2026-09-07 — Tier 6: las tres primeras de severidad Alta
 
 Primera tarea del Tier 6, y la de más riesgo de las cinco de severidad Alta: cambiar la contraseña no
 cerraba ninguna sesión. **El relato completo está en [CONTEXT.md](CONTEXT.md)**, registro de sesión;
@@ -43,6 +43,14 @@ Lo que merece recordarse por encima del detalle:
   `Path=/api/auth` aterrice y sirva no lo puede afirmar ni jsdom ni `WebApplicationFactory`. Se usaron
   dos contextos aislados de Chrome, con línea base **antes** del cambio: sin ella, un 401 posterior no
   prueba nada, porque podría llevar fallando desde el principio.
+- **La receta que traía la ficha de T6-03 estaba equivocada, y comprobarla costó cinco minutos.**
+  `overflow: hidden` quitaba el desplazamiento lateral y recortaba los menús de importar y exportar.
+  La ficha venía de la auditoría, que midió el desbordamiento y no abrió los menús. Una tarea de
+  roadmap dice qué falla; **cómo arreglarlo sigue siendo una hipótesis hasta que se prueba**.
+- **Arreglar el camino de un texto no arregla el texto.** Verificar T6-02 dejó por fin visible un
+  mensaje de validación que llevaba escrito desde siempre —«CompletedAtUtc no puede ser anterior a
+  StartedAtUtc»— y que nadie había leído porque antes se perdía (T2-29) y después se pintaba fuera de
+  la pantalla (T6-02). Queda abierto como T6-35, sin arreglarlo sobre la marcha: no era el encargo.
 
 ---
 

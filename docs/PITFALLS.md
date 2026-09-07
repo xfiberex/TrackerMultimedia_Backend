@@ -115,6 +115,13 @@ colación en ella por cada `DbContext`, sobre una colección no segura entre hil
 el test en ejecución. Desactivar el paralelismo de xUnit no lo arreglaba: la concurrencia estaba
 dentro del host. Desapareció al pasar la suite a PostgreSQL con una base por clase, T2-28.)*
 
+**`toBeVisible` de Playwright no significa «se ve».** Significa que el elemento está en el DOM y
+tiene caja: un bloque pintado en `top: -193px`, fuera de la pantalla, lo cumple sin problema. La
+primera versión de la prueba de T6-02 pasaba **con el defecto puesto** por eso mismo. Lo que
+pregunta lo que uno cree estar preguntando es `toBeInViewport`. Vale para cualquier defecto de
+«está ahí pero nadie lo ve»: si la prueba no distingue el antes del después, no está midiendo lo
+que falló.
+
 ## React y accesibilidad
 
 **Un hijo `position: absolute` desborda su contenedor con `overflow: auto`, aunque no lo ensanche.**

@@ -21,7 +21,7 @@
 | `npm run dev` (en `Frontend/`) | Interfaz en `http://localhost:5173`, **solo en este equipo** | `.env` copiado de `.env.example` |
 | `npm run dev:lan` | Lo mismo, accesible desde el móvil u otro equipo de la red | — |
 | `npm run test` | Suite del frontend, **198** pruebas (2026-09-07) | — |
-| `npm run test:e2e` | Suite end-to-end, 19 pruebas con Playwright | **PostgreSQL y el backend en marcha, y el cupo de `auth` subido** — sin eso salen 12 fallos; ver T6-34 |
+| `npm run test:e2e` | Suite end-to-end, 20 pruebas con Playwright | **PostgreSQL y el backend en marcha, y el cupo de `auth` subido** — sin eso salen 12 fallos; ver T6-34 |
 | `npm run test:e2e:ui` | Lo mismo, en el modo interactivo de Playwright | Lo mismo |
 | `npm run lint` | ESLint. **`npm run build` no lo ejecuta** | — |
 | `npm run build` | Build de producción a `dist/`. Incluye `tsc -b` | — |

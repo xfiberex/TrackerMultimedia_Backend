@@ -11,8 +11,8 @@
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
 | 4 | Futuro / Opcional | 11 | 10 | T4-06 en suspenso |
 | 5 | Sistema de diseño | 13 | 13 | — |
-| 6 | Lo que solo se ve con la aplicación en marcha | 30 | 2 | **28** |
-| **Total** | | **132** | **102** | **28 + 2 en suspenso** |
+| 6 | Lo que solo se ve con la aplicación en marcha | 31 | 3 | **28** |
+| **Total** | | **133** | **103** | **28 + 2 en suspenso** |
 
 Las siete anuladas —T1-12, T2-16, T2-25, T6-05, T6-16, T6-20 y T6-22— quedan fuera del recuento: ver *En suspenso y anuladas*.
 **Los totales de esta tabla estuvieron mal hasta el 2026-09-05**, y de dos maneras: el total decía 98
@@ -108,8 +108,8 @@ sino de una re-auditoría con **la aplicación levantada y ejercida desde el nav
 creada por el flujo de registro real.
 
 **Los Tiers 0 a 4 eran de severidad; a partir del 5 son tandas temáticas.** Eso no rebaja la
-prioridad de nada: cada tarea lleva su severidad en la ficha, y **tres de las que quedan son de
-severidad Alta** —eran cinco: se cerraron T6-01 y T6-03—. Se atienden antes que cualquier cosa de los
+prioridad de nada: cada tarea lleva su severidad en la ficha, y **dos de las que quedan son de
+severidad Alta** —eran cinco: se cerraron T6-01, T6-02 y T6-03—. Se atienden antes que cualquier cosa de los
 Tiers 2 y 3, aunque su número sea mayor.
 
 **Por qué existe este tier.** El proyecto lleva dos tandas seguidas —T5-09 a T5-13— descubriendo
@@ -122,7 +122,8 @@ ese mismo día— no vieron ninguno, y no por estar mal escritas: **jsdom no maq
 miraba a un tercero real**.
 
 *Cuatro de esos 34 se anularon esa misma noche al retirarse «Descubrir». El 2026-09-07 se
-cerraron T6-01 y T6-03. Quedan 28.*
+cerraron T6-01, T6-02 y T6-03, y **se abrió T6-35**, que salió de verificar T6-02: el mensaje
+que por fin se veía estaba escrito en jerga de código. Quedan 28.*
 
 **Lo que sí resistió el examen.** El contraste en oscuro cumple AA con holgura —5,71:1 el texto
 secundario, medido en el navegador—, el foco es visible en los trece puntos de tabulación, el
@@ -132,27 +133,6 @@ buscarla, y el abanico de proveedores degrada correctamente cuando alguno falla.
 seis tiers anteriores aguanta; lo que sigue es lo que quedaba fuera de su alcance.
 
 ---
-
-- [ ] **[T6-02] El error de validación del servidor se pinta fuera de la pantalla**
-  - **Área:** UI/UX · **Severidad:** Alto
-  - **Ubicación:** `src/features/media-items/components/MediaItemEditorForm.tsx` (bloque con clase
-    `auth-error`, al principio del formulario)
-  - **Problema:** el editor de biblioteca es alto y se desplaza. El bloque de error va arriba del
-    todo y nadie lo trae a la vista, así que al pulsar «Guardar nuevo registro» desde el final del
-    formulario **no ocurre nada visible**: ni el diálogo se cierra, ni aparece un aviso, ni se
-    desplaza a ninguna parte.
-  - **Verificado en vivo el 2026-09-06:** el nodo existe y está pintado, en
-    `top: -193px, bottom: -146px` con la ventana en 800px de alto. Lleva `role="alert"`, **así que
-    un lector de pantalla sí lo anuncia**: el fallo es exclusivamente para quien mira.
-  - **Impacto:** un guardado que falla en silencio. Es el mismo patrón que T2-29 —«el aviso además
-    no llegaba a verse»— en otro sitio, y por eso conviene resolverlo donde no pueda repetirse.
-  - **Qué hacer:** al recibir un error del servidor, llevar el foco al bloque de error
-    (`ref.current?.focus()` con `tabIndex={-1}`) y no solo desplazarlo: el foco arrastra la vista
-    **y** sitúa al usuario de teclado. Considerar además un toast, que ya existe en el proyecto.
-  - **Criterio de aceptación:** prueba end-to-end que envíe el formulario con un valor que el
-    servidor rechace y compruebe que el mensaje está **dentro** de la ventana
-    (`expect(locator).toBeInViewport()`). Es la única suite que puede: jsdom no maqueta.
-  - **Esfuerzo:** bajo · **Depende de:** ninguna
 
 - [ ] **[T6-04] El envío de correo bloquea la petición, sin plazo y sin reintento**
   - **Área:** Arquitectura (resiliencia) · **Severidad:** Alto
@@ -596,8 +576,31 @@ seis tiers anteriores aguanta; lo que sigue es lo que quedaba fuera de su alcanc
     evitar la variable: que el fixture reutilice una cuenta sembrada en vez de registrar una por
     prueba, con lo que la suite dejaría de depender del cupo.
   - **Criterio de aceptación:** partiendo de un backend arrancado con la documentación en la mano,
-    `npm run test:e2e` termina en 15/15 o falla diciendo exactamente qué falta.
+    `npm run test:e2e` termina en 20/20 o falla diciendo exactamente qué falta.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
+
+- [ ] **[T6-35] Los mensajes de validación del servidor están escritos en jerga de código**
+  - **Área:** UI/UX · **Severidad:** Media
+  - **Ubicación:** `Services/MediaItemsService.cs:1257-1268` (`ValidateLifecycleDates`), y hay que
+    revisar el resto de mensajes que el servidor devuelve al formulario.
+  - **Problema:** al guardar un registro con la fecha de fin anterior a la de inicio, lo que se lee
+    en pantalla es literalmente **«CompletedAtUtc no puede ser anterior a StartedAtUtc.»**: nombres
+    de propiedades de C# delante de alguien que ve dos campos llamados «Fecha de inicio» y «Fecha de
+    finalización».
+  - **Cómo apareció:** verificando T6-02 el 2026-09-07. No es un defecto nuevo, es uno que **acaba
+    de hacerse visible**: hasta T2-29 estos mensajes se perdían por el camino y hasta T6-02 se
+    pintaban fuera de la pantalla, así que nadie los había leído todavía. Es la consecuencia
+    previsible de arreglar dos veces seguidas el camino de un texto que nunca se revisó.
+  - **Impacto:** el mensaje es correcto y no ayuda. Quien lo lea no sabe que `CompletedAtUtc` es el
+    campo que él ve como «Fecha de finalización», y encima queda fuera del sistema de idiomas de
+    T4-03: no se traduce.
+  - **Qué hacer:** decidir primero **dónde** se escribe el texto. Si el mensaje sigue naciendo en el
+    servidor, no puede traducirse; la alternativa es que el servidor devuelva un código de error y
+    el nombre del campo, y que el frontend ponga la frase desde su diccionario. Repasar de paso los
+    demás mensajes de validación del mismo servicio.
+  - **Criterio de aceptación:** ningún mensaje que llegue al formulario contiene un identificador
+    del código, y el de las fechas invertidas se lee en los dos idiomas.
+  - **Esfuerzo:** medio · **Depende de:** ninguna
 
 ---
 
@@ -706,7 +709,7 @@ El hallazgo de la auditoría era erróneo.
 
 ## Cerradas
 
-Resumen de las 102 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
+Resumen de las 103 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
 [HISTORY.md](HISTORY.md), por sesión; el efecto visible, en [CHANGELOG.md](CHANGELOG.md).
 
 **La fila de T1-13 conserva el rastro de haberse cerrado mal.** Ahora sí está cerrada, pero la fila
@@ -829,6 +832,7 @@ que hay que recordar.
 
 | ID | Tarea | Cierre |
 |---|---|---|
+| T6-02 | El aviso de guardado fallido se pintaba fuera de la pantalla | 2026-09-07 · El editor es alto y vive en un diálogo que se desplaza; el aviso va arriba y el botón de guardar, al final, así que un guardado rechazado por el servidor **no producía nada visible**. Medido antes y después en el navegador: el bloque pasa de `top: -193px` a `top: 189px` con la ventana en 800 px. Se mueve el **foco** y no solo la vista, que es lo que además saca a quien navega con teclado de un botón que aparentemente no hizo nada; y se añade un aviso emergente, porque el foco no se roba en dos intentos seguidos con el mismo fallo y el segundo también tiene que notarse. Guardar bien ya avisaba así: que fallar no lo hiciera era la incoherencia. Prueba end-to-end con fechas invertidas —un rechazo que solo hace el servidor— que exige `toBeInViewport`, no `toBeVisible`: **con el defecto puesto, `toBeVisible` pasaba** |
 | T6-03 | 39 px de desplazamiento horizontal en un móvil de 360 px | 2026-09-07 · `.hero-panel::after`, un resplandor decorativo, asomaba 48 px por la derecha del panel: a 1280 px se lo comía el margen lateral y a 360 px caía fuera, así que **toda la interfaz se arrastraba en horizontal** justo en el sitio para el que la aplicación se sirve por LAN. **La receta que traía esta ficha —`overflow: hidden`— estaba mal**: quita el desplazamiento, sí, pero convierte el panel en contenedor de desplazamiento y **recorta los menús de importar y exportar** a una franja, porque flotan en absoluto por debajo del último hijo. Es la trampa de T5-12 en el sitio contrario, y se vio en el navegador antes de escribir nada. Se usa `overflow-x: clip`, que recorta sin crear contenedor de desplazamiento y es el único valor que convive con un `visible` en el otro eje. Cuatro pruebas end-to-end a 360×640 en `e2e/movil.spec.ts`, que vigilan el **desbordamiento en general** y no esta regla: volver a `visible` tumba dos de ellas, poner `hidden` tumba la cuarta |
 | T6-01 | Cambiar la contraseña no cerraba ninguna sesión | 2026-09-07 · `ChangePassword` devolvía 204 sin tocar `RefreshTokens`, así que la acción que toma quien sospecha que le han robado la sesión era justo la que no servía de nada: el token robado seguía rotando siete días. `ResetPassword` ya revocaba desde el principio —mismo riesgo, dos comportamientos—. Ahora revoca **todas** las sesiones y emite una nueva para quien hizo el cambio, y por eso **la respuesta pasa de 204 a 200 con el cuerpo del login**: revocar a secas echaría al usuario de su propio navegador, que es la mejor forma de conseguir que nadie cambie la contraseña. **El orden importa y el comentario lo dice**: revocar después de emitir mata el token recién creado. Dos pruebas de integración, y **las dos se falsificaron por separado**: quitar la revocación tumba una, invertir el orden tumba la otra. Comprobado además en dos contextos de navegador aislados —el que cambia la contraseña sigue renovando (200), el otro deja de hacerlo (401), con la línea base tomada antes del cambio—. El access token anterior sobrevive hasta caducar: es un JWT y aquí no se valida contra la base; lo que se corta es la renovación |
 
@@ -871,6 +875,7 @@ nada más.
 | 2026-09-06 (noche) | 0 | **30** | Se elimina «Descubrir»: 4 tareas anuladas, no resueltas. Suites: 150 · 197 · 15 |
 | 2026-09-07 | 1 | **29** | T6-01. Suites: 152 · 198 · 15 |
 | 2026-09-07 | 1 | **28** | T6-03. La receta que traía la ficha era incorrecta; ver su fila. Suites: 152 · 198 · 19 |
+| 2026-09-07 | 1 | **28** | T6-02, y se abre T6-35 al verificarla. Suites: 152 · 198 · 20 |
 
 **Cómo se cierra una tarea.** Se marca `[x]` con la fecha absoluta **el día que se verifica su
 criterio de aceptación**, no el día que se escribe el código. Si el criterio exige el navegador o la

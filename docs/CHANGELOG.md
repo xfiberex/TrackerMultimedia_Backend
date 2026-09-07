@@ -38,6 +38,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ### Corregido
 
+- **Cuando no se puede guardar un registro, ahora se ve por qué.** El editor de la biblioteca es largo y se desplaza; si el servidor rechazaba lo que habías escrito, el aviso aparecía muy por encima de donde estabas mirando, así que al pulsar «Guardar» **no pasaba nada**: el formulario seguía abierto, sin explicación. Ahora la pantalla salta al mensaje y aparece además un aviso emergente, igual que cuando el guardado sale bien (T6-02).
+
 - **En el móvil, la aplicación ya no se mueve de lado.** Al arrastrar el dedo, toda la pantalla se desplazaba unos 39 píxeles en horizontal y volvía, como si sobrara algo por la derecha. Y sobraba: un resplandor decorativo del panel de cabecera se salía del borde. En un ordenador no se nota, porque el margen lateral lo absorbe; en un teléfono de 360 píxeles —que es justo para lo que la aplicación se sirve por la red de casa— se notaba en cada gesto (T6-03).
 
 - **La flecha de los desplegables ya no va pegada al borde.** Los doce desplegables de la aplicación —los filtros de la biblioteca, el editor de registros, Descubrir y el alta rápida desde la búsqueda— llevaban su flecha en el filo derecho, mientras el texto respetaba su margen al otro lado. Ahora es la misma flecha que ya usaban los menús de acciones, y guarda el mismo aire que el texto (T5-11).

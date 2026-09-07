@@ -15,7 +15,7 @@
 | **Stack frontend** | React 19.2 · TypeScript 6.0 · Vite 8 · React Router 7 · TanStack Query 5 · Zod 4 · i18next (es/en) |
 | **Tamaño** | ~5.900 líneas de C# (sin pruebas ni migraciones) · ~14.000 de TS/TSX · 2.986 de CSS en un solo archivo |
 | **Pruebas** | 150 backend · 197 frontend · 15 end-to-end. **Las tres verificadas el 2026-09-06** tras retirar «Descubrir»; las e2e con una condición no documentada, ver T6-34 |
-| **Estado** | En uso. 29 tareas abiertas, todas del Tier 6 (re-auditoría del 2026-09-06) |
+| **Estado** | En uso. 28 tareas abiertas, todas del Tier 6 (re-auditoría del 2026-09-06) |
 | **Despliegue** | **Ninguno.** Uso local servido por LAN con `npm run dev:lan`. Render, Neon y Netlify retirados el 2026-09-05 |
 | **Plan** | [ROADMAP.md](ROADMAP.md) · **Qué cambió** [CHANGELOG.md](CHANGELOG.md) · **Por qué** [DECISIONS.md](DECISIONS.md) |
 | **Trabajo diario** | [WORKFLOW.md](WORKFLOW.md) · **Trampas conocidas** [PITFALLS.md](PITFALLS.md) · **Historia** [HISTORY.md](HISTORY.md) |
@@ -88,7 +88,7 @@ TrackerMultimedia_Frontend/         SPA, React 19 + Vite. Organizado por funcion
 **Al 2026-09-06.** La aplicación funciona y se usa. Los Tiers 0 a 5 del roadmap están cerrados —102
 tareas— salvo dos suspendidas con condición escrita (T0-05 y T4-06) y tres anuladas.
 
-**Abierto ahora mismo: el Tier 6, con 29 tareas**, salidas de la re-auditoría de la tarde del
+**Abierto ahora mismo: el Tier 6, con 28 tareas**, salidas de la re-auditoría de la tarde del
 2026-09-06, la primera hecha con la aplicación levantada y conducida desde un navegador real. Nació
 con 34; cuatro se anularon esa misma noche al eliminarse «Descubrir», porque desapareció el código
 que las producía. Cinco son de severidad Alta:
@@ -177,7 +177,7 @@ Tabla completa en [WORKFLOW.md](WORKFLOW.md). Lo que hay que saber sí o sí:
 | `npm run dev:lan` | Interfaz accesible desde el móvil | `.env` copiado de `.env.example` |
 | `dotnet test TrackerMultimedia_Backend.slnx` | 152 pruebas | PostgreSQL en marcha |
 | `npm run test` | 198 pruebas | — |
-| `npm run test:e2e` | 19 pruebas | PostgreSQL, backend en marcha **y el cupo de `auth` subido** — ver T6-34 |
+| `npm run test:e2e` | 20 pruebas | PostgreSQL, backend en marcha **y el cupo de `auth` subido** — ver T6-34 |
 
 **El puerto de PostgreSQL depende del equipo: compruébalo, no lo supongas.** `netstat -an | grep 543`.
 En este equipo es el **5433** (medido el 2026-09-06; `WORKFLOW.md` decía 5432, ver T6-17). El nombre
@@ -204,7 +204,7 @@ hacen falta.
 El registro largo, sesión por sesión, está en [HISTORY.md](HISTORY.md). Aquí solo las entradas
 posteriores a la creación de este archivo.
 
-### 2026-09-07 — T6-01: cambiar la contraseña ya cierra las sesiones
+### 2026-09-07 — Tier 6: T6-01, T6-02 y T6-03
 
 **Qué se hizo.** `ChangePassword` revoca ahora todos los tokens de refresco del usuario y emite una
 sesión nueva para quien hizo el cambio. La respuesta pasa de 204 a **200 con el cuerpo del login**,
@@ -231,6 +231,41 @@ cuentas que ya había.
 caduca solo: es un JWT y aquí no se valida contra la base de datos, que es también lo que deja sin
 efecto el `SecurityStamp` que Identity sí actualiza. Lo que se corta es la renovación. Ver
 [DECISIONS.md](DECISIONS.md), *Sesión y tokens*.
+
+---
+
+**T6-03 — 39 px de desplazamiento horizontal en el móvil.** `.hero-panel::after`, un resplandor
+decorativo con inset negativo, asomaba 48 px por la derecha del panel. A 1280 px se lo come el
+margen lateral; a 360 px caía fuera y toda la interfaz se arrastraba de lado, justo en el sitio para
+el que la aplicación se sirve por LAN.
+
+**La receta que traía la ficha era incorrecta, y esto es lo que hay que recordar de la tarea.**
+Decía `overflow: hidden` en el panel. Quita el desplazamiento, sí, pero convierte el panel en
+contenedor de desplazamiento y **recorta los menús de importar y exportar** a una franja: flotan en
+absoluto por debajo del último hijo. Es la trampa de T5-12 en el sitio contrario, y se vio en el
+navegador antes de escribir el arreglo, no después. Lo que sirve es `overflow-x: clip`, que recorta
+sin crear contenedor de desplazamiento y es el único valor que convive con un `visible` en el otro
+eje. La trampa completa, con la de medición que trae debajo, está en [PITFALLS.md](PITFALLS.md).
+
+---
+
+**T6-02 — el aviso de guardado fallido se pintaba fuera de la pantalla.** El editor es alto y vive
+en un diálogo que se desplaza; el aviso va arriba y el botón de guardar, al final, así que un
+guardado rechazado por el servidor no producía **nada visible**. Medido antes y después: de
+`top: -193px` a `top: 189px` con la ventana en 800 px.
+
+Se mueve el **foco** y no solo la vista —eso saca además a quien navega con teclado de un botón que
+aparentemente no hizo nada— y se añade un aviso emergente, porque el foco no se roba en dos intentos
+seguidos con el mismo fallo y el segundo también tiene que notarse. Guardar bien ya avisaba así
+desde siempre; que fallar no lo hiciera era la incoherencia.
+
+**Y verificarlo destapó otra cosa,** anotada como **T6-35** en vez de arreglarla sobre la marcha: el
+mensaje que por fin se ve dice literalmente «CompletedAtUtc no puede ser anterior a StartedAtUtc».
+Nombres de propiedades de C# delante de alguien que ve dos campos llamados «Fecha de inicio» y
+«Fecha de finalización». No es un defecto nuevo: es el que aparece cuando arreglas dos veces
+seguidas —T2-29 y T6-02— el camino de un texto que nadie había llegado a leer.
+
+**Suites al cerrar el día:** 152 backend, 198 frontend, **20 end-to-end** (eran 15).
 
 ---
 
