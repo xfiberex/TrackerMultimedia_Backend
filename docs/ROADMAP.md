@@ -11,8 +11,8 @@
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
 | 4 | Futuro / Opcional | 11 | 10 | T4-06 en suspenso |
 | 5 | Sistema de diseño | 13 | 13 | — |
-| 6 | Lo que solo se ve con la aplicación en marcha | 30 | 1 | **29** |
-| **Total** | | **132** | **101** | **29 + 2 en suspenso** |
+| 6 | Lo que solo se ve con la aplicación en marcha | 30 | 2 | **28** |
+| **Total** | | **132** | **102** | **28 + 2 en suspenso** |
 
 Las siete anuladas —T1-12, T2-16, T2-25, T6-05, T6-16, T6-20 y T6-22— quedan fuera del recuento: ver *En suspenso y anuladas*.
 **Los totales de esta tabla estuvieron mal hasta el 2026-09-05**, y de dos maneras: el total decía 98
@@ -108,8 +108,8 @@ sino de una re-auditoría con **la aplicación levantada y ejercida desde el nav
 creada por el flujo de registro real.
 
 **Los Tiers 0 a 4 eran de severidad; a partir del 5 son tandas temáticas.** Eso no rebaja la
-prioridad de nada: cada tarea lleva su severidad en la ficha, y **cuatro de las que quedan son de
-severidad Alta** —eran cinco hasta cerrarse T6-01—. Se atienden antes que cualquier cosa de los
+prioridad de nada: cada tarea lleva su severidad en la ficha, y **tres de las que quedan son de
+severidad Alta** —eran cinco: se cerraron T6-01 y T6-03—. Se atienden antes que cualquier cosa de los
 Tiers 2 y 3, aunque su número sea mayor.
 
 **Por qué existe este tier.** El proyecto lleva dos tandas seguidas —T5-09 a T5-13— descubriendo
@@ -121,8 +121,8 @@ lateral en un móvil, una API externa que devolvía 403 desde hacía días. Las 
 ese mismo día— no vieron ninguno, y no por estar mal escritas: **jsdom no maqueta, y ninguna prueba
 miraba a un tercero real**.
 
-*Cuatro de esos 34 se anularon esa misma noche al retirarse «Descubrir», y T6-01 se cerró el
-2026-09-07. Quedan 29.*
+*Cuatro de esos 34 se anularon esa misma noche al retirarse «Descubrir». El 2026-09-07 se
+cerraron T6-01 y T6-03. Quedan 28.*
 
 **Lo que sí resistió el examen.** El contraste en oscuro cumple AA con holgura —5,71:1 el texto
 secundario, medido en el navegador—, el foco es visible en los trece puntos de tabulación, el
@@ -152,25 +152,6 @@ seis tiers anteriores aguanta; lo que sigue es lo que quedaba fuera de su alcanc
   - **Criterio de aceptación:** prueba end-to-end que envíe el formulario con un valor que el
     servidor rechace y compruebe que el mensaje está **dentro** de la ventana
     (`expect(locator).toBeInViewport()`). Es la única suite que puede: jsdom no maqueta.
-  - **Esfuerzo:** bajo · **Depende de:** ninguna
-
-- [ ] **[T6-03] La aplicación se desplaza 39 px en horizontal en un móvil de 360 px**
-  - **Área:** Diseño responsivo · **Severidad:** Alto
-  - **Ubicación:** `src/index.css:302-311`
-  - **Problema:** `.hero-panel::after` es un resplandor decorativo de 220×220 px colocado con
-    `inset: auto -3rem -5rem auto`, es decir **48 px por fuera del panel por la derecha**, y
-    `.hero-panel` no lleva `overflow: hidden`. A 1280 px el margen lateral lo absorbe; a 360 px el
-    panel ocupa casi toda la ventana y esos 48 px caen fuera.
-  - **Verificado en vivo el 2026-09-06:** `scrollWidth` 384 frente a `clientWidth` 345, y
-    `window.scrollTo(9999,0)` mueve la página **39 px**. Es el único pseudo-elemento de todo el
-    frontend con un inset negativo.
-  - **Impacto:** la aplicación se sirve por LAN **para usarla desde el móvil** (`npm run dev:lan`).
-    Toda la interfaz baila lateralmente al arrastrar el dedo.
-  - **Qué hacer:** `overflow: hidden` en `.hero-panel`. **Comprobado en el navegador durante la
-    auditoría:** el `scrollWidth` baja de 384 a 345 y el desplazamiento de 39 px a **0**, sin que se
-    pierda el resplandor visible dentro del panel.
-  - **Criterio de aceptación:** prueba end-to-end a 360×640 que exija
-    `scrollWidth <= clientWidth`. Vigila el desbordamiento en general, no esta regla en concreto.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
 
 - [ ] **[T6-04] El envío de correo bloquea la petición, sin plazo y sin reintento**
@@ -725,7 +706,7 @@ El hallazgo de la auditoría era erróneo.
 
 ## Cerradas
 
-Resumen de las 101 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
+Resumen de las 102 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
 [HISTORY.md](HISTORY.md), por sesión; el efecto visible, en [CHANGELOG.md](CHANGELOG.md).
 
 **La fila de T1-13 conserva el rastro de haberse cerrado mal.** Ahora sí está cerrada, pero la fila
@@ -848,6 +829,7 @@ que hay que recordar.
 
 | ID | Tarea | Cierre |
 |---|---|---|
+| T6-03 | 39 px de desplazamiento horizontal en un móvil de 360 px | 2026-09-07 · `.hero-panel::after`, un resplandor decorativo, asomaba 48 px por la derecha del panel: a 1280 px se lo comía el margen lateral y a 360 px caía fuera, así que **toda la interfaz se arrastraba en horizontal** justo en el sitio para el que la aplicación se sirve por LAN. **La receta que traía esta ficha —`overflow: hidden`— estaba mal**: quita el desplazamiento, sí, pero convierte el panel en contenedor de desplazamiento y **recorta los menús de importar y exportar** a una franja, porque flotan en absoluto por debajo del último hijo. Es la trampa de T5-12 en el sitio contrario, y se vio en el navegador antes de escribir nada. Se usa `overflow-x: clip`, que recorta sin crear contenedor de desplazamiento y es el único valor que convive con un `visible` en el otro eje. Cuatro pruebas end-to-end a 360×640 en `e2e/movil.spec.ts`, que vigilan el **desbordamiento en general** y no esta regla: volver a `visible` tumba dos de ellas, poner `hidden` tumba la cuarta |
 | T6-01 | Cambiar la contraseña no cerraba ninguna sesión | 2026-09-07 · `ChangePassword` devolvía 204 sin tocar `RefreshTokens`, así que la acción que toma quien sospecha que le han robado la sesión era justo la que no servía de nada: el token robado seguía rotando siete días. `ResetPassword` ya revocaba desde el principio —mismo riesgo, dos comportamientos—. Ahora revoca **todas** las sesiones y emite una nueva para quien hizo el cambio, y por eso **la respuesta pasa de 204 a 200 con el cuerpo del login**: revocar a secas echaría al usuario de su propio navegador, que es la mejor forma de conseguir que nadie cambie la contraseña. **El orden importa y el comentario lo dice**: revocar después de emitir mata el token recién creado. Dos pruebas de integración, y **las dos se falsificaron por separado**: quitar la revocación tumba una, invertir el orden tumba la otra. Comprobado además en dos contextos de navegador aislados —el que cambia la contraseña sigue renovando (200), el otro deja de hacerlo (401), con la línea base tomada antes del cambio—. El access token anterior sobrevive hasta caducar: es un JWT y aquí no se valida contra la base; lo que se corta es la renovación |
 
 ---
@@ -888,6 +870,7 @@ nada más.
 | 2026-09-06 (tarde) | 0 | 34 | **Re-auditoría con la aplicación en marcha. Se abre el Tier 6** |
 | 2026-09-06 (noche) | 0 | **30** | Se elimina «Descubrir»: 4 tareas anuladas, no resueltas. Suites: 150 · 197 · 15 |
 | 2026-09-07 | 1 | **29** | T6-01. Suites: 152 · 198 · 15 |
+| 2026-09-07 | 1 | **28** | T6-03. La receta que traía la ficha era incorrecta; ver su fila. Suites: 152 · 198 · 19 |
 
 **Cómo se cierra una tarea.** Se marca `[x]` con la fecha absoluta **el día que se verifica su
 criterio de aceptación**, no el día que se escribe el código. Si el criterio exige el navegador o la

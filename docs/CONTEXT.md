@@ -177,7 +177,7 @@ Tabla completa en [WORKFLOW.md](WORKFLOW.md). Lo que hay que saber sí o sí:
 | `npm run dev:lan` | Interfaz accesible desde el móvil | `.env` copiado de `.env.example` |
 | `dotnet test TrackerMultimedia_Backend.slnx` | 152 pruebas | PostgreSQL en marcha |
 | `npm run test` | 198 pruebas | — |
-| `npm run test:e2e` | 15 pruebas | PostgreSQL, backend en marcha **y el cupo de `auth` subido** — ver T6-34 |
+| `npm run test:e2e` | 19 pruebas | PostgreSQL, backend en marcha **y el cupo de `auth` subido** — ver T6-34 |
 
 **El puerto de PostgreSQL depende del equipo: compruébalo, no lo supongas.** `netstat -an | grep 543`.
 En este equipo es el **5433** (medido el 2026-09-06; `WORKFLOW.md` decía 5432, ver T6-17). El nombre

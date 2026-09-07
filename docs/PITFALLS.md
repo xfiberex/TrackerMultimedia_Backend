@@ -125,6 +125,26 @@ cuenta como desbordamiento desplazable. Cualquier ajuste de altura habría sido 
 altura no era el problema. La regla: **un menú flotante dentro de algo que se desplaza acaba
 cortado**; o va en el flujo, o se saca del contenedor.
 
+**`overflow: hidden` para recortar un adorno recorta también los menús que cuelgan del
+contenedor.** Es la trampa de arriba vista desde el otro lado, y salió en T6-03. Un resplandor
+decorativo asomaba 48 px por la derecha de `.hero-panel` y a 360 px empujaba la ventana 39 px; la
+respuesta obvia, `overflow: hidden` en el panel, quitaba el desplazamiento **y dejaba los menús de
+importar y exportar cortados a una franja**, porque flotan en absoluto por debajo del último hijo.
+La regla: `hidden` no recorta un eje, convierte la caja en **contenedor de desplazamiento en los
+dos**, y todo lo que salía de ella deja de salir.
+
+**Lo que sirve es `overflow-x: clip`,** que recorta sin crear contenedor de desplazamiento y es el
+único valor que puede convivir con un `visible` en el otro eje: cualquier otro fuerza al `visible` a
+comportarse como `auto`. Así se recorta a los lados y los menús siguen saliendo hacia abajo.
+
+**Y una trampa de medición, que costó dos mediciones equivocadas seguidas:** para saber si algo está
+recortado no vale mirar su rectángulo —un elemento recortado sigue informando del suyo— sino
+preguntar con `elementFromPoint` quién está pintado ahí. Pero **ojo con `scrollIntoView` en el
+sondeo**: si el contenedor es `overflow: hidden`, es desplazable por código aunque no enseñe barra,
+así que `scrollIntoView` lo desplaza y trae a la vista justo lo que se quería demostrar que estaba
+oculto. La primera medición dio «recortado», la segunda —con `scrollIntoView`— dio «se ve», y la
+buena era la primera. **Un sondeo que mueve algo no está midiendo el estado que quería medir.**
+
 **La flecha nativa de un `<select>` no la mueve `padding-right`.** El navegador la dibuja pegada al
 borde y sorda al relleno, así que un `select` con el texto separado del borde tiene la flecha en el
 filo, y no hay forma de corregirlo sin sustituirla: `appearance: none` más un `background-image`. Lo
