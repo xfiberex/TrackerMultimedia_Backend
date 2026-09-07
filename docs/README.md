@@ -12,6 +12,7 @@ Se movieron dentro el **2026-09-04**.
 
 | Archivo | Responde a |
 |---|---|
+| [CONTEXT.md](CONTEXT.md) | **Empieza por aquí.** Estado, decisiones vigentes y registro de sesión, con enlaces al resto |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Qué es el producto, cómo está organizado y qué deliberadamente no hace |
 | [DECISIONS.md](DECISIONS.md) | Qué se decidió y por qué; y qué se descartó, para no volver a proponerlo |
 | [PITFALLS.md](PITFALLS.md) | Trampas del stack aprendidas a base de fallo. Léelo antes de depurar algo raro |
@@ -34,6 +35,12 @@ en el [`README.md`](../README.md) del backend y en el del frontend, cada uno con
   prefija con `Frontend/`.
 
 ## Estado del proyecto — 2026-09-04
+
+> ⚠️ **Esta tabla está desactualizada y es más antigua que el resto de la documentación.** Se
+> conserva tal cual porque forma parte del hallazgo T6-17: al 2026-09-06 las pruebas son **182** y
+> **205**, no 171 y 188; el roadmap va por **100 de 136** tareas, no 79 de 88; y los blueprints ya
+> no son «una receta para volver» —la base de Neon se eliminó el 2026-09-05—. El estado vigente,
+> con fecha, está en [CONTEXT.md](CONTEXT.md). Esta sección se corrige o se retira al cerrar T6-17.
 
 | | |
 |---|---|

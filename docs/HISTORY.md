@@ -23,6 +23,35 @@ está. Si alguna vuelve a aparecer aquí, se remide antes de actuar.
 
 ---
 
+## 2026-09-06 (noche) — Re-auditoría con la aplicación en marcha
+
+Primera revisión del proyecto hecha **con el producto levantado y conducido desde un navegador
+real**, no leyendo el código. Doce áreas de trece —SEO no aplica: es una SPA privada tras login—,
+con backend, frontend y PostgreSQL en marcha y una cuenta de prueba creada por el flujo de registro
+auténtico, borrada al terminar.
+
+**Resultado: 34 hallazgos, seis de severidad Alta, y un Tier 6 nuevo en [ROADMAP.md](ROADMAP.md).**
+**Catorce de los treinta y cuatro eran imposibles de ver leyendo el código.**
+
+El relato completo de la sesión —qué se encontró, qué se descartó y qué quedó a medias— está en
+**[CONTEXT.md](CONTEXT.md)**, que se creó en esta misma sesión como puerta de entrada única. No se
+repite aquí para que no puedan divergir. Los tres titulares:
+
+- **Cambiar la contraseña no cierra ninguna sesión** (T6-01), verificado en vivo. `ResetPassword` sí
+  revoca, `ChangePassword` no: el mismo riesgo con dos comportamientos.
+- **La suite end-to-end no pasa siguiendo la documentación** (T6-34): 12 fallos con `dotnet run` a
+  secas y 15/15 con el cupo de `auth` subido. La suite estaba bien; el requisito no estaba escrito.
+  Lo llevábamos afirmando como hecho verificado.
+- **Dos falsos positivos se cayeron por comprobarlos**, y merecen quedar escritos tanto como los
+  hallazgos: un `max="0"` que solo existía en el árbol de accesibilidad, y un desbordamiento de
+  399 px que era un artefacto de emular `deviceScaleFactor: 3`. El segundo tapaba un defecto real y
+  distinto, con otra causa. Es la lección de las «197 cuentas» otra vez: **una medición que no se
+  cuestiona produce un hallazgo falso con la misma facilidad que uno verdadero.**
+
+No se tocó una línea de código: la auditoría se detiene en el informe.
+
+---
+
 ## 2026-09-06 (tarde) — T2-29, y el aviso que no habría llegado a nadie
 
 Media hora de trabajo prevista para la última tarea abierta del roadmap. La mitad se fue en algo
