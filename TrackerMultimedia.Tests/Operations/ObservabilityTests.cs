@@ -1,17 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
-using TrackerMultimedia.Contracts.Search;
 using TrackerMultimedia.Data;
-using TrackerMultimedia.Domain.Enums;
-using TrackerMultimedia.Services;
 using TrackerMultimedia.Tests.Helpers;
 
 namespace TrackerMultimedia.Tests.Operations;
@@ -19,80 +15,20 @@ namespace TrackerMultimedia.Tests.Operations;
 /// <summary>
 /// T4-11 — Correlación de peticiones y registro estructurado (separada de T4-06).
 ///
-/// Los tres comportamientos que se comprueban aquí tienen algo en común: **solo
-/// existen en el log**. Ninguno cambia el código de estado ni el cuerpo de una
-/// respuesta correcta, así que ninguna otra prueba de la suite los rozaría, y los tres
-/// estuvieron rotos mucho tiempo sin que se notara.
+/// Los dos comportamientos que se comprueban aquí tienen algo en común: **solo existen
+/// en el log**. Ninguno cambia el código de estado ni el cuerpo de una respuesta
+/// correcta, así que ninguna otra prueba de la suite los rozaría, y los dos estuvieron
+/// rotos mucho tiempo sin que se notara.
+///
+/// **Aquí hubo una tercera prueba y se retiró el 2026-09-06**, al eliminarse la búsqueda
+/// en catálogos externos: comprobaba que el fallo de un proveedor quedara registrado
+/// aunque otro respondiera. Fue la que destapó el defecto de fondo de T4-11 —un fallo
+/// parcial silencioso es indistinguible de «no hay resultados»—, así que conviene saber
+/// que existió: si algún día vuelve una operación en abanico, la lección se aplica igual.
+/// Ver el Tier 6 del ROADMAP y la decisión de eliminar «Descubrir».
 /// </summary>
 public class ObservabilityTests
 {
-    /// <summary>
-    /// El defecto de fondo de T4-11. La búsqueda federada está diseñada para que el
-    /// fallo de un proveedor no tumbe al resto, y hasta aquí bien; el problema era que
-    /// tampoco quedaba constancia. Con dos proveedores y uno caído, la respuesta es 200
-    /// con resultados parciales: idéntica a la de una búsqueda sana. Si eso no se
-    /// registra, no hay ninguna forma de enterarse.
-    /// </summary>
-    [Fact]
-    public async Task Search_LogsTheFailure_WhenOneProviderFailsAndAnotherAnswers()
-    {
-        var recorder = new RecordingLoggerProvider();
-
-        using var factory = new AppFactory(
-            configureAdditionalTestServices: services =>
-            {
-                services.AddSingleton<ILoggerProvider>(recorder);
-
-                services.RemoveAll<JikanSearchService>();
-                services.RemoveAll<IExternalCatalogProvider>();
-
-                // Uno responde...
-                services.AddSingleton<JikanSearchService>(_ => new JikanSearchService(
-                    new HttpClient(new DelegateHttpMessageHandler((_, _) => Task.FromResult(
-                        DelegateHttpMessageHandler.Json(
-                            """
-                            {
-                              "data": [
-                                {
-                                  "mal_id": 20,
-                                  "title": "Naruto",
-                                  "url": "https://jikan.test/naruto",
-                                  "status": "Currently Airing"
-                                }
-                              ]
-                            }
-                            """))))
-                    {
-                        BaseAddress = new Uri("https://api.jikan.moe/v4/"),
-                        Timeout = TimeSpan.FromSeconds(10),
-                    }));
-                services.AddSingleton<IExternalCatalogProvider>(sp => sp.GetRequiredService<JikanSearchService>());
-
-                // ...y el otro se cae.
-                services.AddSingleton<IExternalCatalogProvider>(
-                    new FailingProvider("mangadex", new HttpRequestException("catálogo inalcanzable")));
-            });
-
-        await factory.InitializeDatabaseAsync();
-        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
-
-        var response = await client.GetAsync("/api/discover/search?query=naruto&type=2&limit=5");
-
-        // Para quien busca no ha pasado nada: 200 y resultados del proveedor que sí contestó.
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var items = await response.Content.ReadFromJsonAsync<IReadOnlyCollection<SearchMediaItemResponse>>(MediaItemTestHelpers.JsonOpts);
-        Assert.Single(items!);
-
-        // Pero en el log sí consta, con el proveedor concreto y la excepción original.
-        var warning = Assert.Single(
-            recorder.Entries,
-            entry => entry.Level == LogLevel.Warning &&
-                     entry.Message.Contains("mangadex", StringComparison.OrdinalIgnoreCase));
-
-        Assert.Contains("incompletos", warning.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.IsType<HttpRequestException>(warning.Exception);
-    }
-
     /// <summary>
     /// La correlación, que es lo que T2-05 quiso montar y no llegó a funcionar: el
     /// identificador que se le da al usuario tiene que ser el mismo que queda escrito.
@@ -168,21 +104,4 @@ public class ObservabilityTests
                 "Host=127.0.0.1;Port=1;Database=no_existe;Username=nadie;Password=nada;" +
                 "Timeout=2;Command Timeout=2;Pooling=false"));
         });
-
-    private sealed class FailingProvider(string key, Exception failure) : IExternalCatalogProvider
-    {
-        public string Key => key;
-
-        public string DisplayName => key;
-
-        public MediaItemSourceType SourceType => MediaItemSourceType.MangaDex;
-
-        public IReadOnlyCollection<MediaSearchType> SupportedTypes => [MediaSearchType.All, MediaSearchType.Anime];
-
-        public bool Supports(MediaSearchType type) => true;
-
-        public Task<IReadOnlyCollection<SearchMediaItemResponse>> SearchAsync(
-            SearchMediaItemsRequest request,
-            CancellationToken cancellationToken) => throw failure;
-    }
 }

@@ -23,7 +23,29 @@ está. Si alguna vuelve a aparecer aquí, se remide antes de actuar.
 
 ---
 
-## 2026-09-06 (noche) — Re-auditoría con la aplicación en marcha
+## 2026-09-06 (noche) — Fuera «Descubrir»: la biblioteca se escribe a mano
+
+Decisión del propietario tras leer el informe de la re-auditoría: se elimina la búsqueda en
+catálogos externos y toda dependencia de terceros. **El relato completo está en
+[CONTEXT.md](CONTEXT.md)**, registro de sesión; el porqué, en [DECISIONS.md](DECISIONS.md), sección
+*Alcance del producto*; y lo que ve el usuario, en [CHANGELOG.md](CHANGELOG.md). No se repite aquí
+para que no puedan divergir.
+
+Lo que merece recordarse por encima del detalle:
+
+- **Se midió antes de decidir.** La tabla `MediaItems` tenía 0 filas, y por eso el borrado pudo
+  llegar hasta el modelo con su migración sin arriesgar nada. Con datos dentro, la decisión habría
+  sido otra.
+- **El borrado por prefijo habría roto tres pantallas.** Biblioteca, Catálogo y Categorías comparten
+  las clases CSS `search-*` y cinco claves que vivían bajo `descubrir.*`, herencia de que aquella
+  pantalla fue la primera en usar la tabla. Se cruzaron las clases definidas con las usadas en vez de
+  fiarse del nombre.
+- **Cuatro tareas del Tier 6 quedan anuladas, no resueltas.** No se arreglaron: desapareció el
+  código que las producía. Es una distinción que el roadmap conserva a propósito.
+
+---
+
+## 2026-09-06 (tarde) — Re-auditoría con la aplicación en marcha
 
 Primera revisión del proyecto hecha **con el producto levantado y conducido desde un navegador
 real**, no leyendo el código. Doce áreas de trece —SEO no aplica: es una SPA privada tras login—,

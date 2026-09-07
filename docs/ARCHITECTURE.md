@@ -10,16 +10,20 @@ juega: anime, manga, manhwa, series, películas, libros, cómics, videojuegos, p
 Cada elemento guarda su estado de seguimiento, el progreso (en episodios, capítulos, páginas,
 horas o pistas según el tipo), una puntuación personal, notas y las fechas de inicio y fin.
 
-Además del alta manual, permite buscar en catálogos externos —Jikan/MyAnimeList, AniList y
-MangaDex— y añadir el resultado con sus metadatos ya rellenos. El usuario organiza su colección
-con categorías y formatos que él mismo define, y puede exportar e importar toda la biblioteca en
-JSON o CSV, además de descargarse todos sus datos personales.
+**Todo elemento se da de alta a mano.** El usuario organiza su colección con categorías y
+formatos que él mismo define, y puede exportar e importar toda la biblioteca en JSON o CSV, además
+de descargarse todos sus datos personales.
+
+*Hasta el 2026-09-06 también se podía buscar en catálogos externos —Jikan/MyAnimeList, AniList y
+MangaDex— e importar el resultado con sus metadatos ya rellenos. Se eliminó por decisión del
+propietario para no depender de terceros; el porqué y lo que se retiró están en
+[DECISIONS.md](DECISIONS.md), sección «Alcance del producto».*
 
 ## Qué queda fuera, y por qué
 
-- **Sincronización con las listas de MyAnimeList o AniList.** Se usan como fuente de metadatos,
-  no como destino. Sincronizar en ambos sentidos exige el OAuth de cada catálogo, resolver
-  conflictos y seguir sus APIs: es otro producto.
+- **Cualquier catálogo externo.** Ni como fuente de metadatos ni como destino de sincronización.
+  Decisión del 2026-09-06: la biblioteca se escribe a mano y la aplicación no llama a ningún
+  tercero salvo Google y GitHub para el acceso, y el servidor de correo.
 - **Funcionalidad social.** Sin perfiles públicos, listas compartidas, seguidores ni comentarios.
   Cambiaría el modelo de datos, el de permisos y las obligaciones legales.
 - **Aplicación móvil nativa.** La interfaz web es adaptable y se usa desde el móvil.
@@ -57,15 +61,12 @@ Controllers/                  # Solo traducen HTTP <-> servicios. Sin lógica de
 │                             #     confirmación, borrado de cuenta y exportación personal
 ├── OAuthController.cs        #   init / callback / link-confirm de Google y GitHub
 ├── MediaItemsController.cs   #   CRUD, importación y exportación de biblioteca
-├── CategoriesController.cs · FormatsController.cs
-└── SearchController.cs       #   Búsqueda federada en catálogos externos
+└── CategoriesController.cs · FormatsController.cs
 Services/                     # Toda la lógica de negocio
 ├── MediaItemsService.cs      #   El más grande: consultas, CRUD, import/export JSON y CSV,
 │                             #     normalización y validación de dominio
 ├── AuthSessionService.cs     #   Único punto que emite una sesión (JWT + refresh)
 ├── TokenService.cs           #   Genera el JWT y el refresh; hashea el refresh con SHA-256
-├── ExternalCatalogSearchService.cs  # Abanico sobre los proveedores; el fallo de uno no tumba al resto
-├── JikanSearchService.cs · AniListSearchService.cs · MangaDexSearchService.cs
 ├── GoogleAuthService.cs · GitHubAuthService.cs
 ├── ExpiredDataCleaner.cs · ExpiredDataCleanupService.cs   # Purga de tokens y states caducados
 └── SmtpEmailService.cs       #   MailKit. Con `Smtp:Enabled=false` solo escribe en el log
@@ -91,10 +92,10 @@ TrackerMultimedia.Tests/      # 171 tests sobre PostgreSQL real
 ├── Auth/                     #   Registro, login, refresh, recuperación, OAuth, cuenta, exportación
 ├── Authorization/            #   Qué endpoints exigen token
 ├── Isolation/                #   Que un usuario no ve ni toca datos de otro. La red clave
-├── MediaItems/ · Categories/ · Formats/ · Search/
+├── MediaItems/ · Categories/ · Formats/
 ├── Operations/               #   Sondas de salud, especificación OpenAPI y observabilidad
 │                             #     (correlación y fallos parciales, comprobados sobre el log)
-└── Services/                 #   Jikan, AniList, MangaDex, Google, GitHub, correo y purga
+└── Services/                 #   Google, GitHub, correo y purga
 Dockerfile · render.yaml      # Despliegue, inactivo. Se conservan como receta para volver
 ```
 
@@ -116,8 +117,7 @@ src/
 ├── features/                 # Organización por dominio: api/ schemas/ views/ components/
 │   ├── auth/                 #   Contexto de sesión, vistas de acceso y perfil
 │   ├── media-items/          #   Biblioteca: la vista más grande de la aplicación
-│   ├── categories/ · catalog/#   Gestión de categorías y de formatos
-│   └── search/               #   Descubrimiento en catálogos externos
+│   └── categories/ · catalog/#   Gestión de categorías y de formatos
 ├── layouts/AppLayout.tsx     # Cabecera, navegación y los dos conmutadores: tema e idioma
 └── shared/
     ├── api/axios.ts          # Interceptores: adjunta el token y renueva la sesión ante un 401

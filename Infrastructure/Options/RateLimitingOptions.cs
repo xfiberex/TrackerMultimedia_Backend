@@ -24,8 +24,9 @@ public sealed class RateLimitingOptions
     /// <summary>Login, registro y renovación de sesión. El freno de fuerza bruta.</summary>
     public RateLimitPolicyOptions Auth { get; init; } = new() { PermitLimit = 10 };
 
-    /// <summary>Búsqueda en catálogos externos, que además cuesta llamadas a terceros.</summary>
-    public RateLimitPolicyOptions Search { get; init; } = new() { PermitLimit = 30 };
+    // Hubo una tercera política, `Search`, con 30 peticiones por minuto. Se retiró el
+    // 2026-09-06 al eliminarse la búsqueda en catálogos externos: protegía el único
+    // endpoint que llamaba a terceros y ya no existe ninguno.
 
     /// <summary>
     /// Resto de endpoints autenticados. Particiona por usuario, no por dirección, así que

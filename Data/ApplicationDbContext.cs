@@ -32,11 +32,6 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .OnDelete(DeleteBehavior.Cascade)
             .IsRequired();
 
-        modelBuilder.Entity<MediaItem>()
-            .Property(item => item.SourceType)
-            .HasDefaultValue(MediaItemSourceType.Manual)
-            .HasSentinel(MediaItemSourceType.Manual);
-
         // Relación MediaItem → ApplicationUser
         modelBuilder.Entity<MediaItem>()
             .HasOne(item => item.User)
@@ -85,15 +80,14 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasForeignKey(link => link.UserCategoryId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Índice único parcial: un mismo ID externo no puede repetirse para el mismo usuario, fuente y tipo de medio.
-        modelBuilder.Entity<MediaItem>()
-            .HasIndex(item => new { item.UserId, item.SourceType, item.ExternalId, item.ExternalMediaKind })
-            .IsUnique()
-            .HasFilter("\"ExternalId\" IS NOT NULL AND \"ExternalMediaKind\" IS NOT NULL");
-
-        // El índice anterior es PARCIAL, así que PostgreSQL no lo usa para el
-        // "WHERE UserId = @p" de las consultas de biblioteca. Este es el que las cubre,
-        // e incluye CreatedAtUtc porque es la ordenación por defecto del listado.
+        // Hubo aquí un índice único parcial sobre (UserId, SourceType, ExternalId,
+        // ExternalMediaKind) que impedía importar dos veces el mismo título de un
+        // catálogo. Cayó el 2026-09-06 con «Descubrir», junto a las cuatro columnas que
+        // lo formaban: sin procedencia externa no hay duplicado externo que evitar.
+        //
+        // Este es el que cubre el "WHERE UserId = @p" de las consultas de biblioteca, e
+        // incluye CreatedAtUtc porque es la ordenación por defecto del listado. Con el
+        // parcial fuera, pasa a ser el único índice de MediaItems (T1-07).
         modelBuilder.Entity<MediaItem>()
             .HasIndex(item => new { item.UserId, item.CreatedAtUtc });
 

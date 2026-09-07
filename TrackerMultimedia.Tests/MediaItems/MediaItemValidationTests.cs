@@ -52,146 +52,6 @@ public class MediaItemValidationTests(AppFactory factory) : IClassFixture<AppFac
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    /// <summary>
-    /// T2-18. La comprobación estaba escrita como `SourceType != Jikan`, así que
-    /// AniList y MangaDex pasaban sin identificador: el elemento se guardaba
-    /// incompleto y además se libraba del índice único que evita duplicados, porque
-    /// ese índice solo aplica cuando hay identificador.
-    /// </summary>
-    [Fact]
-    public async Task Create_ExternalSourceWithoutExternalId_Returns400ForEveryProvider()
-    {
-        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
-
-        MediaItemSourceType[] proveedores =
-        [
-            MediaItemSourceType.Jikan,
-            MediaItemSourceType.AniList,
-            MediaItemSourceType.MangaDex,
-        ];
-
-        foreach (var proveedor in proveedores)
-        {
-            var sinId = await client.PostAsJsonAsync("/api/media-items", new CreateMediaItemRequest
-            {
-                Title = $"{proveedor} sin id",
-                Type = MediaType.Anime,
-                Status = MediaTrackingStatus.Planned,
-                SourceType = proveedor,
-                ExternalMediaKind = ExternalMediaKind.Anime,
-            });
-            Assert.Equal(HttpStatusCode.BadRequest, sinId.StatusCode);
-
-            var sinTipo = await client.PostAsJsonAsync("/api/media-items", new CreateMediaItemRequest
-            {
-                Title = $"{proveedor} sin tipo de medio",
-                Type = MediaType.Anime,
-                Status = MediaTrackingStatus.Planned,
-                SourceType = proveedor,
-                ExternalId = 9100 + (int)proveedor,
-            });
-            Assert.Equal(HttpStatusCode.BadRequest, sinTipo.StatusCode);
-        }
-    }
-
-    [Fact]
-    public async Task Create_ManualSource_DoesNotRequireExternalId()
-    {
-        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
-
-        var response = await client.PostAsJsonAsync("/api/media-items", new CreateMediaItemRequest
-        {
-            Title = "Elemento manual",
-            Type = MediaType.Anime,
-            Status = MediaTrackingStatus.Planned,
-            SourceType = MediaItemSourceType.Manual,
-        });
-
-        response.EnsureSuccessStatusCode();
-    }
-
-    [Fact]
-    public async Task Create_JikanWithoutExternalId_Returns400()
-    {
-        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
-
-        var response = await client.PostAsJsonAsync("/api/media-items", new CreateMediaItemRequest
-        {
-            Title = "Jikan missing id",
-            Type = MediaType.Anime,
-            Status = MediaTrackingStatus.Planned,
-            SourceType = MediaItemSourceType.Jikan,
-            ExternalMediaKind = ExternalMediaKind.Anime,
-        });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task Create_JikanWithoutExternalMediaKind_Returns400()
-    {
-        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
-
-        var response = await client.PostAsJsonAsync("/api/media-items", new CreateMediaItemRequest
-        {
-            Title = "Jikan missing kind",
-            Type = MediaType.Anime,
-            Status = MediaTrackingStatus.Planned,
-            SourceType = MediaItemSourceType.Jikan,
-            ExternalId = 3001,
-        });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task Create_DuplicateExternalSourceForSameUser_Returns400()
-    {
-        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
-
-        await MediaItemTestHelpers.CreateMediaItemAsync(client, request =>
-        {
-            request.Title = "Original";
-            request.SourceType = MediaItemSourceType.Jikan;
-            request.ExternalId = 3002;
-            request.ExternalMediaKind = ExternalMediaKind.Anime;
-        });
-
-        var response = await client.PostAsJsonAsync("/api/media-items", new CreateMediaItemRequest
-        {
-            Title = "Duplicate",
-            Type = MediaType.Anime,
-            Status = MediaTrackingStatus.Completed,
-            SourceType = MediaItemSourceType.Jikan,
-            ExternalId = 3002,
-            ExternalMediaKind = ExternalMediaKind.Anime,
-        });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task Create_ManualSource_ClearsExternalFields()
-    {
-        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
-
-        var item = await MediaItemTestHelpers.CreateMediaItemAsync(client, request =>
-        {
-            request.Title = "Manual item";
-            request.SourceType = MediaItemSourceType.Manual;
-            request.ExternalId = 4001;
-            request.ExternalMediaKind = ExternalMediaKind.Anime;
-            request.ExternalStatusLabel = "Activo";
-            request.ExternalScore = 8.5;
-        });
-
-        Assert.Equal(MediaItemSourceType.Manual, item.SourceType);
-        Assert.Null(item.ExternalId);
-        Assert.Null(item.ExternalMediaKind);
-        Assert.Null(item.ExternalStatusLabel);
-        Assert.Null(item.ExternalScore);
-    }
-
     [Fact]
     public async Task Create_NewDomainPayloadWithoutLegacyType_PopulatesNeutralFields()
     {
@@ -205,7 +65,6 @@ public class MediaItemValidationTests(AppFactory factory) : IClassFixture<AppFac
             Description = "  Sci-fi movie  ",
             ContentKind = ContentKind.Movie,
             Status = MediaTrackingStatus.Completed,
-            SourceType = MediaItemSourceType.Manual,
             ProgressUnit = ProgressUnit.None,
             ProgressCurrent = 1,
             ProgressTotal = 1,
@@ -267,43 +126,6 @@ public class MediaItemValidationTests(AppFactory factory) : IClassFixture<AppFac
     }
 
     [Fact]
-    public async Task Update_ManualSource_ClearsExternalFields()
-    {
-        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
-        var created = await MediaItemTestHelpers.CreateMediaItemAsync(client, request =>
-        {
-            request.Title = "Jikan item";
-            request.SourceType = MediaItemSourceType.Jikan;
-            request.ExternalId = 4002;
-            request.ExternalMediaKind = ExternalMediaKind.Anime;
-            request.ExternalStatusLabel = "Activo";
-            request.ExternalScore = 7.5;
-        });
-
-        var response = await client.PutAsJsonAsync($"/api/media-items/{created.Id}", new UpdateMediaItemRequest
-        {
-            Title = "Manualized item",
-            Type = MediaType.Anime,
-            Status = MediaTrackingStatus.Completed,
-            SourceType = MediaItemSourceType.Manual,
-            ExternalId = 9999,
-            ExternalMediaKind = ExternalMediaKind.Anime,
-            ExternalStatusLabel = "Should clear",
-            ExternalScore = 9.9,
-        });
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var updated = await response.Content.ReadFromJsonAsync<MediaItemResponse>(MediaItemTestHelpers.JsonOpts);
-        Assert.NotNull(updated);
-        Assert.Equal(MediaItemSourceType.Manual, updated!.SourceType);
-        Assert.Null(updated.ExternalId);
-        Assert.Null(updated.ExternalMediaKind);
-        Assert.Null(updated.ExternalStatusLabel);
-        Assert.Null(updated.ExternalScore);
-    }
-
-    [Fact]
     public async Task Update_NewDomainPayload_RefreshesUpdatedAtUtc()
     {
         var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
@@ -323,7 +145,6 @@ public class MediaItemValidationTests(AppFactory factory) : IClassFixture<AppFac
             Description = "  Roguelike  ",
             ContentKind = ContentKind.Game,
             Status = MediaTrackingStatus.InProgress,
-            SourceType = MediaItemSourceType.Manual,
             ProgressUnit = ProgressUnit.Hours,
             ProgressCurrent = 14,
             ProgressTotal = 40,
@@ -377,61 +198,9 @@ public class MediaItemValidationTests(AppFactory factory) : IClassFixture<AppFac
             Type = MediaType.Manga,
             ContentKind = ContentKind.Movie,
             Status = MediaTrackingStatus.Planned,
-            SourceType = MediaItemSourceType.Manual,
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact]
-    public async Task Update_JikanWithoutExternalId_Returns400()
-    {
-        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
-        var created = await MediaItemTestHelpers.CreateMediaItemAsync(client);
-
-        var response = await client.PutAsJsonAsync($"/api/media-items/{created.Id}", new UpdateMediaItemRequest
-        {
-            Title = "Invalid update",
-            Type = MediaType.Anime,
-            Status = MediaTrackingStatus.Completed,
-            SourceType = MediaItemSourceType.Jikan,
-            ExternalMediaKind = ExternalMediaKind.Anime,
-        });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task Update_DuplicateExternalSourceForSameUser_Returns400()
-    {
-        var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
-
-        await MediaItemTestHelpers.CreateMediaItemAsync(client, request =>
-        {
-            request.Title = "Original";
-            request.SourceType = MediaItemSourceType.Jikan;
-            request.ExternalId = 7001;
-            request.ExternalMediaKind = ExternalMediaKind.Anime;
-        });
-
-        var second = await MediaItemTestHelpers.CreateMediaItemAsync(client, request =>
-        {
-            request.Title = "Second";
-            request.SourceType = MediaItemSourceType.Jikan;
-            request.ExternalId = 7002;
-            request.ExternalMediaKind = ExternalMediaKind.Anime;
-        });
-
-        var response = await client.PutAsJsonAsync($"/api/media-items/{second.Id}", new UpdateMediaItemRequest
-        {
-            Title = "Duplicated",
-            Type = MediaType.Anime,
-            Status = MediaTrackingStatus.Completed,
-            SourceType = MediaItemSourceType.Jikan,
-            ExternalId = 7001,
-            ExternalMediaKind = ExternalMediaKind.Anime,
-        });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
 }

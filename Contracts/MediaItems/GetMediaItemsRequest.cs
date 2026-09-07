@@ -14,9 +14,6 @@ public class GetMediaItemsRequest
     [EnumDataType(typeof(MediaTrackingStatus))]
     public MediaTrackingStatus? Status { get; set; }
 
-    [EnumDataType(typeof(MediaItemSourceType))]
-    public MediaItemSourceType? SourceType { get; set; }
-
     public List<Guid>? CategoryIds { get; set; }
 
     public DateOnly? CreatedFrom { get; set; }

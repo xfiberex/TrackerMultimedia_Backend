@@ -16,12 +16,12 @@
 | `dotnet ef migrations add <Nombre>` | Crear una migración tras cambiar el modelo | **Nunca con `--no-build`**: genera migraciones vacías |
 | `dotnet ef migrations list` | Ver qué migraciones existen y cuáles están aplicadas | La comprobación que destapó T0-06 |
 | `dotnet ef database drop --force` | **Borra la base local entera.** Solo para comprobar el esquema desde cero | El servicio arrancado |
-| `dotnet test TrackerMultimedia_Backend.slnx` | Suite del backend, 171 pruebas | **Necesita PostgreSQL en marcha** |
+| `dotnet test TrackerMultimedia_Backend.slnx` | Suite del backend, **150** pruebas (2026-09-06) | **Necesita PostgreSQL en marcha** |
 | `dotnet format whitespace --verify-no-changes` | Comprobar el estilo del `.editorconfig` | — |
 | `npm run dev` (en `Frontend/`) | Interfaz en `http://localhost:5173`, **solo en este equipo** | `.env` copiado de `.env.example` |
 | `npm run dev:lan` | Lo mismo, accesible desde el móvil u otro equipo de la red | — |
-| `npm run test` | Suite del frontend, 205 pruebas | — |
-| `npm run test:e2e` | Suite end-to-end, 15 pruebas con Playwright | **PostgreSQL y el backend en marcha**; ver abajo |
+| `npm run test` | Suite del frontend, **197** pruebas (2026-09-06) | — |
+| `npm run test:e2e` | Suite end-to-end, 15 pruebas con Playwright | **PostgreSQL y el backend en marcha, y el cupo de `auth` subido** — sin eso salen 12 fallos; ver T6-34 |
 | `npm run test:e2e:ui` | Lo mismo, en el modo interactivo de Playwright | Lo mismo |
 | `npm run lint` | ESLint. **`npm run build` no lo ejecuta** | — |
 | `npm run build` | Build de producción a `dist/`. Incluye `tsc -b` | — |
@@ -35,7 +35,7 @@ PostgreSQL 17 **instalado en la máquina**, no en contenedor. En Windows es el s
 `postgresql-x64-17`, y hay que tenerlo arrancado antes de levantar el backend.
 
 **El puerto depende del equipo, así que compruébalo en vez de suponerlo:** `netstat -an | grep 543`.
-El equipo original usaba el **5433**; el actual, el **5432** por defecto. Esta documentación decía
+**En este equipo es el 5433**, medido el 2026-09-06 con `netstat` y con la cadena de user-secrets. Esta documentación decía
 5433 sin matices hasta el 2026-09-04, y es el detalle que más veces se ha escrito mal en una cadena
 de conexión.
 
@@ -249,7 +249,7 @@ alrededor de un minuto.
 En la raíz del repositorio de backend:
 
 ```bash
-dotnet test TrackerMultimedia_Backend.slnx     # 182 pruebas. Debe decir "Con error: 0"
+dotnet test TrackerMultimedia_Backend.slnx     # 150 pruebas. Debe decir "Con error: 0"
 dotnet restore                                 # No debe emitir ningún NU1903
 ```
 
@@ -257,7 +257,7 @@ En `Frontend/`:
 
 ```bash
 npm run lint                                   # Debe salir sin ningún error
-npm run test -- --run                          # 205 pruebas
+npm run test -- --run                          # 197 pruebas
 npm run build                                  # Incluye tsc -b; falla si hay error de tipos
 ```
 

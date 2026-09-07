@@ -124,7 +124,6 @@ public class LibraryTransferTests(AppFactory factory) : IClassFixture<AppFactory
             request.Type = null;
             request.ContentKind = ContentKind.Game;
             request.Status = MediaTrackingStatus.InProgress;
-            request.SourceType = MediaItemSourceType.Manual;
             request.ProgressUnit = ProgressUnit.Hours;
             request.ProgressCurrent = 12;
             request.ProgressCount = 12;

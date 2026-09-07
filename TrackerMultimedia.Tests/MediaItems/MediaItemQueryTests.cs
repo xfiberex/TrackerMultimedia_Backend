@@ -9,7 +9,7 @@ namespace TrackerMultimedia.Tests.MediaItems;
 public class MediaItemQueryTests(AppFactory factory) : IClassFixture<AppFactory>
 {
     [Fact]
-    public async Task GetAll_CanFilterByTypeStatusSourceAndScore()
+    public async Task GetAll_CanFilterByTypeStatusAndScore()
     {
         var (client, _, _) = await MediaItemTestHelpers.CreateAuthenticatedClientAsync(factory);
 
@@ -18,9 +18,6 @@ public class MediaItemQueryTests(AppFactory factory) : IClassFixture<AppFactory>
             request.Title = "Matching";
             request.Type = MediaType.Manga;
             request.Status = MediaTrackingStatus.Completed;
-            request.SourceType = MediaItemSourceType.Jikan;
-            request.ExternalId = 2001;
-            request.ExternalMediaKind = ExternalMediaKind.Manga;
             request.PersonalScore = 8;
         });
 
@@ -29,9 +26,6 @@ public class MediaItemQueryTests(AppFactory factory) : IClassFixture<AppFactory>
             request.Title = "Wrong Score";
             request.Type = MediaType.Manga;
             request.Status = MediaTrackingStatus.Completed;
-            request.SourceType = MediaItemSourceType.Jikan;
-            request.ExternalId = 2002;
-            request.ExternalMediaKind = ExternalMediaKind.Manga;
             request.PersonalScore = 5;
         });
 
@@ -40,9 +34,6 @@ public class MediaItemQueryTests(AppFactory factory) : IClassFixture<AppFactory>
             request.Title = "Wrong Type";
             request.Type = MediaType.Anime;
             request.Status = MediaTrackingStatus.Completed;
-            request.SourceType = MediaItemSourceType.Jikan;
-            request.ExternalId = 2003;
-            request.ExternalMediaKind = ExternalMediaKind.Anime;
             request.PersonalScore = 8;
         });
 
@@ -51,15 +42,12 @@ public class MediaItemQueryTests(AppFactory factory) : IClassFixture<AppFactory>
             request.Title = "Wrong Status";
             request.Type = MediaType.Manga;
             request.Status = MediaTrackingStatus.Planned;
-            request.SourceType = MediaItemSourceType.Jikan;
-            request.ExternalId = 2004;
-            request.ExternalMediaKind = ExternalMediaKind.Manga;
             request.PersonalScore = 8;
         });
 
         var response = await MediaItemTestHelpers.GetMediaItemsAsync(
             client,
-            "?type=2&status=3&sourceType=2&minPersonalScore=7&maxPersonalScore=9");
+            "?type=2&status=3&minPersonalScore=7&maxPersonalScore=9");
 
         Assert.Equal(1, response.TotalCount);
         Assert.Single(response.Items);

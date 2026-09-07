@@ -26,21 +26,6 @@ public class CreateMediaItemRequest
     [EnumDataType(typeof(MediaTrackingStatus))]
     public MediaTrackingStatus Status { get; set; }
 
-    [EnumDataType(typeof(MediaItemSourceType))]
-    public MediaItemSourceType SourceType { get; set; } = MediaItemSourceType.Manual;
-
-    [Range(1, int.MaxValue)]
-    public int? ExternalId { get; set; }
-
-    [EnumDataType(typeof(ExternalMediaKind))]
-    public ExternalMediaKind? ExternalMediaKind { get; set; }
-
-    [StringLength(100)]
-    public string? ExternalStatusLabel { get; set; }
-
-    [Range(0, 10)]
-    public double? ExternalScore { get; set; }
-
     [HttpOrHttpsUrl]
     [StringLength(500)]
     public string? CoverImageUrl { get; set; }

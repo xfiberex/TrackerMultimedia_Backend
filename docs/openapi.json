@@ -4,6 +4,11 @@
     "title": "TrackerMultimedia | v1",
     "version": "1.0.0"
   },
+  "servers": [
+    {
+      "url": "http://localhost:5218/"
+    }
+  ],
   "paths": {
     "/": {
       "get": {
@@ -113,26 +118,6 @@
         "tags": [
           "Auth"
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RefreshRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RefreshRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/RefreshRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "description": "OK",
@@ -162,46 +147,6 @@
         "tags": [
           "Auth"
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/RefreshRequest"
-                  }
-                ]
-              }
-            },
-            "text/json": {
-              "schema": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/RefreshRequest"
-                  }
-                ]
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "oneOf": [
-                  {
-                    "type": "null"
-                  },
-                  {
-                    "$ref": "#/components/schemas/RefreshRequest"
-                  }
-                ]
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "OK"
@@ -877,13 +822,6 @@
             }
           },
           {
-            "name": "SourceType",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/MediaItemSourceType"
-            }
-          },
-          {
             "name": "CategoryIds",
             "in": "query",
             "schema": {
@@ -1408,204 +1346,6 @@
           }
         }
       }
-    },
-    "/api/discover/search": {
-      "get": {
-        "tags": [
-          "Search"
-        ],
-        "parameters": [
-          {
-            "name": "Query",
-            "in": "query",
-            "schema": {
-              "maxLength": 100,
-              "minLength": 2,
-              "type": "string"
-            }
-          },
-          {
-            "name": "Type",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/MediaSearchType"
-            }
-          },
-          {
-            "name": "Limit",
-            "in": "query",
-            "schema": {
-              "maximum": 12,
-              "minimum": 1,
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "Providers",
-            "in": "query",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SearchMediaItemResponse"
-                  }
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SearchMediaItemResponse"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SearchMediaItemResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/search": {
-      "get": {
-        "tags": [
-          "Search"
-        ],
-        "parameters": [
-          {
-            "name": "Query",
-            "in": "query",
-            "schema": {
-              "maxLength": 100,
-              "minLength": 2,
-              "type": "string"
-            }
-          },
-          {
-            "name": "Type",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/MediaSearchType"
-            }
-          },
-          {
-            "name": "Limit",
-            "in": "query",
-            "schema": {
-              "maximum": 12,
-              "minimum": 1,
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "Providers",
-            "in": "query",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SearchMediaItemResponse"
-                  }
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SearchMediaItemResponse"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SearchMediaItemResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/discover/providers": {
-      "get": {
-        "tags": [
-          "Search"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ExternalCatalogProviderResponse"
-                  }
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ExternalCatalogProviderResponse"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ExternalCatalogProviderResponse"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -1613,16 +1353,12 @@
       "AuthResponse": {
         "required": [
           "accessToken",
-          "refreshToken",
           "expiresIn",
           "user"
         ],
         "type": "object",
         "properties": {
           "accessToken": {
-            "type": "string"
-          },
-          "refreshToken": {
             "type": "string"
           },
           "expiresIn": {
@@ -1784,49 +1520,6 @@
           "status": {
             "$ref": "#/components/schemas/MediaTrackingStatus"
           },
-          "sourceType": {
-            "$ref": "#/components/schemas/MediaItemSourceType"
-          },
-          "externalId": {
-            "maximum": 2147483647,
-            "minimum": 1,
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "externalMediaKind": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ExternalMediaKind"
-              }
-            ]
-          },
-          "externalStatusLabel": {
-            "maxLength": 100,
-            "minLength": 0,
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "externalScore": {
-            "maximum": 10,
-            "minimum": 0,
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-            "type": [
-              "null",
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
           "coverImageUrl": {
             "maxLength": 500,
             "minLength": 0,
@@ -1979,35 +1672,6 @@
           }
         }
       },
-      "ExternalCatalogProviderResponse": {
-        "required": [
-          "key",
-          "displayName",
-          "sourceType",
-          "supportedTypes"
-        ],
-        "type": "object",
-        "properties": {
-          "key": {
-            "type": "string"
-          },
-          "displayName": {
-            "type": "string"
-          },
-          "sourceType": {
-            "$ref": "#/components/schemas/MediaItemSourceType"
-          },
-          "supportedTypes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/MediaSearchType"
-            }
-          }
-        }
-      },
-      "ExternalMediaKind": {
-        "type": "integer"
-      },
       "ForgotPasswordRequest": {
         "required": [
           "email"
@@ -2146,11 +1810,6 @@
           "description",
           "contentKind",
           "status",
-          "sourceType",
-          "externalId",
-          "externalMediaKind",
-          "externalStatusLabel",
-          "externalScore",
           "coverImageUrl",
           "referenceUrl",
           "releaseYear",
@@ -2205,43 +1864,6 @@
           },
           "status": {
             "$ref": "#/components/schemas/MediaTrackingStatus"
-          },
-          "sourceType": {
-            "$ref": "#/components/schemas/MediaItemSourceType"
-          },
-          "externalId": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "externalMediaKind": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ExternalMediaKind"
-              }
-            ]
-          },
-          "externalStatusLabel": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "externalScore": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-            "type": [
-              "null",
-              "number",
-              "string"
-            ],
-            "format": "double"
           },
           "coverImageUrl": {
             "type": [
@@ -2358,13 +1980,7 @@
           }
         }
       },
-      "MediaItemSourceType": {
-        "type": "integer"
-      },
       "MediaItemsSortField": {
-        "type": "integer"
-      },
-      "MediaSearchType": {
         "type": "integer"
       },
       "MediaTrackingStatus": {
@@ -2460,17 +2076,6 @@
       "ProgressUnit": {
         "type": "integer"
       },
-      "RefreshRequest": {
-        "required": [
-          "refreshToken"
-        ],
-        "type": "object",
-        "properties": {
-          "refreshToken": {
-            "type": "string"
-          }
-        }
-      },
       "RegisterRequest": {
         "required": [
           "email",
@@ -2520,86 +2125,6 @@
           },
           "newPassword": {
             "type": "string"
-          }
-        }
-      },
-      "SearchMediaItemResponse": {
-        "required": [
-          "externalId",
-          "title",
-          "alternativeTitle",
-          "suggestedType",
-          "sourceType",
-          "externalMediaKind",
-          "externalStatusLabel",
-          "externalScore",
-          "coverImageUrl",
-          "referenceUrl",
-          "releaseYear"
-        ],
-        "type": "object",
-        "properties": {
-          "externalId": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "title": {
-            "type": "string"
-          },
-          "alternativeTitle": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "suggestedType": {
-            "$ref": "#/components/schemas/MediaType"
-          },
-          "sourceType": {
-            "$ref": "#/components/schemas/MediaItemSourceType"
-          },
-          "externalMediaKind": {
-            "$ref": "#/components/schemas/ExternalMediaKind"
-          },
-          "externalStatusLabel": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "externalScore": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-            "type": [
-              "null",
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
-          "coverImageUrl": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "referenceUrl": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "releaseYear": {
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ],
-            "format": "int32"
           }
         }
       },
@@ -2690,49 +2215,6 @@
           },
           "status": {
             "$ref": "#/components/schemas/MediaTrackingStatus"
-          },
-          "sourceType": {
-            "$ref": "#/components/schemas/MediaItemSourceType"
-          },
-          "externalId": {
-            "maximum": 2147483647,
-            "minimum": 1,
-            "pattern": "^-?(?:0|[1-9]\\d*)$",
-            "type": [
-              "null",
-              "integer",
-              "string"
-            ],
-            "format": "int32"
-          },
-          "externalMediaKind": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ExternalMediaKind"
-              }
-            ]
-          },
-          "externalStatusLabel": {
-            "maxLength": 100,
-            "minLength": 0,
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "externalScore": {
-            "maximum": 10,
-            "minimum": 0,
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?$",
-            "type": [
-              "null",
-              "number",
-              "string"
-            ],
-            "format": "double"
           },
           "coverImageUrl": {
             "maxLength": 500,
@@ -2934,9 +2416,6 @@
     },
     {
       "name": "OAuth"
-    },
-    {
-      "name": "Search"
     }
   ]
 }

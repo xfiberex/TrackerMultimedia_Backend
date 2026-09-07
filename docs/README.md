@@ -20,7 +20,7 @@ Se movieron dentro el **2026-09-04**.
 | [ROADMAP.md](ROADMAP.md) | Qué falta por hacer |
 | [CHANGELOG.md](CHANGELOG.md) | Qué cambió en cada versión |
 | [HISTORY.md](HISTORY.md) | Registro de sesiones de trabajo, en orden cronológico |
-| `openapi.json` | Contrato de la API (30 rutas), regenerable con el comando del README del backend |
+| `openapi.json` | Contrato de la API (27 rutas), regenerable con el comando del README del backend |
 
 El **onboarding** —requisitos, secretos, arranque, despliegue— no está aquí a propósito: vive
 en el [`README.md`](../README.md) del backend y en el del frontend, cada uno con lo suyo.
@@ -34,23 +34,14 @@ en el [`README.md`](../README.md) del backend y en el del frontend, cada uno con
 - Las rutas son relativas a la raíz del repositorio de backend. Lo del otro repositorio se
   prefija con `Frontend/`.
 
-## Estado del proyecto — 2026-09-04
+## Estado del proyecto
 
-> ⚠️ **Esta tabla está desactualizada y es más antigua que el resto de la documentación.** Se
-> conserva tal cual porque forma parte del hallazgo T6-17: al 2026-09-06 las pruebas son **182** y
-> **205**, no 171 y 188; el roadmap va por **100 de 136** tareas, no 79 de 88; y los blueprints ya
-> no son «una receta para volver» —la base de Neon se eliminó el 2026-09-05—. El estado vigente,
-> con fecha, está en [CONTEXT.md](CONTEXT.md). Esta sección se corrige o se retira al cerrar T6-17.
+**Esta tabla se retiró el 2026-09-06.** Repetía cifras que ya viven —con su fecha— en
+[CONTEXT.md](CONTEXT.md), y en su última versión las tres estaban caducadas a la vez: decía 171 y
+188 pruebas cuando eran otras, «79 de 88 tareas» cuando el roadmap iba por otro sitio, y presentaba
+los blueprints de despliegue como «receta para volver» cuando la base de Neon llevaba un día
+eliminada.
 
-| | |
-|---|---|
-| **Alcance** | Uso **personal y local**. No hay servicio público ni usuarios ajenos al propietario. |
-| **Repositorios** | [xfiberex/TrackerMultimedia_Backend](https://github.com/xfiberex/TrackerMultimedia_Backend) y [xfiberex/TrackerMultimedia_Frontend](https://github.com/xfiberex/TrackerMultimedia_Frontend), independientes. La carpeta local que los contiene no es un repositorio. |
-| **Versión publicada** | Ninguna etiquetada. No hay tags ni releases en ninguno de los dos. |
-| **Stack backend** | .NET 10 (`net10.0`), ASP.NET Core, Identity, JWT Bearer, EF Core 10 + Npgsql 10, MailKit 4.16 |
-| **Stack frontend** | React 19.2, TypeScript ~6.0, Vite 8, React Router 7, TanStack Query 5, Axios, Zod 4, CSS propio |
-| **Base de datos** | PostgreSQL 17 **instalado en la máquina**, puerto **5433**. Servicio Windows `postgresql-x64-17`. |
-| **Despliegue** | **Ninguno.** Render, Neon y Netlify deshabilitados el 2026-08-27. Los blueprints se conservan como receta para volver. |
-| **Pruebas** | Backend **171/171** (xUnit + `WebApplicationFactory` sobre **PostgreSQL real**, base desechable por clase). Frontend **188/188** (Vitest + Testing Library). |
-| **CI** | **No la habrá** (decisión del 2026-08-27). La red de seguridad es la rutina local de [WORKFLOW.md](WORKFLOW.md). |
-| **Roadmap** | **79 de 88 tareas cerradas.** Cerrados los Tiers 0, 2 y 3; del Tier 1 solo queda T1-05. |
+**La causa no era descuido, era duplicación:** la misma cifra escrita en tres archivos se separa
+sola. El estado vigente está en un único sitio, [CONTEXT.md](CONTEXT.md), y desde aquí se enlaza en
+vez de copiarse. Es la mitad de T6-17 que se puede cerrar sin tocar código.

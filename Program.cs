@@ -159,11 +159,8 @@ static FixedWindowRateLimiterOptions VentanaFija(RateLimitPolicyOptions policy) 
 
 builder.Services.AddRateLimiter(options =>
 {
-    // Búsqueda externa, por IP. Además de proteger, ahorra llamadas a los catálogos.
-    options.AddPolicy("search", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => VentanaFija(rateLimiting.Search)));
+    // La política "search" se retiró el 2026-09-06 junto con la búsqueda en catálogos
+    // externos: protegía el único endpoint que llamaba a terceros, y ya no hay ninguno.
 
     // Endpoints de auth (login, register, refresh), por IP — freno de fuerza bruta.
     options.AddPolicy("auth", httpContext =>
@@ -194,7 +191,6 @@ builder.Services.AddControllers()
 builder.Services.AddScoped<MediaItemsService>();
 builder.Services.AddScoped<CategoriesService>();
 builder.Services.AddScoped<FormatsService>();
-builder.Services.AddScoped<ExternalCatalogSearchService>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<AuthSessionService>();
 builder.Services.Configure<RefreshCookieOptions>(builder.Configuration.GetSection(RefreshCookieOptions.SectionName));
@@ -298,29 +294,11 @@ builder.Services.AddHealthChecks()
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
-builder.Services.AddHttpClient<JikanSearchService>(client =>
-{
-    client.BaseAddress = new Uri("https://api.jikan.moe/v4/");
-    client.Timeout = TimeSpan.FromSeconds(10);
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("TrackerMultimedia/1.0");
-});
-builder.Services.AddTransient<IExternalCatalogProvider>(sp => sp.GetRequiredService<JikanSearchService>());
 
-builder.Services.AddHttpClient<AniListSearchService>(client =>
-{
-    client.BaseAddress = new Uri("https://graphql.anilist.co/");
-    client.Timeout = TimeSpan.FromSeconds(15);
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("TrackerMultimedia/1.0");
-});
-builder.Services.AddTransient<IExternalCatalogProvider>(sp => sp.GetRequiredService<AniListSearchService>());
-
-builder.Services.AddHttpClient<MangaDexSearchService>(client =>
-{
-    client.BaseAddress = new Uri("https://api.mangadex.org/");
-    client.Timeout = TimeSpan.FromSeconds(15);
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("TrackerMultimedia/1.0");
-});
-builder.Services.AddTransient<IExternalCatalogProvider>(sp => sp.GetRequiredService<MangaDexSearchService>());
+// Aquí se registraban los tres clientes de catálogo externo —Jikan, AniList y MangaDex—.
+// Se retiraron el 2026-09-06 con la pantalla «Descubrir»: la biblioteca se construye a
+// mano y la aplicación ya no depende de ningún tercero. Las únicas llamadas salientes que
+// quedan son las de OAuth y el envío de correo.
 
 var app = builder.Build();
 

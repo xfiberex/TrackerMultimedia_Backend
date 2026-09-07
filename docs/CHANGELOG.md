@@ -14,6 +14,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+### Eliminado
+
+- **Se ha quitado «Descubrir».** La aplicación ya no busca en Jikan, AniList ni MangaDex, y no depende de ningún servicio ajeno: **tu biblioteca la escribes tú**. Desaparecen la pantalla, su buscador, la importación asistida y el filtro por origen de la biblioteca, y con ellos la columna «Origen» de la tabla y la etiqueta de procedencia de cada ficha.
+
+  El motivo es doble. El día de la decisión **dos de los tres catálogos estaban caídos** —AniList llevaba tiempo devolviendo un error y avisando de que su API estaba «temporalmente deshabilitada»—, y nadie se había enterado. Y la comodidad de rellenar una ficha desde un buscador salía cara: ataba el producto a tres empresas que pueden apagar su servicio cuando quieran.
+
+  **Lo que no cambia:** la portada y el enlace de referencia siguen ahí y se escriben a mano, como el resto de la ficha. La exportación y la importación de tu biblioteca funcionan igual; los archivos que exportes a partir de ahora ya no llevan las cinco columnas de procedencia externa.
+
 ### Añadido
 
 - **La aplicación habla español e inglés.** El interruptor está en la cabecera, junto al del tema, y también en las pantallas de acceso: quien no lee español tiene que poder cambiar de idioma **antes** de entrar, no después. El cambio es inmediato, no recarga la página y no pierde lo que tengas a medio escribir. La elección se recuerda en el navegador; la primera vez se parte del idioma que ya tenga configurado. Las fechas siguen al idioma elegido, así que una pantalla en inglés no muestra «05 sept 2026» (T4-03).

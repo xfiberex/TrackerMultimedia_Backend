@@ -3,6 +3,44 @@
 > Por qué el proyecto es como es. Lo que **no** hay que reabrir está marcado como tal.
 > Las trampas técnicas que costaron un fallo están aparte, en [PITFALLS.md](PITFALLS.md).
 
+## Alcance del producto
+
+**La biblioteca se construye a mano. El proyecto no depende de ningún catálogo externo.**
+Decisión del propietario del **2026-09-06**: se elimina la pantalla «Descubrir» y con ella los tres
+proveedores —Jikan, AniList y MangaDex—, su búsqueda en abanico, la importación asistida y los cinco
+campos de procedencia externa del modelo. Todo elemento se crea escribiendo su ficha.
+
+**Qué se retiró exactamente.** En el backend: `SearchController`, los cuatro servicios de catálogo,
+`IExternalCatalogProvider`, los contratos de `Contracts/Search`, los enums `MediaItemSourceType`,
+`ExternalMediaKind` y `MediaSearchType`, los tres clientes HTTP salientes y la política de límite
+`search`. En el modelo: `SourceType`, `ExternalId`, `ExternalMediaKind`, `ExternalStatusLabel` y
+`ExternalScore`, más el índice único parcial que las agrupaba (migración
+`RemoveExternalCatalogFields`). En el frontend: la vista, su API, su esquema, la tarjeta de
+resultado, el alta rápida, el filtro por origen, la columna «Origen» de la tabla y unas cien líneas
+de CSS.
+
+**Qué se conserva a propósito.** `CoverImageUrl` y `ReferenceUrl` **no eran de los catálogos**: son
+dos direcciones que el usuario pega él mismo, y siguen en el modelo y en el editor. La exportación e
+importación de biblioteca tampoco se toca —es otra cosa, y sigue funcionando—, solo pierde las cinco
+columnas que ya no existen.
+
+**Por qué, y qué se pierde.** Se gana no depender de nadie: el día de la decisión, **dos de los tres
+catálogos estaban caídos** —AniList devolvía 403 con el mensaje «temporarily disabled due to severe
+stability issues» y Jikan 504—, y no había forma de enterarse sin mirar a mano. Se pierde la
+comodidad de rellenar una ficha desde un buscador, que era la función más vistosa del producto.
+**Es un cambio de alcance deliberado, no una regresión.**
+
+**Lo que la retirada dejó por escrito, y conviene no perder.** El abanico de proveedores degradaba
+bien —con los tres marcados devolvía resultados de MangaDex aunque los otros dos fallaran— y lo que
+lo anulaba era **un valor por defecto de la interfaz**, que traía solo AniList. La lección no es de
+los catálogos: un diseño tolerante a fallos se pierde si un valor por defecto lo estrecha. Lo mismo
+con esperar a *todos* los participantes de una operación en abanico cuando basta con los que
+contesten. Ver las cuatro tareas anuladas en [ROADMAP.md](ROADMAP.md).
+
+**No reabrir sin un hecho nuevo.** Volver a añadir un catálogo no es cambiar una pantalla: reabre
+los cinco campos del modelo con su migración, el índice de duplicados, las llamadas salientes con
+sus plazos y reintentos, y la atribución y los términos de uso de cada proveedor.
+
 ## Sesión y tokens
 
 **Access token en memoria, refresh token en cookie `HttpOnly`.** El access token vive en una
@@ -285,6 +323,7 @@ Revisado y decidido **no** hacerlo. No volver a proponerlo sin un hecho nuevo.
 
 | Decisión | Motivo |
 |---|---|
+| **No depender de catálogos externos: «Descubrir» eliminada** | Decidido por el propietario el **2026-09-06** y ejecutado el mismo día. Ver *Alcance del producto*, arriba. El día de la decisión dos de los tres proveedores estaban caídos y nadie se había enterado. **No reabrir sin asumir el coste completo:** cinco campos del modelo con migración, índice de duplicados, llamadas salientes con plazos y reintentos, y atribución y términos de uso de cada catálogo. |
 | **El proyecto no se despliega: uso local por LAN con `dev:lan`** | Decidido por el propietario el 2026-08-27 y **completado el 2026-09-05**: Render, Neon y Netlify deshabilitados, la base de Neon eliminada y lo desplegado revocado y borrado (T1-13). *La versión anterior de esta fila decía «credenciales revocadas» desde el 2026-08-27, y era falso hasta el 2026-09-05: ver la trampa de [PITFALLS.md](PITFALLS.md).* Los blueprints y el `Dockerfile` **se conservan** como receta para volver: borrarlos no ganaría nada. Lo que **no** hay que hacer es dar por resueltos los hallazgos de producción —T1-05 sigue en el código tal cual— ni por cerrado lo legal: T0-05 está en suspenso, no hecha, y sigue estándolo mientras las cuentas sean todas tuyas. |
 | **Servir por LAN no exige tocar cookies ni CORS** | Comprobado el 2026-09-05 al fijar `dev:lan` como forma de uso. La cookie del token de refresco no lleva `Secure` en desarrollo (`RefreshTokenCookie.cs:49`), así que sobrevive a `http://` sobre la red local; y el navegador del otro dispositivo solo habla con el origen de Vite, que reenvía `/api` al backend, de modo que no hay petición de origen cruzado y `Cors:AllowedOrigins` no se ejerce. **No relajar `Secure` ni ampliar el allowlist «para que funcione la LAN»**: ya funciona, y ambos cambios costarían protección real el día que haya despliegue. Lo que sí queda cojo por LAN es OAuth —los `RedirectUri` apuntan a `localhost`—, y para eso ya existe el interruptor que oculta los botones. |
 | **No unificar los dos repositorios en un monorepo** | Decidido el 2026-08-27 al resolver T0-03. La carpeta que los contiene en local **no** es un repositorio y no debe volver a comportarse como si lo fuera: nada que deba sobrevivir puede quedarse en su raíz. Es la razón por la que esta documentación se movió dentro del repositorio de backend el 2026-09-04. |

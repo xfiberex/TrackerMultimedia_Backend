@@ -11,10 +11,10 @@
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
 | 4 | Futuro / Opcional | 11 | 10 | T4-06 en suspenso |
 | 5 | Sistema de diseño | 13 | 13 | — |
-| 6 | Lo que solo se ve con la aplicación en marcha | 34 | 0 | **34** |
-| **Total** | | **136** | **100** | **34 + 2 en suspenso** |
+| 6 | Lo que solo se ve con la aplicación en marcha | 30 | 0 | **30** |
+| **Total** | | **132** | **100** | **30 + 2 en suspenso** |
 
-Las tres anuladas —T1-12, T2-16 y T2-25— quedan fuera del recuento: ver *En suspenso y anuladas*.
+Las siete anuladas —T1-12, T2-16, T2-25, T6-05, T6-16, T6-20 y T6-22— quedan fuera del recuento: ver *En suspenso y anuladas*.
 **Los totales de esta tabla estuvieron mal hasta el 2026-09-05**, y de dos maneras: el total decía 98
 cuando la suma de la columna da 96, y la sección de cerradas hablaba de 85 cuando eran 88. Corregido
 al cerrar T1-13; conviene volver a sumar la columna cada vez que se toque una fila.
@@ -25,18 +25,26 @@ sino esperando a que el proyecto cambie: ver su ficha para saber qué las reacti
 cerraron T4-03 —la interfaz en español e inglés—, T5-10, T2-29, T5-11, T5-12 y T5-13.
 
 **Por la tarde se abrió el Tier 6 con 34 tareas**, salidas de una re-auditoría hecha con la
-aplicación levantada y ejercida desde el navegador. Seis son de severidad **Alta** y se atienden
-antes que nada de los Tiers 2 y 3, aunque su número sea mayor: el Tier 6 es una tanda temática, no
-un escalón de prioridad.
+aplicación levantada y ejercida desde el navegador. **Por la noche quedaron en 30**: al eliminarse
+«Descubrir» (ver abajo), cuatro se anularon porque desapareció el código que las producía. Cinco de
+las treinta son de severidad **Alta** y se atienden antes que nada de los Tiers 2 y 3, aunque su
+número sea mayor: el Tier 6 es una tanda temática, no un escalón de prioridad.
 
-**Hay tres suites, y no las tres dicen lo mismo que decía esta línea.** Verificado el 2026-09-06:
-- **182/182** en el backend sobre PostgreSQL real, 0 omitidas. Correcto.
-- **205/205** en el frontend, 41 archivos. Correcto.
+**El 2026-09-06 por la noche se eliminó la pantalla «Descubrir»** y con ella toda dependencia de
+catálogos externos, por decisión del propietario. La biblioteca se construye a mano. Es un cambio de
+alcance del producto, no una tarea del roadmap; el porqué está en [DECISIONS.md](DECISIONS.md) y lo
+que se retiró, en [CHANGELOG.md](CHANGELOG.md).
+
+**Hay tres suites.** Verificadas el 2026-09-06 **después** de retirar «Descubrir», que se llevó
+32 pruebas del backend y 8 del frontend:
+- **150/150** en el backend sobre PostgreSQL real, 0 omitidas.
+- **197/197** en el frontend, 38 archivos.
 - **Las end-to-end no dan 15/15 siguiendo el procedimiento documentado.** Con el backend arrancado
   como dice [WORKFLOW.md](WORKFLOW.md) —`dotnet run`, sin más— salen **12 fallos y 3 aciertos**: el
   fixture registra e inicia sesión con una cuenta por prueba, es decir 30 peticiones de la política
-  `auth`, cuyo cupo por defecto es **10 por minuto**. La suite solo pasa con el cupo subido, y eso
-  no está escrito en ninguna parte ni lo comprueba `global-setup.ts`. Ver **T6-34**.
+  `auth`, cuyo cupo por defecto es **10 por minuto**. Con el cupo subido pasan **15/15**, y así se
+  verificaron también tras retirar «Descubrir». El requisito no está escrito en ninguna parte ni lo
+  comprueba `global-setup.ts`. Ver **T6-34**.
 
 Con `npm run lint`, `tsc -b` y `npm run build` limpios. `npm audit` da **0 vulnerabilidades** y
 `dotnet restore` no emite ningún `NU1903`, comprobado el 2026-09-06; es una afirmación que caduca,
@@ -105,12 +113,14 @@ prioridad de nada: cada tarea lleva su severidad en la ficha, y las cinco primer
 
 **Por qué existe este tier.** El proyecto lleva dos tandas seguidas —T5-09 a T5-13— descubriendo
 defectos por el único camino que los ve: alguien mirando la pantalla. Esta vez el instrumento ha
-sido el navegador conducido por herramientas, y el resultado confirma el patrón. De los 34 hallazgos,
-**14 eran imposibles de ver leyendo el código**: un error que se pinta 193 píxeles por encima del
-área visible, un botón deshabilitado idéntico al habilitado, 39 píxeles de desplazamiento lateral en
-un móvil, una API externa que devuelve 403 desde hace días. Las tres suites —**182/205 verificadas
-en verde el 2026-09-06**— no vieron ninguno, y no por estar mal escritas: **jsdom no maqueta, y
-ninguna prueba mira a un tercero real**.
+sido el navegador conducido por herramientas, y el resultado confirma el patrón. De los 34 hallazgos
+con que nació, **14 eran imposibles de ver leyendo el código**: un error que se pinta 193 píxeles por
+encima del área visible, un botón deshabilitado idéntico al habilitado, 39 píxeles de desplazamiento
+lateral en un móvil, una API externa que devolvía 403 desde hacía días. Las tres suites —en verde
+ese mismo día— no vieron ninguno, y no por estar mal escritas: **jsdom no maqueta, y ninguna prueba
+miraba a un tercero real**.
+
+*Cuatro de esos 34 se anularon esa misma noche al retirarse «Descubrir». Quedan 30.*
 
 **Lo que sí resistió el examen.** El contraste en oscuro cumple AA con holgura —5,71:1 el texto
 secundario, medido en el navegador—, el foco es visible en los trece puntos de tabulación, el
@@ -194,30 +204,6 @@ seis tiers anteriores aguanta; lo que sigue es lo que quedaba fuera de su alcanc
     a que salga.
   - **Criterio de aceptación:** con un servidor SMTP que no responde, `/register` contesta en menos
     de un segundo y el fallo del envío queda registrado. Prueba con un `IEmailService` que tarde.
-  - **Esfuerzo:** medio · **Depende de:** ninguna
-
-- [ ] **[T6-05] «Descubrir» no funciona: viene con AniList marcado y AniList está caída**
-  - **Área:** Funcional / Arquitectura · **Severidad:** Alto
-  - **Ubicación:** `src/features/search/views/DiscoverView.tsx` (proveedores por defecto);
-    `Services/ExternalCatalogSearchService.cs:83-92`
-  - **Problema medido el 2026-09-06,** tres intentos seguidos y desde dos User-Agent distintos:
-    - **AniList → 403.** El cuerpo lo dice sin rodeos: *«The AniList API has been temporarily
-      disabled due to severe stability issues.»*
-    - **Jikan → 504** las tres veces.
-    - **MangaDex → 200.**
-    La pantalla «Descubrir» trae **solo AniList** marcado, así que la primera búsqueda de cualquier
-    usuario termina en 502 y en «No se pudo consultar los catálogos externos».
-  - **Lo llamativo es que la arquitectura ya lo resuelve:** con los tres proveedores marcados, la
-    misma búsqueda devuelve **200 con resultados de MangaDex** —comprobado—. El abanico degrada bien;
-    lo que lo anula es el valor por defecto de la interfaz.
-  - **Qué hacer:** tres cosas separables. (a) Marcar **todos** los proveedores compatibles por
-    defecto, para que la caída de uno no sea la caída de la función. (b) Distinguir un 403
-    permanente de un fallo transitorio: `SearchController` los convierte a los dos en 502 con
-    «Inténtalo de nuevo más tarde», y en el caso de AniList eso es falso. (c) Cuando alguno responda,
-    decir **qué proveedores fallaron** en lugar de callarlo; el backend ya lo registra desde T4-11,
-    pero no lo cuenta al cliente.
-  - **Criterio de aceptación:** con AniList devolviendo 403, buscar «Frieren» desde la interfaz sin
-    tocar nada devuelve resultados y avisa de que un catálogo no está disponible.
   - **Esfuerzo:** medio · **Depende de:** ninguna
 
 - [ ] **[T6-06] `/api/auth/confirm-email` dice si un correo tiene cuenta**
@@ -375,20 +361,6 @@ seis tiers anteriores aguanta; lo que sigue es lo que quedaba fuera de su alcanc
     explícito. Una prueba que recorra el `IHttpClientFactory` lo fija.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
 
-- [ ] **[T6-16] Una búsqueda tarda lo que tarde el proveedor más lento**
-  - **Área:** Arquitectura (resiliencia) · **Severidad:** Medio
-  - **Ubicación:** `Services/ExternalCatalogSearchService.cs:63`
-  - **Problema:** `Task.WhenAll` espera a **todos**. Con MangaDex respondiendo en 700 ms y Jikan
-    agotando sus 10 s de plazo, la búsqueda entera tarda 10 s aunque los resultados útiles
-    estuvieran listos al principio. Hoy no es hipotético: dos de los tres catálogos fallan.
-  - **Qué hacer:** poner un presupuesto de tiempo a la tanda —un `CancellationTokenSource` con
-    `CancelAfter` de 3-4 s enlazado al de la petición— y devolver lo que haya llegado, indicando qué
-    proveedores no contestaron a tiempo. Los que no lleguen entran por el mismo camino que ya existe
-    para los que fallan.
-  - **Criterio de aceptación:** con un proveedor simulado que tarda 30 s y otro que responde al
-    instante, la búsqueda contesta en menos de 5 s con los resultados del rápido.
-  - **Esfuerzo:** medio · **Depende de:** T6-05
-
 - [ ] **[T6-17] Cinco cifras de la documentación no coinciden con la realidad**
   - **Área:** Documentación · **Severidad:** Medio
   - **Ubicación:** `docs/WORKFLOW.md` (tabla de comandos y sección «Base de datos»);
@@ -399,9 +371,7 @@ seis tiers anteriores aguanta; lo que sigue es lo que quedaba fuera de su alcanc
     |---|---|---|
     | `WORKFLOW.md`, comandos | «Suite del backend, **171** pruebas» | **182**, 0 omitidas |
     | `WORKFLOW.md`, base de datos | «el actual, el **5432** por defecto» | **5433** (`netstat` y la cadena de user-secrets) |
-    | `README.md`, estado | Backend **171/171**, frontend **188/188** | **182** y **205** |
-    | `README.md`, estado | «**79 de 88** tareas cerradas» | **100 de 136** |
-    | `README.md`, estado | Blueprints «como receta para volver» | Neon **eliminada** el 2026-09-05 |
+    | ~~`README.md`, estado~~ | ~~Tres cifras caducadas a la vez~~ | **Resuelto el 2026-09-06**: la tabla se retiró y ahora enlaza a CONTEXT.md |
 
   - **Por qué importa más de lo que parece:** el propio `WORKFLOW.md` avisa de que el puerto «es el
     detalle que más veces se ha escrito mal en una cadena de conexión». **La nota que existe para
@@ -412,6 +382,10 @@ seis tiers anteriores aguanta; lo que sigue es lo que quedaba fuera de su alcanc
   - **Qué hacer:** dejar cada cifra **en un solo sitio**. Las de estado viven ya en
     [CONTEXT.md](CONTEXT.md) con su fecha; los otros documentos deberían enlazar en vez de repetir.
     Retirar o corregir la tabla de estado de `docs/README.md`, que es la más antigua de las tres.
+  - **Hecho a medias el 2026-09-06:** corregidas las dos cifras de `WORKFLOW.md` y retirada la
+    tabla de estado de `docs/README.md`, que era la peor de las tres. **Queda la parte estructural:**
+    los recuentos de pruebas siguen escritos en `WORKFLOW.md` y en `CONTEXT.md` a la vez, así que
+    pueden volver a separarse.
   - **Criterio de aceptación:** ninguna cifra medida aparece en dos archivos a la vez, y las que
     quedan coinciden con lo que devuelven los comandos.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
@@ -452,18 +426,6 @@ seis tiers anteriores aguanta; lo que sigue es lo que quedaba fuera de su alcanc
     cuatro tareas anteriores estén cerradas.
   - **Esfuerzo:** medio · **Depende de:** T6-02, T6-03, T6-11, T6-14
 
-- [ ] **[T6-20] El nombre de las casillas de proveedor cambia con su estado**
-  - **Área:** Accesibilidad · **Severidad:** Bajo
-  - **Ubicación:** `src/features/search/views/DiscoverView.tsx` (casillas de proveedor)
-  - **Problema:** el árbol de accesibilidad muestra `checkbox "Desactivar AniList" checked` y
-    `checkbox "Activar Jikan"` sin marcar. El nombre accesible de un control debe ser **lo que
-    controla**, no la acción; el estado ya lo lleva `checked`. Un lector de pantalla dice
-    «Desactivar AniList, casilla, marcada», que se lee como una doble negación.
-  - **Qué hacer:** nombrarlas por el proveedor —«AniList», «Jikan», «MangaDex»— y dejar que el
-    estado lo comunique la casilla.
-  - **Criterio de aceptación:** el nombre accesible de cada casilla no cambia al marcarla.
-  - **Esfuerzo:** bajo · **Depende de:** ninguna
-
 - [ ] **[T6-21] La tipografía se descarga de Google en cada carga**
   - **Área:** Legal / Rendimiento · **Severidad:** Bajo · *Requiere revisión legal si se despliega*
   - **Ubicación:** `index.html:47-52`
@@ -476,19 +438,6 @@ seis tiers anteriores aguanta; lo que sigue es lo que quedaba fuera de su alcanc
   - **Qué hacer:** alojar Inter en `public/` como `woff2` y servirla desde el propio origen. Se
     ahorran dos conexiones y desaparece el tercero.
   - **Criterio de aceptación:** ninguna petición de la aplicación sale hacia un dominio de Google.
-  - **Esfuerzo:** bajo · **Depende de:** ninguna
-
-- [ ] **[T6-22] Los catálogos externos no están atribuidos**
-  - **Área:** Legal · **Severidad:** Bajo · *Requiere revisión legal si se despliega*
-  - **Ubicación:** `README.md` de los dos repositorios; pantalla «Descubrir»
-  - **Problema:** la aplicación consume Jikan (MyAnimeList), AniList y MangaDex. Sus condiciones de
-    uso incluyen requisitos de atribución y límites de frecuencia que el proyecto no recoge en
-    ninguna parte, ni en la interfaz ni en la documentación.
-  - **Qué hacer:** una línea de atribución en «Descubrir» y una sección en el README con el enlace a
-    las condiciones de cada uno. Comprobar de paso los límites de frecuencia: Jikan pide 3
-    peticiones por segundo y el proyecto no los controla.
-  - **Criterio de aceptación:** los tres proveedores aparecen atribuidos y sus condiciones,
-    enlazadas.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
 
 - [ ] **[T6-23] Dos restos sueltos en el árbol de archivos**
@@ -517,7 +466,7 @@ seis tiers anteriores aguanta; lo que sigue es lo que quedaba fuera de su alcanc
     métodos estáticos ya: la extracción es mecánica y las pruebas existentes deberían seguir en
     verde sin tocarlas.
   - **Criterio de aceptación:** ningún archivo del backend pasa de 600 líneas y la suite sigue en
-    182/182.
+    150/150.
   - **Esfuerzo:** medio · **Depende de:** ninguna
 
 - [ ] **[T6-25] El tema oscuro se sostiene sobre 67 excepciones por componente**
@@ -537,19 +486,16 @@ seis tiers anteriores aguanta; lo que sigue es lo que quedaba fuera de su alcanc
     de 20, y una prueba lo fija como techo para que no vuelva a crecer.
   - **Esfuerzo:** alto · **Depende de:** ninguna
 
-- [ ] **[T6-26] Dos textos que no dicen lo que pasa**
+- [ ] **[T6-26] Un texto de la interfaz habla en jerga de implementación**
   - **Área:** Redacción · **Severidad:** Bajo
-  - **Ubicación:** `src/features/auth/views/ProfileView.tsx` (panel «Sesiones»);
-    `src/features/search/views/DiscoverView.tsx` (estado de error)
-  - **Problema:** el perfil dice «Revoca todos los **refresh tokens**», jerga de implementación en
-    una interfaz que en todo lo demás está escrita en un castellano llano y muy cuidado. Y el error
-    de «Descubrir» dice «**Verifica tu conexión** o vuelve a intentarlo más tarde» cuando la conexión
-    del usuario está perfectamente y quien falla es AniList con un 403.
-  - **Qué hacer:** «Cierra la sesión en todos tus dispositivos» y un mensaje que distinga «no
-    hay conexión» de «el catálogo no responde» (enlaza con T6-05).
-  - **Criterio de aceptación:** ningún texto de la interfaz nombra un concepto interno, y el error de
-    búsqueda no atribuye al usuario un fallo ajeno.
-  - **Esfuerzo:** bajo · **Depende de:** T6-05
+  - **Ubicación:** `src/features/auth/views/ProfileView.tsx` (panel «Sesiones»)
+  - **Problema:** dice «Revoca todos los **refresh tokens**», jerga de implementación en una interfaz
+    que en todo lo demás está escrita en un castellano llano y muy cuidado.
+  - **Reducida el 2026-09-06.** Nació con dos textos; el segundo era el error de «Descubrir»
+    —«Verifica tu conexión» cuando quien fallaba era AniList— y se fue con la pantalla.
+  - **Qué hacer:** «Cierra la sesión en todos tus dispositivos».
+  - **Criterio de aceptación:** ningún texto de la interfaz nombra un concepto interno.
+  - **Esfuerzo:** bajo · **Depende de:** ninguna
 
 - [ ] **[T6-27] Dos mecanismos para no refrescar dos veces**
   - **Área:** Código · **Severidad:** Bajo
@@ -753,6 +699,28 @@ abriendo la pantalla— y ha salido con una prueba nueva que sí puede verlo la 
   medidores, y `dotnet-counters monitor -n TrackerMultimedia` los lee en vivo sin tocar el código.
   Es suficiente para mirar algo puntualmente; no lo es para vigilar sin estar delante.
 
+### T6-05, T6-16, T6-20 y T6-22 — ANULADAS por la retirada de «Descubrir»
+
+Anuladas el **2026-09-06**, el mismo día que se abrieron, al eliminarse la búsqueda en catálogos
+externos por decisión del propietario. **No se resolvieron: desapareció el código que las
+producía.** Los identificadores no se reutilizan.
+
+| ID | Era | Por qué ya no aplica |
+|---|---|---|
+| T6-05 | «Descubrir» venía con AniList marcado y AniList devolvía 403 | No hay pantalla, ni proveedores, ni valor por defecto que corregir |
+| T6-16 | El abanico de proveedores esperaba al más lento | No queda ninguna operación en abanico en el proyecto |
+| T6-20 | El nombre accesible de las casillas de proveedor cambiaba con su estado | Esas casillas eran las únicas de la aplicación |
+| T6-22 | Jikan, AniList y MangaDex no estaban atribuidos | Ya no se consume ninguno, así que no hay nada que atribuir |
+
+**Lo que sí conviene no perder de vista.** T6-16 describía un problema de diseño —esperar a *todos*
+cuando basta con los que contesten— que volvería con cualquier operación en abanico futura, y T6-05
+dejó la lección más cara de las cuatro: **la arquitectura degradaba correctamente y un valor por
+defecto de la interfaz lo anulaba**. Ninguna de las dos cosas es específica de los catálogos.
+
+De propina, el cambio dejó **vacía** la lista de excepciones de `form-controls.test.ts`: la única que
+tenía era la casilla de proveedor. Ya no hay ni un campo del frontend sin la clase del sistema de
+diseño.
+
 ### T1-12 — Montar integración continua · ANULADA
 
 Anulada el 2026-08-27 por decisión del propietario. **El riesgo no desaparece con la tarea:** lo
@@ -925,7 +893,8 @@ nada más.
 | 2026-09-04 | 8 | 12 | T1-13 se reabre: estaba cerrada en falso |
 | 2026-09-05 | 12 | 6 | Se abre y casi se cierra entero el Tier 5 |
 | 2026-09-06 (mañana) | 6 | 0 | T4-03, T5-10 a T5-13 y T2-29 |
-| 2026-09-06 (tarde) | 0 | **34** | **Re-auditoría con la aplicación en marcha. Se abre el Tier 6** |
+| 2026-09-06 (tarde) | 0 | 34 | **Re-auditoría con la aplicación en marcha. Se abre el Tier 6** |
+| 2026-09-06 (noche) | 0 | **30** | Se elimina «Descubrir»: 4 tareas anuladas, no resueltas. Suites: 150 · 197 · 15 |
 
 **Cómo se cierra una tarea.** Se marca `[x]` con la fecha absoluta **el día que se verifica su
 criterio de aceptación**, no el día que se escribe el código. Si el criterio exige el navegador o la

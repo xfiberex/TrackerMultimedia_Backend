@@ -400,14 +400,13 @@ TrackerMultimedia_Backend/
 │   ├── Categories/     # CRUD de categorías del usuario
 │   ├── Common/         # PagedResponse, ServiceResult
 │   ├── Formats/        # CRUD de formatos del usuario
-│   ├── MediaItems/     # CRUD de ítems multimedia
-│   └── Search/         # Búsqueda externa (Jikan, AniList, MangaDex)
-├── Controllers/        # Endpoints REST (Auth, OAuth, MediaItems, Categories, Formats, Search)
+│   └── MediaItems/     # CRUD de ítems multimedia
+├── Controllers/        # Endpoints REST (Auth, OAuth, MediaItems, Categories, Formats)
 ├── Data/               # ApplicationDbContext
 ├── docs/               # Documentación común a los dos repositorios (ver docs/README.md)
 ├── Domain/
 │   ├── Entities/       # ApplicationUser, MediaItem, UserCategory, UserFormat, OAuthState, RefreshToken
-│   ├── Enums/          # MediaType, ContentKind, MediaTrackingStatus, MediaItemSourceType...
+│   ├── Enums/          # MediaType, ContentKind, MediaTrackingStatus, ProgressUnit...
 │   └── Validation/     # HttpOrHttpsUrlAttribute — un atributo de validación, no constantes
 ├── Infrastructure/
 │   ├── Http/           # ClaimsPrincipalExtensions: lectura del claim `sub`
@@ -415,18 +414,14 @@ TrackerMultimedia_Backend/
 │   └── Options/        # SmtpOptions, OAuthOptions, CleanupOptions (bind de appsettings)
 ├── Migrations/         # Historial de migraciones EF Core
 ├── Services/           # Lógica de negocio
-│   ├── AniListSearchService.cs      # Proveedor de catálogo AniList
 │   ├── AuthSessionService.cs        # Única puerta de emisión de JWT + RefreshToken
 │   ├── CategoriesService.cs         # CRUD de categorías
 │   ├── EmailTemplates.cs            # HTML de correos
 │   ├── ExpiredDataCleaner.cs        # Purga de tokens y states caducados
 │   ├── ExpiredDataCleanupService.cs # Servicio en segundo plano que la ejecuta
-│   ├── ExternalCatalogSearchService.cs # Agrega los tres proveedores externos
 │   ├── FormatsService.cs            # CRUD de formatos y sembrado por defecto
 │   ├── GitHubAuthService.cs         # Flujo OAuth GitHub
 │   ├── GoogleAuthService.cs         # Flujo OAuth Google
-│   ├── JikanSearchService.cs        # Proveedor de catálogo Jikan (MyAnimeList)
-│   ├── MangaDexSearchService.cs     # Proveedor de catálogo MangaDex
 │   ├── MediaItemsService.cs         # CRUD de ítems, importación y exportación
 │   ├── SmtpEmailService.cs          # Implementación SMTP (MailKit)
 │   └── TokenService.cs              # Generación/validación de JWT
@@ -528,7 +523,8 @@ instalado globalmente, para que la versión sea la misma en cualquier equipo.
 —que suena bien— y 48,4 % de ramas. Y lo que de verdad enseñó no fue el porcentaje sino
 qué estaba a cero: `AniListSearchService` y `MangaDexSearchService` completos (374 líneas,
 dos de los tres proveedores de catálogo) y el actualizar/borrar de formatos. Nada de eso se
-veía leyendo el código.
+veía leyendo el código. *(Los dos servicios de catálogo se eliminaron el 2026-09-06 con
+«Descubrir»; la lección sobre ramas frente a líneas sigue valiendo igual.)*
 
 ---
 

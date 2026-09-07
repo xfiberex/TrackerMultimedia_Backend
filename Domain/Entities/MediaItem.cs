@@ -32,20 +32,13 @@ public class MediaItem
     [EnumDataType(typeof(MediaTrackingStatus))]
     public MediaTrackingStatus Status { get; set; }
 
-    [EnumDataType(typeof(MediaItemSourceType))]
-    public MediaItemSourceType SourceType { get; set; } = MediaItemSourceType.Manual;
-
-    [Range(1, int.MaxValue)]
-    public int? ExternalId { get; set; }
-
-    [EnumDataType(typeof(ExternalMediaKind))]
-    public ExternalMediaKind? ExternalMediaKind { get; set; }
-
-    [StringLength(100)]
-    public string? ExternalStatusLabel { get; set; }
-
-    [Range(0, 10)]
-    public double? ExternalScore { get; set; }
+    // Aquí vivían cinco campos de procedencia externa —SourceType, ExternalId,
+    // ExternalMediaKind, ExternalStatusLabel y ExternalScore— que solo rellenaba la
+    // importación desde catálogos. Se retiraron el 2026-09-06 con «Descubrir»: todo
+    // elemento se crea a mano, así que no había nada que pudiera escribirlos.
+    //
+    // CoverImageUrl y ReferenceUrl se quedan a propósito: no eran de los catálogos, son
+    // dos direcciones que el usuario pega él mismo.
 
     [HttpOrHttpsUrl]
     [StringLength(500)]

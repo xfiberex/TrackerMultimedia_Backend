@@ -13,9 +13,9 @@
 | **Versión publicada** | Ninguna. **No hay etiquetas de git en ninguno de los dos** (ver T6-18). `package.json` dice `1.0.0` desde el primer commit |
 | **Stack backend** | .NET 10 · ASP.NET Core · EF Core 10 + Npgsql · PostgreSQL 17 · Identity + JWT · MailKit |
 | **Stack frontend** | React 19.2 · TypeScript 6.0 · Vite 8 · React Router 7 · TanStack Query 5 · Zod 4 · i18next (es/en) |
-| **Tamaño** | ~7.000 líneas de C# (sin pruebas ni migraciones) · ~15.500 de TS/TSX · 3.111 de CSS en un solo archivo |
-| **Pruebas** | 182 backend · 205 frontend · 15 end-to-end. **Las tres verificadas el 2026-09-06**; las e2e con una condición no documentada, ver T6-34 |
-| **Estado** | En uso. 34 tareas abiertas, todas del Tier 6 (re-auditoría del 2026-09-06) |
+| **Tamaño** | ~5.900 líneas de C# (sin pruebas ni migraciones) · ~14.000 de TS/TSX · 2.986 de CSS en un solo archivo |
+| **Pruebas** | 150 backend · 197 frontend · 15 end-to-end. **Las tres verificadas el 2026-09-06** tras retirar «Descubrir»; las e2e con una condición no documentada, ver T6-34 |
+| **Estado** | En uso. 30 tareas abiertas, todas del Tier 6 (re-auditoría del 2026-09-06) |
 | **Despliegue** | **Ninguno.** Uso local servido por LAN con `npm run dev:lan`. Render, Neon y Netlify retirados el 2026-09-05 |
 | **Plan** | [ROADMAP.md](ROADMAP.md) · **Qué cambió** [CHANGELOG.md](CHANGELOG.md) · **Por qué** [DECISIONS.md](DECISIONS.md) |
 | **Trabajo diario** | [WORKFLOW.md](WORKFLOW.md) · **Trampas conocidas** [PITFALLS.md](PITFALLS.md) · **Historia** [HISTORY.md](HISTORY.md) |
@@ -26,9 +26,8 @@
 ## 1. Qué es
 
 Un gestor personal de biblioteca multimedia: anime, manga, manhwa, series, libros, videojuegos y
-demás. Se registran títulos —a mano o importándolos de catálogos externos—, se les sigue el
-progreso, se puntúan, se organizan por categorías y formatos propios, y se exporta o importa la
-biblioteca entera en JSON o CSV.
+demás. **Los títulos se registran a mano**, se les sigue el progreso, se puntúan, se organizan por
+categorías y formatos propios, y se exporta o importa la biblioteca entera en JSON o CSV.
 
 **Lo que deliberadamente no hace**, y conviene saberlo antes de proponerlo:
 
@@ -36,8 +35,10 @@ biblioteca entera en JSON o CSV.
   autorización real —está probado—, pero el escenario previsto es una persona y sus dispositivos.
   De ahí que T0-05 (política de privacidad) esté en suspenso y no anulada.
 - **No es social.** No hay listas públicas, ni seguir a nadie, ni comentarios.
-- **No sincroniza con MyAnimeList ni AniList como cuenta.** Los usa como catálogo de consulta, sin
-  autenticarse contra ellos.
+- **No habla con ningún catálogo externo.** Ni Jikan, ni AniList, ni MangaDex, ni como fuente de
+  metadatos ni como destino de sincronización. Hubo una pantalla «Descubrir» que sí lo hacía y se
+  eliminó el **2026-09-06**: ver *Decisiones* más abajo. Las únicas llamadas salientes que quedan
+  son Google y GitHub para el acceso, y el servidor de correo.
 - **No tiene panel de estadísticas.** Lo hubo y se eliminó a propósito (T2-08): no estaba conectado
   a ninguna pantalla.
 
@@ -48,7 +49,7 @@ Detalle completo en [ARCHITECTURE.md](ARCHITECTURE.md). Lo imprescindible:
 ```
 TrackerMultimedia_Backend/          API REST, .NET 10. Capas, no vertical slices.
 ├── Controllers/                    Solo HTTP: validan, delegan y traducen a códigos de estado.
-├── Services/                       Toda la lógica. MediaItemsService concentra 1.561 líneas (T6-24).
+├── Services/                       Toda la lógica. MediaItemsService concentra 1.424 líneas (T6-24).
 ├── Contracts/                      DTOs de entrada y salida. Nunca se exponen entidades.
 ├── Domain/Entities/                Modelo de EF Core.
 ├── Data/                           ApplicationDbContext: relaciones, índices y su porqué.
@@ -62,18 +63,20 @@ TrackerMultimedia_Backend/          API REST, .NET 10. Capas, no vertical slices
 TrackerMultimedia_Frontend/         SPA, React 19 + Vite. Organizado por funcionalidad.
 ├── src/features/<área>/            Cada una con api/, schemas/, views/, components/.
 │   ├── auth/                       Sesión, OAuth, perfil. Es la más grande.
-│   ├── media-items/                La biblioteca.
-│   ├── search/                     «Descubrir»: catálogos externos.
+│   ├── media-items/                La biblioteca. La vista más grande.
 │   └── categories/ catalog/        Taxonomía propia del usuario.
 ├── src/shared/                     api/ (axios e interceptores), components/, hooks/, i18n/, utils/.
-├── src/index.css                   **Todo el CSS, 3.111 líneas.** Tokens arriba, tema oscuro abajo.
+├── src/index.css                   **Todo el CSS, 2.986 líneas.** Tokens arriba, tema oscuro abajo.
 └── e2e/                            Playwright. Requisitos propios: ver WORKFLOW.md y T6-34.
 ```
 
 **Tres cosas que no se deducen mirando las carpetas:**
 
-1. **El frontend nunca habla con los catálogos externos.** Jikan, AniList y MangaDex los consulta el
-   backend. Por eso `connect-src` es `'self'` a secas en la CSP de `index.html`.
+1. **La aplicación no habla con ningún tercero desde el navegador**, y desde el 2026-09-06 tampoco
+   desde el servidor salvo OAuth y correo. Por eso `connect-src` es `'self'` a secas en la CSP de
+   `index.html`. Cuidado con una herencia del pasado: la tabla de la biblioteca usa clases CSS
+   `search-*` y el diccionario tiene un bloque `tabla.*` que antes se llamaba `descubrir.*`. Los
+   nombres vienen de la pantalla retirada, no de que quede búsqueda externa.
 2. **El token de acceso vive en memoria del módulo y el de refresco en una cookie `HttpOnly`.** No
    hay nada de sesión en `localStorage`. El razonamiento entero está en la cabecera de
    `src/shared/api/tokenStore.ts`, y merece leerse antes de tocar nada de autenticación.
@@ -85,9 +88,10 @@ TrackerMultimedia_Frontend/         SPA, React 19 + Vite. Organizado por funcion
 **Al 2026-09-06.** La aplicación funciona y se usa. Los Tiers 0 a 5 del roadmap están cerrados —102
 tareas— salvo dos suspendidas con condición escrita (T0-05 y T4-06) y tres anuladas.
 
-**Abierto ahora mismo: el Tier 6, con 34 tareas**, salidas de la re-auditoría de la tarde del
-2026-09-06, la primera hecha con la aplicación levantada y conducida desde un navegador real. Seis
-son de severidad Alta:
+**Abierto ahora mismo: el Tier 6, con 30 tareas**, salidas de la re-auditoría de la tarde del
+2026-09-06, la primera hecha con la aplicación levantada y conducida desde un navegador real. Nació
+con 34; cuatro se anularon esa misma noche al eliminarse «Descubrir», porque desapareció el código
+que las producía. Cinco son de severidad Alta:
 
 | ID | Qué | Por qué urge |
 |---|---|---|
@@ -95,11 +99,11 @@ son de severidad Alta:
 | T6-02 | El error de validación se pinta fuera de la pantalla | Guardar un registro falla en silencio |
 | T6-03 | 39 px de desplazamiento lateral a 360 px | La aplicación se sirve por LAN para usarla desde el móvil |
 | T6-04 | El correo bloquea la petición hasta 2 minutos | Registrarse se cuelga si el SMTP tarda |
-| T6-05 | «Descubrir» viene con AniList marcado y AniList está caída | Una de las tres pantallas no funciona |
 | T6-34 | Las e2e no pasan con el procedimiento documentado | Una cifra que no se reproduce no es una comprobación |
 
 **Lo que se acaba de cerrar** (mañana del 2026-09-06): T4-03 —español e inglés—, T5-10 a T5-13 y
-T2-29.
+T2-29. **Y por la noche se eliminó «Descubrir»**, que no era una tarea del roadmap sino un cambio de
+alcance del producto: ver la sección siguiente.
 
 **Lo que aguantó la re-auditoría**, y conviene no volver a tocar: el contraste en oscuro cumple AA
 con holgura (5,71:1 medido en el navegador), el foco es visible en los trece puntos de tabulación,
@@ -114,6 +118,14 @@ concreto, en [PITFALLS.md](PITFALLS.md).
 
 ### No reabrir
 
+- **La biblioteca se escribe a mano; ningún catálogo externo.** Decisión del propietario del
+  **2026-09-06**, ejecutada el mismo día: fuera la pantalla «Descubrir», los tres proveedores, la
+  búsqueda en abanico y los cinco campos de procedencia del modelo, con su migración. *Lo que
+  empujó la decisión:* ese día **dos de los tres catálogos estaban caídos** —AniList devolvía 403
+  con «temporarily disabled due to severe stability issues», Jikan 504— y nadie se había enterado.
+  El detalle completo está en [DECISIONS.md](DECISIONS.md), *Alcance del producto*. **Volver a
+  añadir un catálogo no es cambiar una pantalla:** reabre el modelo, su migración, el índice de
+  duplicados, las llamadas salientes con sus plazos, y la atribución de cada proveedor.
 - **Uso local por LAN, sin desplegar.** Decisión del propietario del 2026-08-27, completada el
   2026-09-05: Neon eliminada, y lo desplegado revocado y borrado. *No proponer volver a desplegar
   sin que lo pida.* Lo que dependía de haber un servicio público está **en suspenso, no resuelto**,
@@ -163,8 +175,8 @@ Tabla completa en [WORKFLOW.md](WORKFLOW.md). Lo que hay que saber sí o sí:
 | `Start-Service postgresql-x64-17` | Arrancar la base | PowerShell como administrador |
 | `dotnet run` | API en `http://localhost:5218` | PostgreSQL en marcha y los 8 secretos en user-secrets |
 | `npm run dev:lan` | Interfaz accesible desde el móvil | `.env` copiado de `.env.example` |
-| `dotnet test TrackerMultimedia_Backend.slnx` | 182 pruebas | PostgreSQL en marcha |
-| `npm run test` | 205 pruebas | — |
+| `dotnet test TrackerMultimedia_Backend.slnx` | 150 pruebas | PostgreSQL en marcha |
+| `npm run test` | 197 pruebas | — |
 | `npm run test:e2e` | 15 pruebas | PostgreSQL, backend en marcha **y el cupo de `auth` subido** — ver T6-34 |
 
 **El puerto de PostgreSQL depende del equipo: compruébalo, no lo supongas.** `netstat -an | grep 543`.
@@ -185,11 +197,52 @@ hacen falta.
   caída un tiempo indeterminado y nadie se enteró hasta que se miró a mano (T6-05).
 - **Textos legales** (T0-05): mientras las cuentas sean tuyas no hay datos de terceros que tratar.
 - **Aplicación móvil nativa.** La SPA servida por LAN cubre el caso.
+- **Los catálogos externos** (2026-09-06). No es que falten: se retiraron. Ver *Decisiones*.
 
 ## 7. Registro de sesiones
 
 El registro largo, sesión por sesión, está en [HISTORY.md](HISTORY.md). Aquí solo las entradas
 posteriores a la creación de este archivo.
+
+### 2026-09-06 (noche) — Fuera «Descubrir»
+
+**Qué se hizo.** Se eliminó por completo la búsqueda en catálogos externos, por decisión del
+propietario tomada al ver el informe de la re-auditoría. El alcance se acordó antes de tocar nada:
+borrado completo, incluidos los cinco campos de procedencia del modelo, porque la tabla `MediaItems`
+tenía **0 filas** y no había dato alguno en riesgo —se comprobó antes de decidir, no después—.
+
+Se retiró: en el backend, un controlador, cinco servicios, tres contratos, tres enums, tres clientes
+HTTP salientes, una política de límite y cuatro archivos de prueba; en el modelo, cinco columnas y un
+índice único parcial, con la migración `RemoveExternalCatalogFields`; en el frontend, ocho archivos
+de la funcionalidad, una ruta, una entrada de navegación, un filtro, una columna de tabla y **97
+líneas de CSS**. `openapi.json` baja de 30 rutas a 27.
+
+**Qué se conservó, y por qué.** `CoverImageUrl` y `ReferenceUrl` no venían de los catálogos: los
+escribe el usuario. La exportación e importación siguen intactas, solo sin las cinco columnas.
+
+**Dos trampas que había que ver antes de borrar, y que un borrado a ciegas se habría llevado por
+delante.** La primera: la tabla de la **biblioteca** reutiliza las clases CSS `search-*` y cinco
+claves de traducción que vivían bajo `descubrir.*` —también las usan Catálogo y Categorías—. Borrar
+por prefijo habría roto tres pantallas. Las clases se conservan; las claves se movieron a un bloque
+`tabla.*`, que es lo que de verdad son. La segunda: de las 52 reglas CSS con prefijo `search-`, 15
+seguían vivas. Se resolvió cruzando las clases definidas en el CSS con las que el marcado usa hoy,
+en vez de a ojo.
+
+**Cómo quedó.** Las tres suites en verde tras el cambio: **150 backend** (eran 182), **197 frontend**
+(eran 205) y **15 end-to-end**. Con `npm run lint`, `tsc -b`, `npm run build` y Prettier limpios. La
+aplicación se revisó además en el navegador con una cuenta de prueba, borrada al terminar: la
+navegación tiene dos entradas, la tabla mantiene sus ocho columnas alineadas y el estado vacío ya no
+manda a una pantalla que no existe.
+
+**Efecto en el roadmap:** cuatro tareas del Tier 6 —T6-05, T6-16, T6-20 y T6-22— quedan **anuladas,
+no resueltas**: desapareció el código que las producía. T6-26 se reduce a la mitad. De 34 a 30.
+
+**Lo que conviene no olvidar de todo esto.** El abanico de proveedores **degradaba bien** —con los
+tres marcados devolvía resultados aunque dos fallaran— y lo que lo anulaba era un valor por defecto
+de la interfaz. Un diseño tolerante a fallos se pierde si un valor por defecto lo estrecha, y eso no
+tiene nada que ver con catálogos.
+
+---
 
 ### 2026-09-06 (tarde) — Re-auditoría con la aplicación en marcha
 

@@ -36,11 +36,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         "Type",
         "ContentKind",
         "Status",
-        "SourceType",
-        "ExternalId",
-        "ExternalMediaKind",
-        "ExternalStatusLabel",
-        "ExternalScore",
         "CoverImageUrl",
         "ReferenceUrl",
         "ReleaseYear",
@@ -89,9 +84,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
 
         if (request.Status.HasValue)
             query = query.Where(item => item.Status == request.Status.Value);
-
-        if (request.SourceType.HasValue)
-            query = query.Where(item => item.SourceType == request.SourceType.Value);
 
         if (request.CategoryIds is { Count: > 0 })
         {
@@ -281,12 +273,11 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             .Where(item => item.UserId == userId)
             .ToListAsync(cancellationToken);
 
+        // Aqui habia un segundo indice por clave externa, para reconocer un elemento
+        // importado de un catalogo aunque cambiara de identificador. Con la procedencia
+        // externa fuera (2026-09-06), el identificador original es el unico criterio de
+        // reconciliacion que queda.
         var itemsById = existingItems.ToDictionary(item => item.Id);
-        var itemsByExternalKey = existingItems
-            .Where(item => item.SourceType != MediaItemSourceType.Manual && item.ExternalId.HasValue && item.ExternalMediaKind.HasValue)
-            .ToDictionary(
-                item => new ExternalItemKey(item.SourceType, item.ExternalId!.Value, item.ExternalMediaKind!.Value),
-                item => item);
 
         var itemsCreated = 0;
         var itemsUpdated = 0;
@@ -298,7 +289,7 @@ public class MediaItemsService(ApplicationDbContext dbContext)
                 return normalizedItemResult.ToFailure<LibraryImportResponse>();
 
             var importedItem = normalizedItemResult.Value!;
-            var existingItem = FindExistingImportedItem(importedItem, itemsById, itemsByExternalKey);
+            var existingItem = FindExistingImportedItem(importedItem, itemsById);
 
             if (existingItem is null)
             {
@@ -320,11 +311,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
 
             if (importedItem.OriginalItemId.HasValue && importedItem.OriginalItemId.Value != Guid.Empty)
                 itemsById[importedItem.OriginalItemId.Value] = existingItem;
-
-            if (existingItem.SourceType != MediaItemSourceType.Manual && existingItem.ExternalId.HasValue && existingItem.ExternalMediaKind.HasValue)
-            {
-                itemsByExternalKey[new ExternalItemKey(existingItem.SourceType, existingItem.ExternalId.Value, existingItem.ExternalMediaKind.Value)] = existingItem;
-            }
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -359,10 +345,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         if (lifecycleValidation is not null)
             return ServiceResult<MediaItemResponse>.Fail(lifecycleValidation.Value.Field, lifecycleValidation.Value.Message);
 
-        var externalValidation = ValidateExternalSource(request.SourceType, request.ExternalId, request.ExternalMediaKind);
-        if (externalValidation is not null)
-            return ServiceResult<MediaItemResponse>.Fail(externalValidation.Value.Field, externalValidation.Value.Message);
-
         var categoriesResult = await ResolveCategoriesAsync(request.CategoryIds, userId, cancellationToken);
         if (!categoriesResult.IsSuccess)
             return categoriesResult.ToFailure<MediaItemResponse>();
@@ -370,20 +352,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         var progressCurrent = ResolveProgressCurrent(request.ProgressCurrent, request.ProgressCount);
         var progressUnit = ResolveProgressUnit(request.ProgressUnit, request.Type, contentKindResult.Value);
         var createdAtUtc = DateTime.UtcNow;
-
-        if (request.SourceType != MediaItemSourceType.Manual && request.ExternalId.HasValue && request.ExternalMediaKind.HasValue)
-        {
-            var isDuplicate = await dbContext.MediaItems
-                .AnyAsync(item =>
-                    item.UserId == userId &&
-                    item.SourceType == request.SourceType &&
-                    item.ExternalId == request.ExternalId &&
-                    item.ExternalMediaKind == request.ExternalMediaKind, cancellationToken);
-            if (isDuplicate)
-                return ServiceResult<MediaItemResponse>.Fail(
-                    nameof(request.ExternalId),
-                    "Ya existe un elemento con este identificador externo en tu biblioteca.");
-        }
 
         var formatResult = await ResolveUserFormatIdAsync(request.UserFormatId, userId, cancellationToken);
         if (!formatResult.IsSuccess)
@@ -399,11 +367,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             Type = request.Type,
             ContentKind = contentKindResult.Value,
             Status = request.Status,
-            SourceType = request.SourceType,
-            ExternalId = request.SourceType != MediaItemSourceType.Manual ? request.ExternalId : null,
-            ExternalMediaKind = request.SourceType != MediaItemSourceType.Manual ? request.ExternalMediaKind : null,
-            ExternalStatusLabel = request.SourceType != MediaItemSourceType.Manual ? NormalizeOptionalText(request.ExternalStatusLabel) : null,
-            ExternalScore = request.SourceType != MediaItemSourceType.Manual ? request.ExternalScore : null,
             CoverImageUrl = NormalizeOptionalText(request.CoverImageUrl),
             ReferenceUrl = NormalizeOptionalText(request.ReferenceUrl),
             ReleaseYear = request.ReleaseYear,
@@ -448,10 +411,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         if (lifecycleValidation is not null)
             return ServiceResult<MediaItemResponse>.Fail(lifecycleValidation.Value.Field, lifecycleValidation.Value.Message);
 
-        var externalValidation = ValidateExternalSource(request.SourceType, request.ExternalId, request.ExternalMediaKind);
-        if (externalValidation is not null)
-            return ServiceResult<MediaItemResponse>.Fail(externalValidation.Value.Field, externalValidation.Value.Message);
-
         var categoriesResult = await ResolveCategoriesAsync(request.CategoryIds, userId, cancellationToken);
         if (!categoriesResult.IsSuccess)
             return categoriesResult.ToFailure<MediaItemResponse>();
@@ -466,23 +425,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         if (item is null)
             return ServiceResult<MediaItemResponse>.Fail("id", "No encontrado.");
 
-        if (request.SourceType != MediaItemSourceType.Manual && request.ExternalId.HasValue && request.ExternalMediaKind.HasValue)
-        {
-            var isDuplicate = await dbContext.MediaItems
-                .AnyAsync(mediaItem =>
-                    mediaItem.Id != id &&
-                    mediaItem.UserId == userId &&
-                    mediaItem.SourceType == request.SourceType &&
-                    mediaItem.ExternalId == request.ExternalId &&
-                    mediaItem.ExternalMediaKind == request.ExternalMediaKind,
-                    cancellationToken);
-
-            if (isDuplicate)
-                return ServiceResult<MediaItemResponse>.Fail(
-                    nameof(request.ExternalId),
-                    "Ya existe un elemento con este identificador externo en tu biblioteca.");
-        }
-
         var formatResult = await ResolveUserFormatIdAsync(request.UserFormatId, userId, cancellationToken);
         if (!formatResult.IsSuccess)
             return formatResult.ToFailure<MediaItemResponse>();
@@ -494,11 +436,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         item.Type = request.Type;
         item.ContentKind = contentKindResult.Value;
         item.Status = request.Status;
-        item.SourceType = request.SourceType;
-        item.ExternalId = request.SourceType != MediaItemSourceType.Manual ? request.ExternalId : null;
-        item.ExternalMediaKind = request.SourceType != MediaItemSourceType.Manual ? request.ExternalMediaKind : null;
-        item.ExternalStatusLabel = request.SourceType != MediaItemSourceType.Manual ? NormalizeOptionalText(request.ExternalStatusLabel) : null;
-        item.ExternalScore = request.SourceType != MediaItemSourceType.Manual ? request.ExternalScore : null;
         item.CoverImageUrl = NormalizeOptionalText(request.CoverImageUrl);
         item.ReferenceUrl = NormalizeOptionalText(request.ReferenceUrl);
         item.ReleaseYear = request.ReleaseYear;
@@ -565,11 +502,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             Type = item.Type,
             ContentKind = item.ContentKind,
             Status = item.Status,
-            SourceType = item.SourceType,
-            ExternalId = item.ExternalId,
-            ExternalMediaKind = item.ExternalMediaKind,
-            ExternalStatusLabel = item.ExternalStatusLabel,
-            ExternalScore = item.ExternalScore,
             CoverImageUrl = item.CoverImageUrl,
             ReferenceUrl = item.ReferenceUrl,
             ReleaseYear = item.ReleaseYear,
@@ -615,11 +547,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
                 item.Type?.ToString() ?? string.Empty,
                 item.ContentKind.ToString(),
                 item.Status.ToString(),
-                item.SourceType.ToString(),
-                FormatNullableInt(item.ExternalId),
-                item.ExternalMediaKind?.ToString() ?? string.Empty,
-                item.ExternalStatusLabel ?? string.Empty,
-                FormatNullableDouble(item.ExternalScore),
                 item.CoverImageUrl ?? string.Empty,
                 item.ReferenceUrl ?? string.Empty,
                 FormatNullableInt(item.ReleaseYear),
@@ -906,11 +833,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             Type = ParseEnum<MediaType>(GetValue("Type"), "Type", rowNumber),
             ContentKind = ParseRequiredEnum<ContentKind>(GetValue("ContentKind"), "ContentKind", rowNumber),
             Status = ParseRequiredEnum<MediaTrackingStatus>(GetValue("Status"), "Status", rowNumber),
-            SourceType = ParseRequiredEnum<MediaItemSourceType>(GetValue("SourceType"), "SourceType", rowNumber),
-            ExternalId = ParseInt(GetValue("ExternalId"), "ExternalId", rowNumber),
-            ExternalMediaKind = ParseEnum<ExternalMediaKind>(GetValue("ExternalMediaKind"), "ExternalMediaKind", rowNumber),
-            ExternalStatusLabel = NullIfWhiteSpace(GetValue("ExternalStatusLabel")),
-            ExternalScore = ParseDouble(GetValue("ExternalScore"), "ExternalScore", rowNumber),
             CoverImageUrl = NullIfWhiteSpace(GetValue("CoverImageUrl")),
             ReferenceUrl = NullIfWhiteSpace(GetValue("ReferenceUrl")),
             ReleaseYear = ParseInt(GetValue("ReleaseYear"), "ReleaseYear", rowNumber),
@@ -1079,10 +1001,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         if (lifecycleValidation is not null)
             return ServiceResult<ImportedLibraryItem>.Fail("file", lifecycleValidation.Value.Message);
 
-        var externalValidation = ValidateExternalSource(record.SourceType, record.ExternalId, record.ExternalMediaKind);
-        if (externalValidation is not null)
-            return ServiceResult<ImportedLibraryItem>.Fail("file", externalValidation.Value.Message);
-
         if (record.ProgressCount < 0 || record.ProgressCurrent < 0)
             return ServiceResult<ImportedLibraryItem>.Fail("file", "El progreso importado no puede ser negativo.");
 
@@ -1100,11 +1018,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
                 record.Type,
                 contentKindResult.Value,
                 record.Status,
-                record.SourceType,
-                record.SourceType != MediaItemSourceType.Manual ? record.ExternalId : null,
-                record.SourceType != MediaItemSourceType.Manual ? record.ExternalMediaKind : null,
-                record.SourceType != MediaItemSourceType.Manual ? NormalizeOptionalText(record.ExternalStatusLabel) : null,
-                record.SourceType != MediaItemSourceType.Manual ? record.ExternalScore : null,
                 NormalizeOptionalText(record.CoverImageUrl),
                 NormalizeOptionalText(record.ReferenceUrl),
                 record.ReleaseYear,
@@ -1128,22 +1041,19 @@ public class MediaItemsService(ApplicationDbContext dbContext)
                     ?? DateTime.UtcNow));
     }
 
+    /// <summary>
+    /// Reconcilia un elemento importado con uno que ya este en la biblioteca. Solo por
+    /// identificador original: el reconocimiento por clave externa se fue con la
+    /// procedencia de catalogo el 2026-09-06.
+    /// </summary>
     private static MediaItem? FindExistingImportedItem(
         ImportedLibraryItem importedItem,
-        IReadOnlyDictionary<Guid, MediaItem> itemsById,
-        IReadOnlyDictionary<ExternalItemKey, MediaItem> itemsByExternalKey)
+        IReadOnlyDictionary<Guid, MediaItem> itemsById)
     {
         if (importedItem.OriginalItemId.HasValue && importedItem.OriginalItemId.Value != Guid.Empty)
         {
             if (itemsById.TryGetValue(importedItem.OriginalItemId.Value, out var itemById))
                 return itemById;
-        }
-
-        if (importedItem.SourceType != MediaItemSourceType.Manual && importedItem.ExternalId.HasValue && importedItem.ExternalMediaKind.HasValue)
-        {
-            var externalKey = new ExternalItemKey(importedItem.SourceType, importedItem.ExternalId.Value, importedItem.ExternalMediaKind.Value);
-            if (itemsByExternalKey.TryGetValue(externalKey, out var itemByExternalKey))
-                return itemByExternalKey;
         }
 
         return null;
@@ -1166,11 +1076,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         target.Type = importedItem.Type;
         target.ContentKind = importedItem.ContentKind;
         target.Status = importedItem.Status;
-        target.SourceType = importedItem.SourceType;
-        target.ExternalId = importedItem.ExternalId;
-        target.ExternalMediaKind = importedItem.ExternalMediaKind;
-        target.ExternalStatusLabel = importedItem.ExternalStatusLabel;
-        target.ExternalScore = importedItem.ExternalScore;
         target.CoverImageUrl = importedItem.CoverImageUrl;
         target.ReferenceUrl = importedItem.ReferenceUrl;
         target.ReleaseYear = importedItem.ReleaseYear;
@@ -1362,31 +1267,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
             : null;
     }
 
-    private static (string Field, string Message)? ValidateExternalSource(
-        MediaItemSourceType sourceType,
-        int? externalId,
-        ExternalMediaKind? externalMediaKind)
-    {
-        // La comprobación va contra Manual, no contra Jikan. Cuando estaba escrita
-        // como `!= Jikan` cubría un único proveedor y AniList y MangaDex pasaban sin
-        // identificador: además de guardar el elemento incompleto, se libraban del
-        // índice único que evita duplicados, porque ese índice es parcial y solo
-        // aplica cuando hay identificador. Cualquier proveedor que se añada al enum
-        // queda cubierto desde el primer día sin tocar esta función.
-        if (sourceType == MediaItemSourceType.Manual)
-            return null;
-
-        if (!externalId.HasValue)
-            return (nameof(CreateMediaItemRequest.ExternalId),
-                $"Falta el identificador externo, obligatorio para los elementos de {sourceType}.");
-
-        if (!externalMediaKind.HasValue)
-            return (nameof(CreateMediaItemRequest.ExternalMediaKind),
-                $"Falta el tipo de medio externo, obligatorio para los elementos de {sourceType}.");
-
-        return null;
-    }
-
     private static IQueryable<MediaItem> ApplySorting(
         IQueryable<MediaItem> query,
         MediaItemsSortField sortBy,
@@ -1440,11 +1320,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         item.Description,
         item.ContentKind,
         item.Status,
-        item.SourceType,
-        item.ExternalId,
-        item.ExternalMediaKind,
-        item.ExternalStatusLabel,
-        item.ExternalScore,
         item.CoverImageUrl,
         item.ReferenceUrl,
         item.ReleaseYear,
@@ -1469,8 +1344,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         item.UserFormatId,
         item.UserFormat?.Name);
 
-    private readonly record struct ExternalItemKey(MediaItemSourceType SourceType, int ExternalId, ExternalMediaKind ExternalMediaKind);
-
     private readonly record struct ImportedLibraryCategory(
         string Name,
         string NormalizedName,
@@ -1485,11 +1358,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         MediaType? Type,
         ContentKind ContentKind,
         MediaTrackingStatus Status,
-        MediaItemSourceType SourceType,
-        int? ExternalId,
-        ExternalMediaKind? ExternalMediaKind,
-        string? ExternalStatusLabel,
-        double? ExternalScore,
         string? CoverImageUrl,
         string? ReferenceUrl,
         int? ReleaseYear,
@@ -1536,11 +1404,6 @@ public class MediaItemsService(ApplicationDbContext dbContext)
         public MediaType? Type { get; set; }
         public ContentKind ContentKind { get; set; }
         public MediaTrackingStatus Status { get; set; }
-        public MediaItemSourceType SourceType { get; set; }
-        public int? ExternalId { get; set; }
-        public ExternalMediaKind? ExternalMediaKind { get; set; }
-        public string? ExternalStatusLabel { get; set; }
-        public double? ExternalScore { get; set; }
         public string? CoverImageUrl { get; set; }
         public string? ReferenceUrl { get; set; }
         public int? ReleaseYear { get; set; }
