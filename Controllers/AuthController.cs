@@ -326,9 +326,28 @@ public class AuthController(
     // POST /api/auth/change-password  (requiere autenticación)
     // -------------------------------------------------------------------------
 
+    /// <summary>
+    /// Cambia la contraseña y, con ella, **cierra todas las sesiones abiertas** y abre una
+    /// nueva para quien hizo el cambio.
+    ///
+    /// <para>Hasta T6-01 devolvía 204 sin tocar <c>RefreshTokens</c>, y eso dejaba sin efecto
+    /// la única acción que toma quien sospecha que le han robado la sesión: el token robado
+    /// seguía rotando el resto de su vida. <c>ResetPassword</c> sí revocaba desde el
+    /// principio —el mismo riesgo con dos comportamientos distintos—; ahora los dos hacen lo
+    /// mismo. Identity actualiza el <c>SecurityStamp</c> al cambiar la contraseña, pero este
+    /// backend no lo valida en ninguna parte, así que confiar en él no cerraba nada.</para>
+    ///
+    /// <para>La respuesta pasó de 204 a 200 con el mismo cuerpo que el login, y no es un
+    /// adorno: revocar a secas echaría al usuario de su propio navegador justo después de un
+    /// cambio correcto, que es la mejor forma de conseguir que nadie cambie la contraseña.</para>
+    ///
+    /// <para>El access token anterior sobrevive hasta que caduca por su cuenta: es un JWT y
+    /// aquí no se valida contra la base de datos. Lo que se corta es la renovación, que es lo
+    /// que convierte un robo de minutos en uno de días.</para>
+    /// </summary>
     [HttpPost("change-password")]
     [Authorize]
-    public async Task<IActionResult> ChangePassword(
+    public async Task<ActionResult<AuthResponse>> ChangePassword(
         [FromBody] ChangePasswordRequest request,
         CancellationToken cancellationToken)
     {
@@ -346,8 +365,20 @@ public class AuthController(
             return ValidationProblem(ModelState);
         }
 
-        logger.LogInformation("Contraseña cambiada correctamente para usuario {UserId}", userId);
-        return NoContent();
+        // El orden importa: primero se revoca todo lo que había y solo después se emite la
+        // sesión nueva. Al revés, la revocación se llevaría por delante el token recién creado
+        // y el cambio de contraseña acabaría cerrando la sesión que pretende conservar.
+        var revoked = await dbContext.RefreshTokens
+            .Where(rt => rt.UserId == userId && !rt.IsRevoked)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(rt => rt.IsRevoked, true), cancellationToken);
+
+        logger.LogInformation(
+            "Contraseña cambiada para usuario {UserId}: {Count} sesiones revocadas, una nueva emitida",
+            userId, revoked);
+
+        var session = await sessionService.CreateSessionAsync(user, cancellationToken);
+        refreshCookie.Write(Response, session.RefreshToken, session.RefreshLifetime);
+        return Ok(session.Response);
     }
 
     // -------------------------------------------------------------------------

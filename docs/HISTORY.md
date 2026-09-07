@@ -23,6 +23,29 @@ está. Si alguna vuelve a aparecer aquí, se remide antes de actuar.
 
 ---
 
+## 2026-09-07 — Se abre el Tier 6 por T6-01
+
+Primera tarea del Tier 6, y la de más riesgo de las cinco de severidad Alta: cambiar la contraseña no
+cerraba ninguna sesión. **El relato completo está en [CONTEXT.md](CONTEXT.md)**, registro de sesión;
+el porqué del cambio de contrato, en [DECISIONS.md](DECISIONS.md), sección *Sesión y tokens*; y lo
+que ve el usuario, en [CHANGELOG.md](CHANGELOG.md). No se repite aquí para que no puedan divergir.
+
+Lo que merece recordarse por encima del detalle:
+
+- **Revocar sin devolver una sesión nueva habría sido peor que no arreglarlo.** El usuario acabaría
+  en la pantalla de acceso justo después de cambiar bien su contraseña, y aprendería a no cambiarla.
+  De ahí que el endpoint pase de 204 a 200: una medida de seguridad que castiga a quien la usa no se
+  aplica, se evita.
+- **Cada prueba se falsificó por su cuenta, y por motivos distintos.** Quitar la revocación tumba
+  una; invertir el orden —emitir antes de revocar— tumba la otra. Dos pruebas que fallan por lo mismo
+  son una prueba con copia.
+- **La comprobación final tuvo que ser un navegador de verdad.** Que una cookie `HttpOnly` con
+  `Path=/api/auth` aterrice y sirva no lo puede afirmar ni jsdom ni `WebApplicationFactory`. Se usaron
+  dos contextos aislados de Chrome, con línea base **antes** del cambio: sin ella, un 401 posterior no
+  prueba nada, porque podría llevar fallando desde el principio.
+
+---
+
 ## 2026-09-06 (noche) — Fuera «Descubrir»: la biblioteca se escribe a mano
 
 Decisión del propietario tras leer el informe de la re-auditoría: se elimina la búsqueda en

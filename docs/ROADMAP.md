@@ -11,8 +11,8 @@
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
 | 4 | Futuro / Opcional | 11 | 10 | T4-06 en suspenso |
 | 5 | Sistema de diseño | 13 | 13 | — |
-| 6 | Lo que solo se ve con la aplicación en marcha | 30 | 0 | **30** |
-| **Total** | | **132** | **100** | **30 + 2 en suspenso** |
+| 6 | Lo que solo se ve con la aplicación en marcha | 30 | 1 | **29** |
+| **Total** | | **132** | **101** | **29 + 2 en suspenso** |
 
 Las siete anuladas —T1-12, T2-16, T2-25, T6-05, T6-16, T6-20 y T6-22— quedan fuera del recuento: ver *En suspenso y anuladas*.
 **Los totales de esta tabla estuvieron mal hasta el 2026-09-05**, y de dos maneras: el total decía 98
@@ -108,8 +108,9 @@ sino de una re-auditoría con **la aplicación levantada y ejercida desde el nav
 creada por el flujo de registro real.
 
 **Los Tiers 0 a 4 eran de severidad; a partir del 5 son tandas temáticas.** Eso no rebaja la
-prioridad de nada: cada tarea lleva su severidad en la ficha, y las cinco primeras son de severidad
-**Alta**. Se atienden antes que cualquier cosa de los Tiers 2 y 3, aunque su número sea mayor.
+prioridad de nada: cada tarea lleva su severidad en la ficha, y **cuatro de las que quedan son de
+severidad Alta** —eran cinco hasta cerrarse T6-01—. Se atienden antes que cualquier cosa de los
+Tiers 2 y 3, aunque su número sea mayor.
 
 **Por qué existe este tier.** El proyecto lleva dos tandas seguidas —T5-09 a T5-13— descubriendo
 defectos por el único camino que los ve: alguien mirando la pantalla. Esta vez el instrumento ha
@@ -120,7 +121,8 @@ lateral en un móvil, una API externa que devolvía 403 desde hacía días. Las 
 ese mismo día— no vieron ninguno, y no por estar mal escritas: **jsdom no maqueta, y ninguna prueba
 miraba a un tercero real**.
 
-*Cuatro de esos 34 se anularon esa misma noche al retirarse «Descubrir». Quedan 30.*
+*Cuatro de esos 34 se anularon esa misma noche al retirarse «Descubrir», y T6-01 se cerró el
+2026-09-07. Quedan 29.*
 
 **Lo que sí resistió el examen.** El contraste en oscuro cumple AA con holgura —5,71:1 el texto
 secundario, medido en el navegador—, el foco es visible en los trece puntos de tabulación, el
@@ -130,24 +132,6 @@ buscarla, y el abanico de proveedores degrada correctamente cuando alguno falla.
 seis tiers anteriores aguanta; lo que sigue es lo que quedaba fuera de su alcance.
 
 ---
-
-- [ ] **[T6-01] Cambiar la contraseña no cierra ninguna sesión**
-  - **Área:** Seguridad · **Severidad:** Alto
-  - **Ubicación:** `Controllers/AuthController.cs:329-351`
-  - **Problema:** `ChangePassword` devuelve 204 y no toca `RefreshTokens`. `ResetPassword` sí los
-    revoca todos (`AuthController.cs:566-568`): el mismo riesgo, dos comportamientos distintos.
-    Identity actualiza el `SecurityStamp`, pero este backend no lo valida en ninguna parte, así que
-    no tiene efecto.
-  - **Verificado en vivo el 2026-09-06:** login → cookie guardada → `POST /auth/change-password`
-    (204) → `POST /auth/refresh` **con la cookie anterior al cambio** → **200 y token nuevo**.
-  - **Impacto:** cambiar la contraseña es justo lo que hace quien sospecha que le han robado la
-    sesión, y es la única acción que no le sirve de nada: el token robado sigue rotando siete días.
-  - **Qué hacer:** revocar los tokens del usuario al final de `ChangePassword`, con el mismo
-    `ExecuteUpdateAsync` que ya usa `ResetPassword`, y emitir una sesión nueva para quien hizo el
-    cambio para no echarlo de su propio navegador.
-  - **Criterio de aceptación:** una prueba de integración que repita el experimento de arriba y
-    exija **401** en el refresco posterior al cambio. Debe falsificarse quitando la revocación.
-  - **Esfuerzo:** bajo · **Depende de:** ninguna
 
 - [ ] **[T6-02] El error de validación del servidor se pinta fuera de la pantalla**
   - **Área:** UI/UX · **Severidad:** Alto
@@ -741,7 +725,7 @@ El hallazgo de la auditoría era erróneo.
 
 ## Cerradas
 
-Resumen de las 96 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
+Resumen de las 101 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
 [HISTORY.md](HISTORY.md), por sesión; el efecto visible, en [CHANGELOG.md](CHANGELOG.md).
 
 **La fila de T1-13 conserva el rastro de haberse cerrado mal.** Ahora sí está cerrada, pero la fila
@@ -860,6 +844,14 @@ que hay que recordar.
 | T4-10 | La sonda de salud no comprobaba nada | 2026-09-04 · Separada de T4-06. Dos sondas: `/health` de vida, `/health/ready` con base de datos |
 | T4-11 | Correlación de peticiones y registro estructurado | 2026-09-04 · Separada de T4-06. Un solo identificador entre respuesta y log —antes eran dos distintos—, salida JSON fuera de desarrollo y los fallos parciales de búsqueda dejan de ser silenciosos |
 
+### Tier 6 — Lo que solo se ve con la aplicación en marcha
+
+| ID | Tarea | Cierre |
+|---|---|---|
+| T6-01 | Cambiar la contraseña no cerraba ninguna sesión | 2026-09-07 · `ChangePassword` devolvía 204 sin tocar `RefreshTokens`, así que la acción que toma quien sospecha que le han robado la sesión era justo la que no servía de nada: el token robado seguía rotando siete días. `ResetPassword` ya revocaba desde el principio —mismo riesgo, dos comportamientos—. Ahora revoca **todas** las sesiones y emite una nueva para quien hizo el cambio, y por eso **la respuesta pasa de 204 a 200 con el cuerpo del login**: revocar a secas echaría al usuario de su propio navegador, que es la mejor forma de conseguir que nadie cambie la contraseña. **El orden importa y el comentario lo dice**: revocar después de emitir mata el token recién creado. Dos pruebas de integración, y **las dos se falsificaron por separado**: quitar la revocación tumba una, invertir el orden tumba la otra. Comprobado además en dos contextos de navegador aislados —el que cambia la contraseña sigue renovando (200), el otro deja de hacerlo (401), con la línea base tomada antes del cambio—. El access token anterior sobrevive hasta caducar: es un JWT y aquí no se valida contra la base; lo que se corta es la renovación |
+
+---
+
 ### Tier 5 — Sistema de diseño
 
 | ID | Tarea | Cierre |
@@ -895,6 +887,7 @@ nada más.
 | 2026-09-06 (mañana) | 6 | 0 | T4-03, T5-10 a T5-13 y T2-29 |
 | 2026-09-06 (tarde) | 0 | 34 | **Re-auditoría con la aplicación en marcha. Se abre el Tier 6** |
 | 2026-09-06 (noche) | 0 | **30** | Se elimina «Descubrir»: 4 tareas anuladas, no resueltas. Suites: 150 · 197 · 15 |
+| 2026-09-07 | 1 | **29** | T6-01. Suites: 152 · 198 · 15 |
 
 **Cómo se cierra una tarea.** Se marca `[x]` con la fecha absoluta **el día que se verifica su
 criterio de aceptación**, no el día que se escribe el código. Si el criterio exige el navegador o la

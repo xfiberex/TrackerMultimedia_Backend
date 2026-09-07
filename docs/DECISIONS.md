@@ -54,6 +54,22 @@ sobreviviera a las recargas, con la cookie ya registrada como alternativa correc
 cerró es que las mitigaciones que había —hash en servidor, rotación y revocación de familia— son
 de **detección**, no de prevención: reducen la ventana de un robo, no lo impiden.
 
+**Cambiar la contraseña revoca todas las sesiones, y por eso devuelve 200 y no 204** (2026-09-07,
+T6-01). Lo primero no se discute: `ResetPassword` ya lo hacía, y tener dos caminos hacia el mismo
+riesgo con comportamientos distintos era el defecto. Lo que sí fue una decisión es la segunda mitad,
+porque cambia el contrato de la API: el endpoint emite una sesión nueva para quien hizo el cambio y
+la devuelve en el cuerpo, con la misma forma que el login.
+
+*La alternativa era revocar y devolver 204 seco.* Se descartó porque el usuario se vería en la
+pantalla de acceso al minuto de haber cambiado bien su contraseña, y la lección que sacaría es no
+volver a cambiarla. Una medida de seguridad que castiga a quien la usa no se aplica, se evita.
+
+*Lo que esta decisión no arregla:* el access token anterior sigue siendo válido hasta que caduca
+solo. Es un JWT y este backend no lo valida contra la base de datos en ninguna parte —lo mismo que
+hace inútil el `SecurityStamp` que Identity sí actualiza—. Lo que se corta es la **renovación**, que
+es lo que convierte un robo de minutos en uno de días. Validar el access token contra la base en
+cada petición es la otra mitad, y tiene un coste por petición que aquí no se ha pagado.
+
 **Solo dos endpoints se autentican con la cookie, y es a propósito.** `/auth/refresh` y
 `/auth/logout`. Todo lo demás sigue yendo con el Bearer en memoria, que no es credencial ambiente
 y por tanto no es atacable por CSRF. Mantener esa frontera es lo que hace que la superficie de

@@ -16,11 +16,11 @@
 | `dotnet ef migrations add <Nombre>` | Crear una migración tras cambiar el modelo | **Nunca con `--no-build`**: genera migraciones vacías |
 | `dotnet ef migrations list` | Ver qué migraciones existen y cuáles están aplicadas | La comprobación que destapó T0-06 |
 | `dotnet ef database drop --force` | **Borra la base local entera.** Solo para comprobar el esquema desde cero | El servicio arrancado |
-| `dotnet test TrackerMultimedia_Backend.slnx` | Suite del backend, **150** pruebas (2026-09-06) | **Necesita PostgreSQL en marcha** |
+| `dotnet test TrackerMultimedia_Backend.slnx` | Suite del backend, **152** pruebas (2026-09-07) | **Necesita PostgreSQL en marcha** |
 | `dotnet format whitespace --verify-no-changes` | Comprobar el estilo del `.editorconfig` | — |
 | `npm run dev` (en `Frontend/`) | Interfaz en `http://localhost:5173`, **solo en este equipo** | `.env` copiado de `.env.example` |
 | `npm run dev:lan` | Lo mismo, accesible desde el móvil u otro equipo de la red | — |
-| `npm run test` | Suite del frontend, **197** pruebas (2026-09-06) | — |
+| `npm run test` | Suite del frontend, **198** pruebas (2026-09-07) | — |
 | `npm run test:e2e` | Suite end-to-end, 15 pruebas con Playwright | **PostgreSQL y el backend en marcha, y el cupo de `auth` subido** — sin eso salen 12 fallos; ver T6-34 |
 | `npm run test:e2e:ui` | Lo mismo, en el modo interactivo de Playwright | Lo mismo |
 | `npm run lint` | ESLint. **`npm run build` no lo ejecuta** | — |

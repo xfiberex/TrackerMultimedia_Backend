@@ -15,7 +15,7 @@
 | **Stack frontend** | React 19.2 · TypeScript 6.0 · Vite 8 · React Router 7 · TanStack Query 5 · Zod 4 · i18next (es/en) |
 | **Tamaño** | ~5.900 líneas de C# (sin pruebas ni migraciones) · ~14.000 de TS/TSX · 2.986 de CSS en un solo archivo |
 | **Pruebas** | 150 backend · 197 frontend · 15 end-to-end. **Las tres verificadas el 2026-09-06** tras retirar «Descubrir»; las e2e con una condición no documentada, ver T6-34 |
-| **Estado** | En uso. 30 tareas abiertas, todas del Tier 6 (re-auditoría del 2026-09-06) |
+| **Estado** | En uso. 29 tareas abiertas, todas del Tier 6 (re-auditoría del 2026-09-06) |
 | **Despliegue** | **Ninguno.** Uso local servido por LAN con `npm run dev:lan`. Render, Neon y Netlify retirados el 2026-09-05 |
 | **Plan** | [ROADMAP.md](ROADMAP.md) · **Qué cambió** [CHANGELOG.md](CHANGELOG.md) · **Por qué** [DECISIONS.md](DECISIONS.md) |
 | **Trabajo diario** | [WORKFLOW.md](WORKFLOW.md) · **Trampas conocidas** [PITFALLS.md](PITFALLS.md) · **Historia** [HISTORY.md](HISTORY.md) |
@@ -88,7 +88,7 @@ TrackerMultimedia_Frontend/         SPA, React 19 + Vite. Organizado por funcion
 **Al 2026-09-06.** La aplicación funciona y se usa. Los Tiers 0 a 5 del roadmap están cerrados —102
 tareas— salvo dos suspendidas con condición escrita (T0-05 y T4-06) y tres anuladas.
 
-**Abierto ahora mismo: el Tier 6, con 30 tareas**, salidas de la re-auditoría de la tarde del
+**Abierto ahora mismo: el Tier 6, con 29 tareas**, salidas de la re-auditoría de la tarde del
 2026-09-06, la primera hecha con la aplicación levantada y conducida desde un navegador real. Nació
 con 34; cuatro se anularon esa misma noche al eliminarse «Descubrir», porque desapareció el código
 que las producía. Cinco son de severidad Alta:
@@ -175,8 +175,8 @@ Tabla completa en [WORKFLOW.md](WORKFLOW.md). Lo que hay que saber sí o sí:
 | `Start-Service postgresql-x64-17` | Arrancar la base | PowerShell como administrador |
 | `dotnet run` | API en `http://localhost:5218` | PostgreSQL en marcha y los 8 secretos en user-secrets |
 | `npm run dev:lan` | Interfaz accesible desde el móvil | `.env` copiado de `.env.example` |
-| `dotnet test TrackerMultimedia_Backend.slnx` | 150 pruebas | PostgreSQL en marcha |
-| `npm run test` | 197 pruebas | — |
+| `dotnet test TrackerMultimedia_Backend.slnx` | 152 pruebas | PostgreSQL en marcha |
+| `npm run test` | 198 pruebas | — |
 | `npm run test:e2e` | 15 pruebas | PostgreSQL, backend en marcha **y el cupo de `auth` subido** — ver T6-34 |
 
 **El puerto de PostgreSQL depende del equipo: compruébalo, no lo supongas.** `netstat -an | grep 543`.
@@ -203,6 +203,36 @@ hacen falta.
 
 El registro largo, sesión por sesión, está en [HISTORY.md](HISTORY.md). Aquí solo las entradas
 posteriores a la creación de este archivo.
+
+### 2026-09-07 — T6-01: cambiar la contraseña ya cierra las sesiones
+
+**Qué se hizo.** `ChangePassword` revoca ahora todos los tokens de refresco del usuario y emite una
+sesión nueva para quien hizo el cambio. La respuesta pasa de 204 a **200 con el cuerpo del login**,
+así que es un cambio de contrato: el frontend adopta esa sesión con `completeSession`, que ya existía
+para OAuth. `openapi.json` regenerado.
+
+**El detalle que más fácil se rompe.** Revocar **antes** de emitir. Al revés, la revocación se lleva
+por delante el token recién creado y el cambio de contraseña acaba cerrando la sesión que pretendía
+conservar. Está escrito como comentario en el propio controlador porque es el orden lo que importa,
+no las líneas.
+
+**Cómo se verificó, más allá de que las pruebas pasen.** Las dos pruebas de integración nuevas se
+**falsificaron por separado**: quitar la revocación tumba una, invertir el orden tumba la otra. Y
+como ninguna suite puede ver si una cookie real aterriza en un navegador real, se comprobó en dos
+contextos aislados de Chrome con la misma cuenta: línea base tomada antes del cambio (el segundo
+dispositivo renovaba, 200), y después del cambio el que lo hizo sigue renovando (200) mientras el
+otro deja de hacerlo (401). Cuenta de prueba borrada al terminar; en la base quedan solo las tres
+cuentas que ya había.
+
+**Suites:** 152 backend (eran 150), 198 frontend (eran 197), 15 end-to-end. Lint, Prettier, `tsc -b`,
+`npm run build` y `dotnet format` limpios.
+
+**Lo que queda sin arreglar y conviene saber.** El access token anterior sigue valiendo hasta que
+caduca solo: es un JWT y aquí no se valida contra la base de datos, que es también lo que deja sin
+efecto el `SecurityStamp` que Identity sí actualiza. Lo que se corta es la renovación. Ver
+[DECISIONS.md](DECISIONS.md), *Sesión y tokens*.
+
+---
 
 ### 2026-09-06 (noche) — Fuera «Descubrir»
 
