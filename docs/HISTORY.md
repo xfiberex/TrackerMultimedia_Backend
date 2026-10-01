@@ -26,9 +26,10 @@ está. Si alguna vuelve a aparecer aquí, se remide antes de actuar.
 ## 2026-10-01 — Vuelve la CI: los repositorios son públicos
 
 El propietario revirtió la decisión del 2026-08-27 y pidió habilitar los workflows. **T1-12 se
-reabre, no se cierra**: su criterio es una ejecución en verde en GitHub y hoy los workflows solo
-están escritos y sin subir. La decisión y su porqué, en [DECISIONS.md](DECISIONS.md); la ficha, en
-[ROADMAP.md](ROADMAP.md); cómo convive con la rutina local, en [WORKFLOW.md](WORKFLOW.md).
+reabrió y se cerró el mismo día, en dos pasos**: primero se escribieron los workflows y la tarea
+quedó abierta, porque su criterio era una ejecución en verde en GitHub; se cerró después del push,
+con las dos ejecuciones en verde. La decisión y su porqué, en [DECISIONS.md](DECISIONS.md); la
+fila, en [ROADMAP.md](ROADMAP.md); cómo convive con la rutina local, en [WORKFLOW.md](WORKFLOW.md).
 
 Lo que merece recordarse:
 
@@ -43,9 +44,10 @@ Lo que merece recordarse:
   escribir una migración `.Designer.cs`, y salieron 34 pruebas en rojo con un 500. Es T0-06 otra
   vez —una migración sin su `.Designer.cs` tumba toda la biblioteca—, provocada esta vez por el
   entorno de la prueba. Con `core.longpaths` el clon salió entero: 152/152, y 198/198 en el frontend.
-- **Lo que no se ha comprobado es Linux.** Los clones limpios eran en Windows. Capitalización de
-  nombres de archivo, configuración regional y zona horaria solo se sabrán en la primera ejecución
-  real.
+- **Linux era lo único sin comprobar, y pasó a la primera.** Los clones limpios eran en Windows;
+  capitalización de nombres de archivo, configuración regional y zona horaria solo podían saberse
+  en la ejecución real. En GitHub: backend 152/152 en 23 s; frontend con lint, 38 archivos de
+  prueba y build en verde.
 
 ---
 

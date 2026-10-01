@@ -136,8 +136,8 @@ concreto, en [PITFALLS.md](PITFALLS.md).
   [WORKFLOW.md](WORKFLOW.md) en cada push a `main`. **No sustituye a la rutina local:** con commit
   directo en `main` la CI avisa después de subir, no antes. *Lo que cubre* es lo que ya pasó una
   vez —18 pruebas en rojo sin que nadie se enterara—; *lo que no cubre* son las e2e, que es donde
-  volvió a pasar el 2026-09-06 (T6-34). **A fecha del 2026-10-01 los workflows no han corrido aún
-  en GitHub**: T1-12 sigue abierta hasta la primera ejecución en verde.
+  volvió a pasar el 2026-09-06 (T6-34). Los dos workflows corrieron en verde en
+  GitHub el 2026-10-01, y con eso se cerró T1-12.
 - **Se termina el sistema de diseño propio, no se migra a Tailwind.** Serían semanas para llegar al
   mismo aspecto, tirando la accesibilidad ya pagada en T1-16 a T1-23.
 - **Los secretos van solo en `dotnet user-secrets`.** Nunca en `appsettings.Local.json`, aunque sea
