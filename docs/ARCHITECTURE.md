@@ -139,8 +139,10 @@ escapado de las consultas y la organización por features. Todo ello con pruebas
 1. **Sin textos legales.** El borrado de cuenta y la exportación personal **sí están hechos**. La
    política de privacidad y el aviso legal no existen (T0-05, en suspenso): vuelven con su
    severidad original el día que la aplicación sea accesible para alguien más.
-2. **Nada ejecuta las suites salvo la disciplina de ejecutarlas.** Consecuencia asumida de
-   descartar la CI. Las suites llegaron a estar en rojo mucho tiempo sin que nadie lo notara.
+2. **Las end-to-end no las ejecuta nadie salvo la disciplina de ejecutarlas.** Las dos suites
+   unitarias, el linter y el build sí corren en cada push desde el 2026-10-01 (T1-12, pendiente de
+   su primera ejecución en GitHub). Las suites llegaron a estar en rojo mucho tiempo sin que nadie
+   lo notara, y las e2e siguen expuestas a eso mismo.
 3. **`X-Forwarded-For` se acepta de cualquier origen** (T1-05). Grave detrás de un proxy. Desde que
    la aplicación se sirve por LAN con `dev:lan` el escenario deja de ser «solo tú en esta máquina»
    y pasa a ser «cualquiera con acceso a tu red»: sigue siendo severidad Baja, pero ya no es

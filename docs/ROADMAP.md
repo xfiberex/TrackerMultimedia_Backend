@@ -6,15 +6,16 @@
 | Tier | Nombre | Tareas | Cerradas | Abiertas |
 |------|--------|--------|----------|----------|
 | 0 | Crítico / Bloqueante | 6 | 5 | T0-05 en suspenso |
-| 1 | Alta prioridad | 22 | 22 | — |
+| 1 | Alta prioridad | 23 | 22 | **1** (T1-12, reabierta) |
 | 2 | Mejoras sustanciales | 27 | 27 | — |
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
 | 4 | Futuro / Opcional | 11 | 10 | T4-06 en suspenso |
 | 5 | Sistema de diseño | 13 | 13 | — |
 | 6 | Lo que solo se ve con la aplicación en marcha | 31 | 3 | **28** |
-| **Total** | | **133** | **103** | **28 + 2 en suspenso** |
+| **Total** | | **134** | **103** | **29 + 2 en suspenso** |
 
-Las siete anuladas —T1-12, T2-16, T2-25, T6-05, T6-16, T6-20 y T6-22— quedan fuera del recuento: ver *En suspenso y anuladas*.
+Las seis anuladas —T2-16, T2-25, T6-05, T6-16, T6-20 y T6-22— quedan fuera del recuento: ver *En suspenso y anuladas*.
+Eran siete: **T1-12 se reabrió el 2026-10-01** y vuelve a contar, por eso el total sube a 134.
 **Los totales de esta tabla estuvieron mal hasta el 2026-09-05**, y de dos maneras: el total decía 98
 cuando la suma de la columna da 96, y la sección de cerradas hablaba de 85 cuando eran 88. Corregido
 al cerrar T1-13; conviene volver a sumar la columna cada vez que se toque una fila.
@@ -99,6 +100,29 @@ Comprobado el 2026-09-05 sobre la configuración real, porque «local» y «loca
 ---
 
 ## Abiertas
+
+### Tier 1 — Alta prioridad
+
+- [ ] **[T1-12] Montar integración continua** · *reabierta el 2026-10-01*
+  - **Área:** Proceso · **Severidad:** Alto
+  - **Ubicación:** `.github/workflows/ci.yml`, uno en cada repositorio
+  - **Problema:** se anuló el 2026-08-27 porque el proyecto era de un solo desarrollador y sin
+    revisores. El propietario la reabre el 2026-10-01 con un hecho nuevo: **los dos repositorios
+    son públicos**, y en un repositorio público GitHub Actions no tiene coste. El riesgo que la
+    tarea cubría nunca se fue: las suites ya estuvieron en rojo dos veces sin que nadie lo notara.
+  - **Qué hay hecho:** un workflow por repositorio que ejecuta los cinco comandos de la rutina de
+    [WORKFLOW.md](WORKFLOW.md) en cada push a `main`, en cada pull request y a mano. El de backend
+    levanta un `postgres:17` como servicio y le pasa la cadena por `TRACKERMULTIMEDIA_TEST_POSTGRES`.
+    Comprobados el 2026-10-01 sobre **clones limpios en Windows**: 152/152 y `restore` sin `NU1903`
+    en el backend; lint limpio, 198/198 y build sin `.env` en el frontend.
+  - **Qué falta:** que corran en GitHub. Los runners son Linux y eso no se ha ejercido nunca en
+    este proyecto: nombres de archivo con distinta capitalización, configuración regional y zona
+    horaria pueden fallar allí y no aquí.
+  - **Criterio de aceptación:** una ejecución en verde en cada repositorio, en GitHub, tras el
+    primer push que lleve los workflows.
+  - **Fuera de alcance:** las end-to-end. Necesitan los dos repositorios, el backend en marcha y el
+    cupo de `auth` subido (T6-34); meterlas aquí antes de resolver eso sería una CI en rojo fijo.
+  - **Esfuerzo:** bajo · **Depende de:** ninguna
 
 ### Tier 6 — Lo que solo se ve con la aplicación en marcha
 
@@ -689,12 +713,15 @@ De propina, el cambio dejó **vacía** la lista de excepciones de `form-controls
 tenía era la casilla de proveedor. Ya no hay ni un campo del frontend sin la clase del sistema de
 diseño.
 
-### T1-12 — Montar integración continua · ANULADA
+### T1-12 — Montar integración continua · ~~ANULADA~~ · REABIERTA el 2026-10-01
 
-Anulada el 2026-08-27 por decisión del propietario. **El riesgo no desaparece con la tarea:** lo
+Ya no está aquí: el propietario la reabrió el 2026-10-01 y su ficha vigente está en *Abiertas*,
+Tier 1. Se conserva el texto de la anulación porque explica de dónde viene.
+
+~~Anulada el 2026-08-27 por decisión del propietario.~~ **El riesgo no desaparece con la tarea:** lo
 que la CI iba a cubrir es exactamente lo que ya había pasado —18 pruebas en rojo sin que nadie se
-enterara—. La red que la sustituye es la rutina de [WORKFLOW.md](WORKFLOW.md), ejecutada **antes
-de cada commit**. El identificador no se reutiliza.
+enterara—. ~~La red que la sustituye es la rutina de [WORKFLOW.md](WORKFLOW.md), ejecutada **antes
+de cada commit**.~~ El identificador no se reutiliza: es la misma tarea, no otra con su número.
 
 ### T2-16 — Optimizar `GetStatsAsync` · ANULADA
 
@@ -876,6 +903,7 @@ nada más.
 | 2026-09-07 | 1 | **29** | T6-01. Suites: 152 · 198 · 15 |
 | 2026-09-07 | 1 | **28** | T6-03. La receta que traía la ficha era incorrecta; ver su fila. Suites: 152 · 198 · 19 |
 | 2026-09-07 | 1 | **28** | T6-02, y se abre T6-35 al verificarla. Suites: 152 · 198 · 20 |
+| 2026-10-01 | 0 | **29** | Se reabre T1-12: workflows de CI escritos, sin ejecutar aún en GitHub. Suites: 152 · 198 · e2e sin medir |
 
 **Cómo se cierra una tarea.** Se marca `[x]` con la fecha absoluta **el día que se verifica su
 criterio de aceptación**, no el día que se escribe el código. Si el criterio exige el navegador o la
@@ -890,7 +918,7 @@ Lo que se decidió **no** hacer, para que no se vuelva a proponer. El detalle de
 
 | Qué | Cuándo | Por qué no |
 |---|---|---|
-| Montar integración continua (T1-12) | 2026-08-27 | Decisión del propietario. La sustituye la rutina previa a cada commit de [WORKFLOW.md](WORKFLOW.md) |
+| ~~Montar integración continua (T1-12)~~ · **REABIERTA el 2026-10-01** | 2026-08-27 | ~~Decisión del propietario. La sustituye la rutina previa a cada commit de [WORKFLOW.md](WORKFLOW.md)~~ Los repositorios son públicos y el propietario la pidió: ver *Abiertas*, Tier 1 |
 | Mover PostgreSQL a Docker | 2026-08-27 | Se probó y se revirtió el mismo día, a petición del propietario |
 | Migrar a Tailwind o a una librería de componentes | 2026-09-05 | Semanas de trabajo para llegar al mismo aspecto, tirando la accesibilidad ya pagada en T1-16 a T1-23 |
 | Cambiar `--surface-strong` (T5-04) | 2026-09-05 | El anti-patrón habla del cristal y ese token no lo es. Hay una prueba que fija la premisa |

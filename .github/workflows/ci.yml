@@ -1,0 +1,62 @@
+# Integración continua del backend (T1-12). Ejecuta los dos comandos de backend de la
+# rutina de docs/WORKFLOW.md sobre un clon limpio: lo que pase aquí no depende de lo
+# que haya en la máquina de nadie.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# El repositorio es público: el token solo necesita leer el código.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Restaurar y probar
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # La suite habla con PostgreSQL real y no con SQLite (T2-02): crea una base
+    # plantilla, le aplica las migraciones y la copia para cada clase de test. Solo
+    # necesita un servidor y un rol que pueda crear bases.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # La contraseña es la de un contenedor que nace y muere con el job; no es un secreto.
+      # En local esta cadena sale de los user-secrets, que aquí no existen.
+      TRACKERMULTIMEDIA_TEST_POSTGRES: Host=localhost;Port=5432;Username=postgres;Password=postgres
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      # En local basta con mirar que no salga ningún NU1903; aquí nadie mira, así que
+      # una vulnerabilidad de severidad alta en un paquete se convierte en error.
+      - name: Restaurar
+        run: dotnet restore TrackerMultimedia_Backend.slnx -p:WarningsAsErrors=NU1903
+
+      - name: Probar
+        run: dotnet test TrackerMultimedia_Backend.slnx --no-restore

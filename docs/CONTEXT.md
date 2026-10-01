@@ -131,10 +131,13 @@ concreto, en [PITFALLS.md](PITFALLS.md).
   sin que lo pida.* Lo que dependía de haber un servicio público está **en suspenso, no resuelto**,
   y vuelve el día que se despliegue: T0-05, T4-06, T6-08, T6-21 y T6-22.
 - **PostgreSQL nativo, no en contenedor.** Se probó Docker el 2026-08-27 y se revirtió el mismo día.
-- **Sin integración continua** (T1-12, anulada). La sustituye la rutina previa a cada commit de
-  [WORKFLOW.md](WORKFLOW.md). *El riesgo no desapareció con la tarea:* lo que la CI iba a cubrir es
-  exactamente lo que ya pasó una vez —18 pruebas en rojo sin que nadie se enterara— y lo que volvió
-  a pasar el 2026-09-06 con las e2e (T6-34).
+- **Hay integración continua desde el 2026-10-01** (T1-12, reabierta por el propietario al ser
+  públicos los dos repositorios). Un `.github/workflows/ci.yml` en cada uno ejecuta la rutina de
+  [WORKFLOW.md](WORKFLOW.md) en cada push a `main`. **No sustituye a la rutina local:** con commit
+  directo en `main` la CI avisa después de subir, no antes. *Lo que cubre* es lo que ya pasó una
+  vez —18 pruebas en rojo sin que nadie se enterara—; *lo que no cubre* son las e2e, que es donde
+  volvió a pasar el 2026-09-06 (T6-34). **A fecha del 2026-10-01 los workflows no han corrido aún
+  en GitHub**: T1-12 sigue abierta hasta la primera ejecución en verde.
 - **Se termina el sistema de diseño propio, no se migra a Tailwind.** Serían semanas para llegar al
   mismo aspecto, tirando la accesibilidad ya pagada en T1-16 a T1-23.
 - **Los secretos van solo en `dotnet user-secrets`.** Nunca en `appsettings.Local.json`, aunque sea
@@ -190,7 +193,8 @@ hacen falta.
 
 ## 6. Qué queda fuera, y por qué
 
-- **Integración continua**, por decisión (T1-12).
+- **Las end-to-end en la integración continua.** La CI existe desde el 2026-10-01 (T1-12), pero
+  solo ejecuta las dos suites unitarias, el linter y el build: las e2e dependen de T6-34.
 - **Métricas, exportación y alertas** (T4-06): sin servicio desplegado no hay dónde exportar ni a
   quién alertar. `dotnet-counters monitor -n TrackerMultimedia` sirve para mirar algo puntualmente;
   no para vigilar sin estar delante. **Ese hueco tiene coste real y ya se ha visto**: AniList lleva

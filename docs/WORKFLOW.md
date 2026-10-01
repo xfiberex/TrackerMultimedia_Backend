@@ -242,14 +242,16 @@ quien configura el proyecto, no con quien lo usa.
 
 ## Verificación local antes de cada commit
 
-No hay CI y no la va a haber, así que **esta rutina es la única red de seguridad del proyecto**.
-Se ejecuta entera antes de cada commit, no cuando uno se acuerda: los cinco comandos juntos tardan
-alrededor de un minuto.
+**Esta rutina sigue siendo la primera red de seguridad del proyecto**, aunque desde el 2026-10-01
+haya integración continua (ver más abajo). Los commits van directos a `main`, así que la CI avisa
+*después* de subir: lo único que impide subir algo roto es ejecutar esto antes. Se ejecuta entera
+antes de cada commit, no cuando uno se acuerda: los cinco comandos juntos tardan alrededor de un
+minuto.
 
 En la raíz del repositorio de backend:
 
 ```bash
-dotnet test TrackerMultimedia_Backend.slnx     # 150 pruebas. Debe decir "Con error: 0"
+dotnet test TrackerMultimedia_Backend.slnx     # 152 pruebas (2026-10-01). Debe decir "Con error: 0"
 dotnet restore                                 # No debe emitir ningún NU1903
 ```
 
@@ -257,7 +259,7 @@ En `Frontend/`:
 
 ```bash
 npm run lint                                   # Debe salir sin ningún error
-npm run test -- --run                          # 197 pruebas
+npm run test                                   # 198 pruebas (2026-10-01)
 npm run build                                  # Incluye tsc -b; falla si hay error de tipos
 ```
 
@@ -267,6 +269,30 @@ Ninguno de los cinco sobra, y hay dos razones concretas para ello:
   ESLint llega a producción sin que el build se queje (T2-23).
 - **`tsc -b` no ejecuta los tests, y los tests no comprueban los tipos.** Un test puede pasar con
   un error de tipos delante, y al revés.
+
+### La integración continua repite esos cinco comandos
+
+Desde el 2026-10-01 (T1-12) cada repositorio tiene un `.github/workflows/ci.yml` que ejecuta su
+parte de la rutina en GitHub Actions: en cada push a `main`, en cada pull request y a mano desde
+la pestaña *Actions*. Lo hace sobre un clon limpio y en Linux, así que ve dos cosas que la máquina
+de desarrollo no puede ver: un archivo que funciona aquí porque está en el disco pero no en el
+repositorio, y un nombre de archivo cuya capitalización Windows perdona.
+
+Tres diferencias con la ejecución local, las tres a propósito:
+
+- **El backend habla con un PostgreSQL 17 que nace y muere con el job.** La cadena llega por
+  `TRACKERMULTIMEDIA_TEST_POSTGRES`, la misma variable que `TestDatabase.cs` ya leía; en local sale
+  de los user-secrets, que en GitHub no existen. Su contraseña está escrita en el workflow porque
+  no protege nada.
+- **`dotnet restore` falla con un `NU1903`** en vez de limitarse a emitirlo. En local alguien lee
+  la salida; allí no.
+- **El frontend se construye sin `.env`.** No se versiona, y `src/config/env.ts` cae a `/api`.
+
+**Las end-to-end no están en la CI.** Necesitan los dos repositorios, el backend en marcha y el
+cupo de `auth` subido (T6-34). Siguen dependiendo de que alguien las ejecute.
+
+**Si un workflow sale en rojo**, GitHub avisa por correo al autor del push. El detalle está en la
+pestaña *Actions* del repositorio, o con `gh run list` y `gh run view --log-failed`.
 
 ### Y una comprobación que no es diaria
 

@@ -23,6 +23,32 @@ está. Si alguna vuelve a aparecer aquí, se remide antes de actuar.
 
 ---
 
+## 2026-10-01 — Vuelve la CI: los repositorios son públicos
+
+El propietario revirtió la decisión del 2026-08-27 y pidió habilitar los workflows. **T1-12 se
+reabre, no se cierra**: su criterio es una ejecución en verde en GitHub y hoy los workflows solo
+están escritos y sin subir. La decisión y su porqué, en [DECISIONS.md](DECISIONS.md); la ficha, en
+[ROADMAP.md](ROADMAP.md); cómo convive con la rutina local, en [WORKFLOW.md](WORKFLOW.md).
+
+Lo que merece recordarse:
+
+- **GitHub Actions ya estaba habilitado en los dos repositorios.** No había nada que encender en
+  la configuración: lo que faltaba eran los workflows. No existían ni en el disco ni en el
+  historial de ninguno de los dos.
+- **La suite del backend ya estaba preparada para esto.** `TestDatabase.cs` lee
+  `TRACKERMULTIMEDIA_TEST_POSTGRES` antes de recurrir a los user-secrets, así que la CI no tocó ni
+  una línea de código: un contenedor `postgres:17` y una variable de entorno.
+- **Se probaron sobre clones limpios antes de darlos por buenos**, y la primera prueba falló por un
+  motivo que no era del proyecto: la carpeta temporal tenía una ruta tan larga que git no pudo
+  escribir una migración `.Designer.cs`, y salieron 34 pruebas en rojo con un 500. Es T0-06 otra
+  vez —una migración sin su `.Designer.cs` tumba toda la biblioteca—, provocada esta vez por el
+  entorno de la prueba. Con `core.longpaths` el clon salió entero: 152/152, y 198/198 en el frontend.
+- **Lo que no se ha comprobado es Linux.** Los clones limpios eran en Windows. Capitalización de
+  nombres de archivo, configuración regional y zona horaria solo se sabrán en la primera ejecución
+  real.
+
+---
+
 ## 2026-09-07 — Tier 6: las tres primeras de severidad Alta
 
 Primera tarea del Tier 6, y la de más riesgo de las cinco de severidad Alta: cambiar la contraseña no
@@ -857,6 +883,8 @@ se salta las migraciones, y nadie había creado nunca una base vacía.
 ---
 
 ## 2026-08-27 — Sin CI: la verificación es local
+
+*Revertido el 2026-10-01: ver la entrada de ese día.*
 
 El propietario descartó la integración continua. **Se anota aquí y no solo en el roadmap** porque
 la CI no estaba propuesta por completismo: iba a cubrir exactamente lo que ya había pasado, 18
