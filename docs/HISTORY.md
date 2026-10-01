@@ -23,6 +23,29 @@ está. Si alguna vuelve a aparecer aquí, se remide antes de actuar.
 
 ---
 
+## 2026-10-01 — T6-34: la suite end-to-end dice lo que le falta
+
+Segunda tarea del día. La fila de [ROADMAP.md](ROADMAP.md) tiene el detalle; las dos trampas,
+[PITFALLS.md](PITFALLS.md), sección *Tests*. Lo que merece recordarse:
+
+- **Se eligió la alternativa que la ficha daba por mejor, y medir la descartó antes de escribir
+  nada.** La idea era una cuenta sembrada para no registrar una por prueba. Contando sobre el
+  registro del backend, la suite hace 86 peticiones de `auth`, no 30, y 47 son `/auth/refresh`:
+  una por carga de página. Con la cuenta compartida habrían seguido siendo 52. Es la lección de
+  T6-03 otra vez: **la ficha dice qué falla; cómo arreglarlo es una hipótesis hasta que se mide**.
+- **La primera pasada de medición falló por algo que no estaba en ninguna ficha.** 17 fallos con
+  el cupo ya subido: en el 5173 había otro proyecto y Playwright lo dio por bueno. Entró en el
+  alcance porque es exactamente el mismo defecto —un requisito que nadie escribió y que sale como
+  código roto—.
+- **Los tres caminos se ejercieron de verdad.** Cupo en 500: 20/20. `dotnet run` a secas: falla en
+  3 s con «admitió 10 de 100» y la línea que hay que ejecutar. Cupo en 104, que pasa el sondeo y
+  se agota después: el fixture lanza el mismo aviso a media suite. Y otra página en el 5173: lo
+  dice con su título.
+- **El sondeo tiene un coste y está escrito:** gasta el cupo del minuto. Tras un fallo por cupo,
+  el login da 429 hasta que pase la ventana.
+
+---
+
 ## 2026-10-01 — Vuelve la CI: los repositorios son públicos
 
 El propietario revirtió la decisión del 2026-08-27 y pidió habilitar los workflows. **T1-12 se

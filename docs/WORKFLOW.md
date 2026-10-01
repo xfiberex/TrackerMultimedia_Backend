@@ -21,7 +21,7 @@
 | `npm run dev` (en `Frontend/`) | Interfaz en `http://localhost:5173`, **solo en este equipo** | `.env` copiado de `.env.example` |
 | `npm run dev:lan` | Lo mismo, accesible desde el móvil u otro equipo de la red | — |
 | `npm run test` | Suite del frontend, **198** pruebas (2026-09-07) | — |
-| `npm run test:e2e` | Suite end-to-end, 20 pruebas con Playwright | **PostgreSQL y el backend en marcha, y el cupo de `auth` subido** — sin eso salen 12 fallos; ver T6-34 |
+| `npm run test:e2e` | Suite end-to-end, 20 pruebas con Playwright | **PostgreSQL y el backend en marcha, el cupo de `auth` subido y el puerto 5173 libre** — si falta algo, la suite lo dice al arrancar (T6-34) |
 | `npm run test:e2e:ui` | Lo mismo, en el modo interactivo de Playwright | Lo mismo |
 | `npm run lint` | ESLint. **`npm run build` no lo ejecuta** | — |
 | `npm run build` | Build de producción a `dist/`. Incluye `tsc -b` | — |
@@ -112,9 +112,9 @@ Los comprueba al arrancar y, si faltan, lo dice con lo que hay que hacer.
 # 1. PostgreSQL, si su servicio está en Manual (PowerShell como administrador)
 Start-Service postgresql-x64-17
 
-# 2. El backend, con el cupo de peticiones subido: la suite registra una cuenta por
-#    prueba y todas llegan desde la misma dirección, así que con el cupo normal de 10
-#    por minuto se agota a mitad de camino y los fallos salen como errores confusos.
+# 2. El backend, con el cupo de peticiones subido: la suite hace 86 peticiones de
+#    autenticación en minuto y medio (2026-10-01) y todas llegan desde la misma
+#    dirección, así que el cupo normal de 10 por minuto no da ni para empezar.
 cd TrackerMultimedia_Backend
 
 # En bash:
@@ -126,9 +126,27 @@ RateLimiting__Auth__PermitLimit=500 dotnet run
 # fallan a media suite como si el cambio hubiera roto algo:
 $env:RateLimiting__Auth__PermitLimit = "500"; dotnet run
 
-# 3. Las pruebas (en el repositorio de frontend)
+# 3. Las pruebas (en el repositorio de frontend), con el puerto 5173 libre
 npm run test:e2e
 ```
+
+**Si falta alguno de los requisitos, la suite no arranca y dice cuál** (T6-34). Antes de la
+primera prueba, `e2e/global-setup.ts` comprueba cuatro cosas, y cada una falla con lo que hay
+que hacer:
+
+- que el backend responda y llegue a PostgreSQL;
+- que en el 5173 esté **esta** aplicación. Playwright reutiliza lo que ya escuche en ese puerto,
+  y el servidor de desarrollo de otro proyecto también le vale: la suite entera se lanzaría
+  contra él;
+- que el cupo de autenticación esté subido. Lo sondea con 100 peticiones; con `dotnet run` a
+  secas responde «admitió 10 de 100» y enseña la línea que hay que ejecutar. **Ese sondeo gasta
+  el cupo del minuto**: tras un fallo así, el inicio de sesión de la aplicación da 429 hasta
+  que pase o hasta reiniciar el backend;
+- y limpia las cuentas de la ejecución anterior.
+
+**Reutilizar una cuenta para todas las pruebas no quitaría el requisito del cupo.** El token de
+acceso vive en memoria, así que cada carga de página pide `/auth/refresh`, que cuenta igual que
+un login: son 47 de las 86. El detalle está en `e2e/cupo.ts`.
 
 **Cada prueba estrena su cuenta**, con el sufijo `@e2e.test`. El registro exige confirmar
 el correo (T2-10) y el correo va a un buzón de Mailtrap que no se puede leer desde ahí, así
@@ -288,8 +306,10 @@ Tres diferencias con la ejecución local, las tres a propósito:
   la salida; allí no.
 - **El frontend se construye sin `.env`.** No se versiona, y `src/config/env.ts` cae a `/api`.
 
-**Las end-to-end no están en la CI.** Necesitan los dos repositorios, el backend en marcha y el
-cupo de `auth` subido (T6-34). Siguen dependiendo de que alguien las ejecute.
+**Las end-to-end no están en la CI.** Necesitan los dos repositorios en el mismo job, el backend
+en marcha con sus secretos y el cupo de `auth` subido. T6-34 dejó la suite diciendo qué le falta,
+pero montar todo eso en un workflow es trabajo aparte y no tiene ficha. Siguen dependiendo de que
+alguien las ejecute.
 
 **Si un workflow sale en rojo**, GitHub avisa por correo al autor del push. El detalle está en la
 pestaña *Actions* del repositorio, o con `gh run list` y `gh run view --log-failed`.

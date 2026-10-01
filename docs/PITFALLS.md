@@ -122,6 +122,20 @@ pregunta lo que uno cree estar preguntando es `toBeInViewport`. Vale para cualqu
 «está ahí pero nadie lo ve»: si la prueba no distingue el antes del después, no está midiendo lo
 que falló.
 
+**`reuseExistingServer` de Playwright reutiliza lo que haya en el puerto, sea de quien sea.** Solo
+mira que algo responda en el 5173. El 2026-10-01 respondía el servidor de desarrollo de **otro
+proyecto**, y las end-to-end corrieron enteras contra esa otra aplicación: 17 fallos en el primer
+campo que no encontraban, y ni una línea que señalara al puerto. Costó abrir el volcado de la
+página y leer un título ajeno. `global-setup.ts` comprueba ahora el `<title>` antes de empezar.
+Vale para cualquier suite que dé por suyo un puerto: **que responda no es que seas tú**.
+
+**Toda carga de página gasta cupo de autenticación, haya o no sesión.** El token de acceso vive en
+memoria, así que al arrancar la aplicación pide `/auth/refresh` siempre, y ese endpoint comparte
+política con el login. De las 86 peticiones de `auth` que hacen las end-to-end, 47 son eso. Es lo
+que tumbó la idea de que una cuenta compartida quitaría a la suite el requisito del cupo (T6-34),
+y es lo mismo que hace que, por LAN, diez recargas en un minuto entre todos los dispositivos
+dejen a todos sin poder entrar.
+
 ## React y accesibilidad
 
 **Un hijo `position: absolute` desborda su contenedor con `overflow: auto`, aunque no lo ensanche.**

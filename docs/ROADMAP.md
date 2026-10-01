@@ -11,8 +11,8 @@
 | 3 | Pulido y mantenimiento | 23 | 23 | — |
 | 4 | Futuro / Opcional | 11 | 10 | T4-06 en suspenso |
 | 5 | Sistema de diseño | 13 | 13 | — |
-| 6 | Lo que solo se ve con la aplicación en marcha | 31 | 3 | **28** |
-| **Total** | | **134** | **104** | **28 + 2 en suspenso** |
+| 6 | Lo que solo se ve con la aplicación en marcha | 31 | 4 | **27** |
+| **Total** | | **134** | **105** | **27 + 2 en suspenso** |
 
 Las seis anuladas —T2-16, T2-25, T6-05, T6-16, T6-20 y T6-22— quedan fuera del recuento: ver *En suspenso y anuladas*.
 Eran siete: **T1-12 se reabrió y se cerró el 2026-10-01** y vuelve a contar, por eso el total sube a 134.
@@ -109,9 +109,9 @@ sino de una re-auditoría con **la aplicación levantada y ejercida desde el nav
 creada por el flujo de registro real.
 
 **Los Tiers 0 a 4 eran de severidad; a partir del 5 son tandas temáticas.** Eso no rebaja la
-prioridad de nada: cada tarea lleva su severidad en la ficha, y **dos de las que quedan son de
-severidad Alta** —eran cinco: se cerraron T6-01, T6-02 y T6-03—. Se atienden antes que cualquier cosa de los
-Tiers 2 y 3, aunque su número sea mayor.
+prioridad de nada: cada tarea lleva su severidad en la ficha, y **una de las que quedan es de
+severidad Alta**, T6-04 —eran cinco: se cerraron T6-01, T6-02, T6-03 y T6-34—. Se atiende antes que
+cualquier cosa de los Tiers 2 y 3, aunque su número sea mayor.
 
 **Por qué existe este tier.** El proyecto lleva dos tandas seguidas —T5-09 a T5-13— descubriendo
 defectos por el único camino que los ve: alguien mirando la pantalla. Esta vez el instrumento ha
@@ -124,7 +124,7 @@ miraba a un tercero real**.
 
 *Cuatro de esos 34 se anularon esa misma noche al retirarse «Descubrir». El 2026-09-07 se
 cerraron T6-01, T6-02 y T6-03, y **se abrió T6-35**, que salió de verificar T6-02: el mensaje
-que por fin se veía estaba escrito en jerga de código. Quedan 28.*
+que por fin se veía estaba escrito en jerga de código. El 2026-10-01 se cerró T6-34. Quedan 27.*
 
 **Lo que sí resistió el examen.** El contraste en oscuro cumple AA con holgura —5,71:1 el texto
 secundario, medido en el navegador—, el foco es visible en los trece puntos de tabulación, el
@@ -552,34 +552,6 @@ seis tiers anteriores aguanta; lo que sigue es lo que quedaba fuera de su alcanc
     consta cuándo se probó la restauración por última vez.
   - **Esfuerzo:** bajo · **Depende de:** ninguna
 
-- [ ] **[T6-34] La suite end-to-end no pasa siguiendo el procedimiento documentado**
-  - **Área:** QA / Documentación · **Severidad:** Alto
-  - **Ubicación:** `docs/WORKFLOW.md` (tabla de comandos); `e2e/global-setup.ts`;
-    `e2e/fixtures.ts:45-58`; `Infrastructure/Options/RateLimitingOptions.cs:27`
-  - **Problema:** el fixture `email` tiene `auto: true`, así que **cada** prueba registra una cuenta
-    e inicia sesión: 2 peticiones de la política `auth` × 15 pruebas = **30 peticiones**, en serie,
-    en poco más de un minuto. El cupo por defecto de esa política es **10 por minuto**.
-  - **Medido el 2026-09-06, dos ejecuciones sobre el mismo código:**
-    - Backend arrancado como dice `WORKFLOW.md` (`dotnet run`, sin más) → **12 fallos, 3 aciertos**.
-    - Backend con `RateLimiting__Auth__PermitLimit=1000` → **15 aciertos en 55 s**.
-  - **La suite está bien; lo que falta es el requisito.** `RateLimitingOptions` documenta en su
-    propio comentario que los cupos se hicieron configurables en T4-04 *porque* la suite los
-    agotaba —así que esto se supo—, pero **el valor necesario no está escrito en ningún sitio**:
-    ni en `WORKFLOW.md`, ni en `playwright.config.ts`, ni en el README. `global-setup.ts` comprueba
-    con cuidado que estén PostgreSQL y el backend, y no comprueba lo único que además hace falta.
-  - **Por qué es Alto y no Medio:** el ROADMAP viene afirmando **15/15** como hecho verificado. Es
-    cierto, pero solo bajo una condición que nadie escribió, así que cualquiera que siga la
-    documentación concluye que la suite está rota. Una cifra que no se puede reproducir con el
-    procedimiento publicado deja de ser una comprobación y pasa a ser una creencia.
-  - **Qué hacer:** las dos mitades. (a) Que `global-setup.ts` consulte el cupo efectivo y **falle
-    con un mensaje que diga qué exportar**, igual que ya hace con el backend apagado. (b) Escribir
-    el requisito en la fila de `npm run test:e2e` de `WORKFLOW.md`. Alternativa mejor si se quiere
-    evitar la variable: que el fixture reutilice una cuenta sembrada en vez de registrar una por
-    prueba, con lo que la suite dejaría de depender del cupo.
-  - **Criterio de aceptación:** partiendo de un backend arrancado con la documentación en la mano,
-    `npm run test:e2e` termina en 20/20 o falla diciendo exactamente qué falta.
-  - **Esfuerzo:** bajo · **Depende de:** ninguna
-
 - [ ] **[T6-35] Los mensajes de validación del servidor están escritos en jerga de código**
   - **Área:** UI/UX · **Severidad:** Media
   - **Ubicación:** `Services/MediaItemsService.cs:1257-1268` (`ValidateLifecycleDates`), y hay que
@@ -713,7 +685,7 @@ El hallazgo de la auditoría era erróneo.
 
 ## Cerradas
 
-Resumen de las 104 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
+Resumen de las 105 tareas cerradas y verificadas. El detalle de cómo se resolvió cada una está en
 [HISTORY.md](HISTORY.md), por sesión; el efecto visible, en [CHANGELOG.md](CHANGELOG.md).
 
 **La fila de T1-13 conserva el rastro de haberse cerrado mal.** Ahora sí está cerrada, pero la fila
@@ -837,6 +809,7 @@ que hay que recordar.
 
 | ID | Tarea | Cierre |
 |---|---|---|
+| T6-34 | La suite end-to-end no pasaba siguiendo el procedimiento documentado | **2026-10-01** · `global-setup.ts` sondea el cupo de `auth` con 100 peticiones a un endpoint que no deja rastro y, si alguna vuelve con 429, **falla en 3 segundos diciendo qué variable exportar**, en PowerShell y en bash. Con `dotnet run` a secas: «admitió 10 de 100»; con el cupo en 500, 20/20. **La alternativa que esta ficha daba por mejor —reutilizar una cuenta sembrada— no funciona, y la cifra de la ficha estaba corta**: decía 30 peticiones y son **86**, medidas sobre el registro del backend, de las que 47 son `/auth/refresh`. El token de acceso vive en memoria, así que cada carga de página renueva la sesión y cuenta en el mismo cupo: sin un solo registro ni un solo login seguirían siendo 52. El sondeo no ve un cupo que lo pase por poco y se agote después, así que el fixture vigila además los 429 y lanza el mismo aviso a media suite; comprobado con el cupo en 104. **Salió un requisito que nadie había escrito:** `reuseExistingServer` aprovecha lo que haya en el 5173, y con el servidor de otro proyecto abierto la suite entera corrió contra esa otra aplicación —17 fallos sin una pista—. Ahora se comprueba el título de la página y se dice |
 | T6-02 | El aviso de guardado fallido se pintaba fuera de la pantalla | 2026-09-07 · El editor es alto y vive en un diálogo que se desplaza; el aviso va arriba y el botón de guardar, al final, así que un guardado rechazado por el servidor **no producía nada visible**. Medido antes y después en el navegador: el bloque pasa de `top: -193px` a `top: 189px` con la ventana en 800 px. Se mueve el **foco** y no solo la vista, que es lo que además saca a quien navega con teclado de un botón que aparentemente no hizo nada; y se añade un aviso emergente, porque el foco no se roba en dos intentos seguidos con el mismo fallo y el segundo también tiene que notarse. Guardar bien ya avisaba así: que fallar no lo hiciera era la incoherencia. Prueba end-to-end con fechas invertidas —un rechazo que solo hace el servidor— que exige `toBeInViewport`, no `toBeVisible`: **con el defecto puesto, `toBeVisible` pasaba** |
 | T6-03 | 39 px de desplazamiento horizontal en un móvil de 360 px | 2026-09-07 · `.hero-panel::after`, un resplandor decorativo, asomaba 48 px por la derecha del panel: a 1280 px se lo comía el margen lateral y a 360 px caía fuera, así que **toda la interfaz se arrastraba en horizontal** justo en el sitio para el que la aplicación se sirve por LAN. **La receta que traía esta ficha —`overflow: hidden`— estaba mal**: quita el desplazamiento, sí, pero convierte el panel en contenedor de desplazamiento y **recorta los menús de importar y exportar** a una franja, porque flotan en absoluto por debajo del último hijo. Es la trampa de T5-12 en el sitio contrario, y se vio en el navegador antes de escribir nada. Se usa `overflow-x: clip`, que recorta sin crear contenedor de desplazamiento y es el único valor que convive con un `visible` en el otro eje. Cuatro pruebas end-to-end a 360×640 en `e2e/movil.spec.ts`, que vigilan el **desbordamiento en general** y no esta regla: volver a `visible` tumba dos de ellas, poner `hidden` tumba la cuarta |
 | T6-01 | Cambiar la contraseña no cerraba ninguna sesión | 2026-09-07 · `ChangePassword` devolvía 204 sin tocar `RefreshTokens`, así que la acción que toma quien sospecha que le han robado la sesión era justo la que no servía de nada: el token robado seguía rotando siete días. `ResetPassword` ya revocaba desde el principio —mismo riesgo, dos comportamientos—. Ahora revoca **todas** las sesiones y emite una nueva para quien hizo el cambio, y por eso **la respuesta pasa de 204 a 200 con el cuerpo del login**: revocar a secas echaría al usuario de su propio navegador, que es la mejor forma de conseguir que nadie cambie la contraseña. **El orden importa y el comentario lo dice**: revocar después de emitir mata el token recién creado. Dos pruebas de integración, y **las dos se falsificaron por separado**: quitar la revocación tumba una, invertir el orden tumba la otra. Comprobado además en dos contextos de navegador aislados —el que cambia la contraseña sigue renovando (200), el otro deja de hacerlo (401), con la línea base tomada antes del cambio—. El access token anterior sobrevive hasta caducar: es un JWT y aquí no se valida contra la base; lo que se corta es la renovación |
@@ -882,6 +855,7 @@ nada más.
 | 2026-09-07 | 1 | **28** | T6-03. La receta que traía la ficha era incorrecta; ver su fila. Suites: 152 · 198 · 19 |
 | 2026-09-07 | 1 | **28** | T6-02, y se abre T6-35 al verificarla. Suites: 152 · 198 · 20 |
 | 2026-10-01 | 1 | **28** | T1-12, reabierta y cerrada el mismo día: la CI corre en verde en los dos repositorios. Suites: 152 · 198 · e2e sin medir |
+| 2026-10-01 | 1 | **27** | T6-34. La alternativa «mejor» de la ficha no funcionaba; ver su fila. Suites: 152 · 198 · 20 |
 
 **Cómo se cierra una tarea.** Se marca `[x]` con la fecha absoluta **el día que se verifica su
 criterio de aceptación**, no el día que se escribe el código. Si el criterio exige el navegador o la

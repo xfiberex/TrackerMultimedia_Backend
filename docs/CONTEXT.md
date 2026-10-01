@@ -14,8 +14,8 @@
 | **Stack backend** | .NET 10 · ASP.NET Core · EF Core 10 + Npgsql · PostgreSQL 17 · Identity + JWT · MailKit |
 | **Stack frontend** | React 19.2 · TypeScript 6.0 · Vite 8 · React Router 7 · TanStack Query 5 · Zod 4 · i18next (es/en) |
 | **Tamaño** | ~5.900 líneas de C# (sin pruebas ni migraciones) · ~14.000 de TS/TSX · 2.986 de CSS en un solo archivo |
-| **Pruebas** | 150 backend · 197 frontend · 15 end-to-end. **Las tres verificadas el 2026-09-06** tras retirar «Descubrir»; las e2e con una condición no documentada, ver T6-34 |
-| **Estado** | En uso. 28 tareas abiertas, todas del Tier 6 (re-auditoría del 2026-09-06) |
+| **Pruebas** | 152 backend · 198 frontend · 20 end-to-end. **Las tres verificadas el 2026-10-01**; las dos primeras corren además en la CI en cada push |
+| **Estado** | En uso. 27 tareas abiertas, todas del Tier 6 (re-auditoría del 2026-09-06) |
 | **Despliegue** | **Ninguno.** Uso local servido por LAN con `npm run dev:lan`. Render, Neon y Netlify retirados el 2026-09-05 |
 | **Plan** | [ROADMAP.md](ROADMAP.md) · **Qué cambió** [CHANGELOG.md](CHANGELOG.md) · **Por qué** [DECISIONS.md](DECISIONS.md) |
 | **Trabajo diario** | [WORKFLOW.md](WORKFLOW.md) · **Trampas conocidas** [PITFALLS.md](PITFALLS.md) · **Historia** [HISTORY.md](HISTORY.md) |
@@ -67,7 +67,7 @@ TrackerMultimedia_Frontend/         SPA, React 19 + Vite. Organizado por funcion
 │   └── categories/ catalog/        Taxonomía propia del usuario.
 ├── src/shared/                     api/ (axios e interceptores), components/, hooks/, i18n/, utils/.
 ├── src/index.css                   **Todo el CSS, 2.986 líneas.** Tokens arriba, tema oscuro abajo.
-└── e2e/                            Playwright. Requisitos propios: ver WORKFLOW.md y T6-34.
+└── e2e/                            Playwright. Requisitos propios: ver WORKFLOW.md.
 ```
 
 **Tres cosas que no se deducen mirando las carpetas:**
@@ -180,7 +180,7 @@ Tabla completa en [WORKFLOW.md](WORKFLOW.md). Lo que hay que saber sí o sí:
 | `npm run dev:lan` | Interfaz accesible desde el móvil | `.env` copiado de `.env.example` |
 | `dotnet test TrackerMultimedia_Backend.slnx` | 152 pruebas | PostgreSQL en marcha |
 | `npm run test` | 198 pruebas | — |
-| `npm run test:e2e` | 20 pruebas | PostgreSQL, backend en marcha **y el cupo de `auth` subido** — ver T6-34 |
+| `npm run test:e2e` | 20 pruebas | PostgreSQL, backend en marcha **con el cupo de `auth` subido** y el 5173 libre. Si falta algo, la suite lo dice al arrancar (T6-34) |
 
 **El puerto de PostgreSQL depende del equipo: compruébalo, no lo supongas.** `netstat -an | grep 543`.
 En este equipo es el **5433** (medido el 2026-09-06; `WORKFLOW.md` decía 5432, ver T6-17). El nombre
@@ -194,7 +194,8 @@ hacen falta.
 ## 6. Qué queda fuera, y por qué
 
 - **Las end-to-end en la integración continua.** La CI existe desde el 2026-10-01 (T1-12), pero
-  solo ejecuta las dos suites unitarias, el linter y el build: las e2e dependen de T6-34.
+  solo ejecuta las dos suites unitarias, el linter y el build. Llevar las e2e exige juntar los dos
+  repositorios, el backend y sus secretos en un mismo job, y no tiene ficha.
 - **Métricas, exportación y alertas** (T4-06): sin servicio desplegado no hay dónde exportar ni a
   quién alertar. `dotnet-counters monitor -n TrackerMultimedia` sirve para mirar algo puntualmente;
   no para vigilar sin estar delante. **Ese hueco tiene coste real y ya se ha visto**: AniList lleva
